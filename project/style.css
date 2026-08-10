@@ -1,0 +1,553 @@
+:root {
+  --cream: #f7f1e3;
+  --cream-deep: #efe6d0;
+  --soil: #c9a96e;
+  --soil-deep: #8b6b4a;
+  --soil-dark: #6b5238;
+  --wood: #d9b88a;
+  --wood-deep: #b89368;
+  --green-1: #9dd35a;
+  --green-2: #7ab648;
+  --green-3: #6b9b36;
+  --green-4: #5b8a2c;
+  --gold: #e8b421;
+  --gold-soft: #f4d76e;
+  --ink: #5b4a32;
+  --ink-soft: #8a7a5e;
+  --cell: #e7dcc2;
+  --cell-edge: #d8c9a6;
+  --shadow: rgba(107, 82, 56, 0.18);
+  --gap: 10px;
+  --board-max: 480px;
+  font-family: "Quicksand", "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+}
+
+/* ============================================================
+   EVOLVING ENVIRONMENT (behind the game)
+   ============================================================ */
+.env {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.env-sky {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.env-haze {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 35%, rgba(255,255,255,0.08) 80%);
+  pointer-events: none;
+}
+.env-particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.env-particle {
+  position: absolute;
+  display: block;
+  will-change: transform, opacity;
+}
+.env-particle.leaf {
+  width: 12px;
+  height: 12px;
+  background: var(--green-3);
+  opacity: 0.3;
+  border-radius: 0 100% 0 100%;
+  animation: envDrift 18s linear infinite;
+}
+.env-particle.petal {
+  width: 10px;
+  height: 8px;
+  background: #f6c4d2;
+  opacity: 0.6;
+  border-radius: 50% 0 50% 0;
+  animation: envPetal 16s linear infinite;
+}
+.env-particle.firefly {
+  width: 5px;
+  height: 5px;
+  background: var(--gold-soft);
+  border-radius: 50%;
+  box-shadow: 0 0 8px 2px rgba(244,215,110,0.5);
+  opacity: 0;
+  animation: envFirefly 7s ease-in-out infinite;
+}
+@keyframes envDrift {
+  0%   { transform: translate(0, -20px) rotate(0deg); opacity: 0; }
+  8%   { opacity: 0.3; }
+  92%  { opacity: 0.22; }
+  100% { transform: translate(40px, 110vh) rotate(380deg); opacity: 0; }
+}
+@keyframes envPetal {
+  0%   { transform: translate(0, -20px) rotate(0deg); opacity: 0; }
+  10%  { opacity: 0.6; }
+  90%  { opacity: 0.45; }
+  100% { transform: translate(60px, 110vh) rotate(540deg); opacity: 0; }
+}
+@keyframes envFirefly {
+  0%, 100% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  20%      { opacity: 0.7; }
+  50%      { transform: translate(var(--fx, 20px), var(--fy, -15px)) scale(1); opacity: 0.9; }
+  80%      { opacity: 0.6; }
+}
+
+/* Gust: briefly speeds up drift */
+.env.gust .env-particle { animation-duration: 6s !important; }
+.env.gust-strong .env-particle { animation-duration: 4s !important; }
+
+body {
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 18px 14px 28px;
+  background: #eef2e6;
+}
+
+/* ============================================================
+   GAME LAYOUT
+   ============================================================ */
+.game {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: var(--board-max);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.brand { display: flex; flex-direction: column; gap: 2px; }
+.title {
+  margin: 0;
+  font-size: clamp(1.5rem, 6vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--ink);
+  line-height: 1.1;
+  text-shadow: 0 1px 2px rgba(255,255,255,0.4);
+}
+.hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.scores { display: flex; gap: 10px; }
+.score-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 68px;
+  padding: 6px 12px;
+  border-radius: 14px;
+  background: var(--cream-deep);
+  border: 1px solid var(--cell-edge);
+  box-shadow: 0 2px 0 var(--shadow);
+}
+.score-label {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.score-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  position: relative;
+}
+.btn {
+  border: 1px solid var(--wood-deep);
+  background: var(--wood);
+  color: var(--ink);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 9px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 2px 0 var(--shadow);
+  transition: transform 0.12s ease, background 0.18s ease, box-shadow 0.12s ease;
+}
+.btn:hover { background: var(--wood-deep); }
+.btn:active { transform: translateY(2px); box-shadow: 0 0 0 var(--shadow); }
+.new-btn { margin-left: auto; }
+.settings-btn {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  position: relative;
+}
+.settings-btn .ico { width: 22px; height: 22px; color: var(--ink); }
+
+/* ============================================================
+   SETTINGS PANEL
+   ============================================================ */
+.settings-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  min-width: 190px;
+  background: var(--cream);
+  border: 1px solid var(--cell-edge);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 22px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: panelIn 0.2s ease both;
+}
+.settings-panel[hidden] { display: none; }
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.settings-title {
+  margin: 0 0 2px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.setting-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.toggle {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border: none;
+  border-radius: 14px;
+  background: var(--green-3);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+.toggle.off { background: var(--cell-edge); }
+.toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.2s ease;
+}
+.toggle.off .toggle-knob { transform: translateX(0); }
+.toggle:not(.off) .toggle-knob { transform: translateX(18px); }
+
+/* ============================================================
+   BOARD — geometry single-source-of-truth
+   Board is square (aspect-ratio 1/1), padding = --gap.
+   Grid and tiles are both inset by --gap (the padding).
+   Cell size = (innerWidth - 3*gap) / 4. Tiles match exactly.
+   ============================================================ */
+.board-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.board {
+  position: relative;
+  width: 100%;
+  max-width: var(--board-max);
+  aspect-ratio: 1 / 1;
+  background: linear-gradient(145deg, var(--wood) 0%, var(--wood-deep) 100%);
+  border-radius: 22px;
+  padding: var(--gap);
+  box-shadow:
+    0 10px 24px var(--shadow),
+    inset 0 2px 6px rgba(255, 255, 255, 0.25),
+    inset 0 -3px 8px rgba(107, 82, 56, 0.2);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: box-shadow 0.4s ease;
+}
+.board.celebrate {
+  box-shadow:
+    0 0 0 4px rgba(244, 215, 110, 0.6),
+    0 10px 30px rgba(232, 180, 33, 0.4),
+    inset 0 2px 6px rgba(255, 255, 255, 0.25);
+}
+/* Grid: inset by padding, so it fills the inner play area exactly */
+.grid {
+  position: absolute;
+  top: var(--gap);
+  left: var(--gap);
+  right: var(--gap);
+  bottom: var(--gap);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: var(--gap);
+}
+.cell {
+  border-radius: 12px;
+  background: var(--cell);
+  box-shadow:
+    inset 0 2px 4px rgba(107, 82, 56, 0.12),
+    inset 0 -1px 2px rgba(255, 255, 255, 0.4);
+}
+/* Tiles container: same inset as grid — tiles positioned relative to it */
+.tiles {
+  position: absolute;
+  top: var(--gap);
+  left: var(--gap);
+  right: var(--gap);
+  bottom: var(--gap);
+  pointer-events: none;
+}
+
+/* ============================================================
+   TILES
+   ============================================================ */
+.tile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  transition: transform 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
+  background: var(--cream);
+  box-shadow:
+    0 3px 8px var(--shadow),
+    inset 0 1px 2px rgba(255, 255, 255, 0.5),
+    inset 0 -2px 4px rgba(107, 82, 56, 0.1);
+  box-sizing: border-box;
+}
+/* SVG art occupies ~66% of tile, centered. Never drives tile size. */
+.tile svg {
+  width: 66%;
+  height: 66%;
+  display: block;
+  filter: drop-shadow(0 1px 1px rgba(107, 82, 56, 0.18));
+}
+.tile .t-num {
+  position: absolute;
+  bottom: 5%;
+  right: 7%;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fg, var(--ink-soft));
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* Glow tiers */
+.tile.glow svg { filter: drop-shadow(0 0 6px rgba(244,215,110,0.5)) drop-shadow(0 1px 1px rgba(107,82,56,0.18)); }
+.tile.golden svg { filter: drop-shadow(0 0 8px rgba(244,215,110,0.7)) drop-shadow(0 1px 1px rgba(107,82,56,0.18)); }
+.tile.glow { box-shadow: 0 3px 8px var(--shadow), inset 0 1px 2px rgba(255,255,255,0.5), inset 0 -2px 4px rgba(107,82,56,0.1), 0 0 12px rgba(244,215,110,0.25); }
+.tile.golden { box-shadow: 0 3px 10px var(--shadow), inset 0 1px 3px rgba(255,255,255,0.6), inset 0 -2px 4px rgba(107,82,56,0.12), 0 0 24px rgba(244,215,110,0.5); }
+
+/* Spawn */
+.tile.spawn {
+  animation: spawn 160ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes spawn {
+  0%   { transform: var(--tx) scale(0.2); opacity: 0; }
+  100% { transform: var(--tx) scale(1);   opacity: 1; }
+}
+
+/* Merge: scale inward, bounce up with brightness pop */
+.tile.merge {
+  animation: merge 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes merge {
+  0%   { transform: var(--tx) scale(1);    filter: brightness(1); }
+  35%  { transform: var(--tx) scale(0.82); filter: brightness(1.1); }
+  70%  { transform: var(--tx) scale(1.12); filter: brightness(1.18); }
+  100% { transform: var(--tx) scale(1);    filter: brightness(1); }
+}
+
+/* ============================================================
+   PARTICLES (board-local, transient)
+   ============================================================ */
+.particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 0 100% 0 100%;
+  background: var(--green-1);
+  opacity: 0.9;
+  pointer-events: none;
+  transform: translate(0, 0) scale(1);
+  animation: particle 600ms ease-out forwards;
+}
+.particle.gold { background: var(--gold-soft); border-radius: 50%; box-shadow: 0 0 6px rgba(244,215,110,0.6); }
+.particle.big  { width: 12px; height: 12px; margin: -6px 0 0 -6px; }
+@keyframes particle {
+  0%   { transform: translate(0,0) scale(1); opacity: 0.9; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0.2); opacity: 0; }
+}
+
+/* ============================================================
+   OVERLAY
+   ============================================================ */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(247, 241, 227, 0.82);
+  backdrop-filter: blur(3px);
+  border-radius: 22px;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  z-index: 5;
+}
+.overlay.show { opacity: 1; }
+.overlay-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 28px 32px;
+  background: var(--cream);
+  border: 1px solid var(--cell-edge);
+  border-radius: 20px;
+  box-shadow: 0 12px 30px var(--shadow);
+  transform: translateY(10px) scale(0.96);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.overlay.show .overlay-card { transform: translateY(0) scale(1); }
+.overlay-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.overlay-scores { display: flex; gap: 24px; }
+.overlay-scores > div { display: flex; flex-direction: column; align-items: center; }
+.overlay-scores span {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.overlay-scores strong {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.overlay-btn { margin: 4px 0 0; }
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--soil-dark);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 10;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 420px) {
+  :root { --gap: 7px; }
+  body { padding: 12px 10px 20px; }
+  .game { gap: 10px; }
+  .topbar { flex-direction: row; align-items: center; }
+  .title { font-size: 1.4rem; }
+  .hint { font-size: 0.76rem; }
+  .score-box { min-width: 58px; padding: 5px 9px; }
+  .score-value { font-size: 1rem; }
+  .btn { padding: 8px 13px; font-size: 0.85rem; }
+  .settings-btn { width: 38px; height: 38px; }
+  .board { border-radius: 18px; }
+  .cell, .tile { border-radius: 10px; }
+}
+
+@media (max-width: 390px) {
+  :root { --gap: 7px; }
+}
+
+@media (max-width: 360px) {
+  :root { --gap: 6px; }
+  .scores { gap: 6px; }
+  .score-box { min-width: 52px; padding: 4px 7px; }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .env-particle { display: none; }
+  .tile { transition: transform 80ms linear !important; }
+  .tile.spawn, .tile.merge { animation: none !important; }
+  .particle { display: none; }
+  .board.celebrate { transition: none; }
+  .overlay, .overlay-card, .toast { transition: opacity 0.1s linear !important; }
+  .settings-panel { animation: none !important; }
+}
