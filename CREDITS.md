@@ -5,10 +5,18 @@
 All visual assets were created specifically for Garden Evolution by the project
 owner using generative AI tools, followed by custom editing and integration.
 
-Unless otherwise stated, these visual assets are not licensed for reuse,
-redistribution, resale, or use in other projects.
+To the extent that copyright or related rights apply, the visual assets are
+licensed under the Creative Commons Attribution 4.0 International License
+(CC BY 4.0).
 
-Copyright © 2026 hbt00002. All rights reserved.
+You may copy, modify, redistribute, and use these visual assets for personal or
+commercial purposes, provided that appropriate credit is given.
+
+Suggested attribution:
+
+“Garden Evolution visual assets by hbt00002 — licensed under CC BY 4.0.”
+
+License: https://creativecommons.org/licenses/by/4.0/
 
 ## Music
 
