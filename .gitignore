@@ -1,0 +1,32 @@
+# Dependencies and generated output
+node_modules/
+dist/
+.wrangler/
+.netlify/
+
+# Secrets
+.env
+.env.*
+.dev.vars
+!.dev.vars.example
+
+# Local development files
+*.log
+.codex-backups/
+.codex-chrome-profile/
+.codex-edge-profile/
+
+# Archived and superseded work
+/archive/
+/pixi-prototype/
+/three-prototype/
+/supabase-netlify version/
+/tools/
+
+# Old project working files
+/project/_stage*.txt
+/project/netlify/
+/project/netlify.toml
+
+# Local database backups
+backup*.sql

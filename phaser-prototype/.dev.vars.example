@@ -1,0 +1,6 @@
+# Copy to .dev.vars for local Cloudflare development only.
+# Production uses:
+#   npx wrangler secret put RATE_LIMIT_SALT
+#   npx wrangler secret put SESSION_SECRET
+RATE_LIMIT_SALT="replace-with-at-least-24-random-characters"
+SESSION_SECRET="replace-with-a-different-24+-random-characters"

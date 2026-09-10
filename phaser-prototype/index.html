@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 30c-1 0-1.6-.7-1.6-1.6V18.4' fill='none' stroke='%238b5e3c' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M16 18c0-4 3-7 7-8-1 4-3 7-7 8zm0 0c0-3-2.2-5.4-5.4-6 .6 3 2.4 5 5.4 6z' fill='%237ab648'/%3E%3C/svg%3E"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#eaf3df" />
+    <meta name="description" content="Garden Evolution — a relaxing 2048-inspired garden game in an evolving Japanese countryside." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Garden Evolution" />
+    <meta property="og:description" content="Grow a peaceful garden through five evolving worlds." />
+    <meta property="og:url" content="https://play.gardenevolution.workers.dev/" />
+    <title>Garden Evolution</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700&family=Pixelify+Sans:wght@500;600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css?v=50" />
+    <meta property="og:image" content="https://play.gardenevolution.workers.dev/assets/menu/sakura-garden-menu-bg-day.png">
+    <meta property="og:image:alt" content="Garden Evolution pixel-art garden landscape">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Garden Evolution">
+    <meta name="twitter:description" content="Grow a peaceful garden through five evolving worlds.">
+    <meta name="twitter:image" content="https://play.gardenevolution.workers.dev/assets/menu/sakura-garden-menu-bg-day.png">
+</head>
+  <body class="start-menu-active">
+    <!-- Evolving Japanese countryside environment (behind everything) -->
+    <div class="env" id="env" aria-hidden="true">
+      <div class="phaser-world" id="phaserWorld"></div>
+      <svg class="env-sky" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice"></svg>
+      <div class="env-haze"></div>
+      <div class="env-particles" id="envParticles"></div>
+    </div>
+
+    <section class="start-screen" id="startScreen" aria-labelledby="startTitle">
+      <div class="start-screen-bg" aria-hidden="true"></div>
+      <div class="start-screen-shade" aria-hidden="true"></div>
+      <div class="start-menu">
+        <h1 class="start-title" id="startTitle">
+          <span>GARDEN</span>
+          <img class="start-title-branch" src="/assets/menu/title-vine-branch.png" alt="" aria-hidden="true" />
+          <strong>EVOLUTION</strong>
+        </h1>
+        <div class="start-actions" aria-label="Main menu">
+          <button class="start-btn start-btn-primary" id="startPlayBtn" type="button" data-i18n="play">Play</button>
+          <button class="start-btn" id="startSettingsBtn" type="button" data-i18n="settings">Settings</button>
+          <button class="start-btn" id="startLeaderboardBtn" type="button" data-i18n="leaderboard">Leaderboard</button>
+        </div>
+      </div>
+    </section>
+
+    <main class="game">
+      <header class="topbar">
+        <div class="brand">
+          <h1 class="title">Garden Evolution</h1>
+          <p class="hint" data-i18n="hint">Swipe or use arrow keys to grow your garden.</p>
+        </div>
+        <div class="scores">
+          <div class="score-box">
+            <span class="score-label" data-i18n="score">Score</span>
+            <span class="score-value" id="score">0</span>
+          </div>
+          <div class="score-box">
+            <span class="score-label" data-i18n="best">Best</span>
+            <span class="score-value" id="best">0</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="controls">
+        <button class="btn settings-btn" id="settingsBtn" type="button" aria-label="Settings" aria-haspopup="true">
+          <span class="gear-ico" aria-hidden="true">⚙</span>
+        </button>
+        <button class="btn leaderboard-btn" id="leaderboardBtn" type="button" data-i18n="leaderboard">Leaderboard</button>
+        <button class="btn new-btn" id="newBtn" type="button" data-i18n="newGame">New Game</button>
+      <div id="newGameConfirm" class="new-game-confirm" role="dialog" aria-modal="false" aria-labelledby="newGameConfirmText" hidden>
+        <p id="newGameConfirmText" data-i18n="restartWarning">Your current garden will be cleared.</p>
+        <div><button id="cancelNewGame" type="button" data-i18n="cancelRestart">Cancel</button><button id="confirmNewGame" type="button" data-i18n="confirmRestart">Start new garden</button></div>
+      </div>
+      </div>
+
+      <section class="evolution" aria-label="World evolution progress">
+        <div class="evolution-copy">
+          <span class="stage-kicker" id="stageKicker">World I</span>
+          <strong class="stage-name" id="stageName">Winter Beginning</strong>
+          <span class="stage-next" id="stageNext">Next world at 128</span>
+        </div>
+        <div class="stage-track" aria-hidden="true">
+          <span class="stage-fill" id="stageFill"></span>
+          <span class="stage-dot active"></span><span class="stage-dot"></span><span class="stage-dot"></span><span class="stage-dot"></span><span class="stage-dot"></span>
+        </div>
+        <div class="combo-hud" id="comboHud" hidden aria-live="polite"><strong id="comboValue">2×</strong><span data-i18n="combo">Bloom Streak</span><i aria-hidden="true"></i></div>
+      </section>
+
+      <div class="board-wrap">
+        <div class="board" id="board" tabindex="0" aria-label="Garden board">
+          <div class="board-engine" id="boardEngine" aria-hidden="true"></div>
+          <div class="grid" id="grid" aria-hidden="true"></div>
+          <div class="tiles" id="tiles"></div>
+          <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="finalTitle" aria-describedby="finalExplanation" hidden>
+            <div class="overlay-card">
+              <div class="milestone-art" id="milestoneArt" aria-hidden="true">
+                <img src="/assets/tiles/v3/tile-2048.png" alt="" draggable="false" />
+              </div>
+              <div class="victory-art" id="victoryArt" aria-hidden="true">
+                <img src="/assets/tiles/v3/tile-8192-victory-green.png" alt="" draggable="false" />
+              </div>
+              <div class="overlay-emblem" id="finalEmblem">❄</div>
+              <span class="overlay-world" id="finalWorld">Winter Beginning</span>
+              <h2 class="overlay-title" id="finalTitle" data-i18n="noMoves">No Moves Left</h2>
+              <p class="overlay-explanation" id="finalExplanation" data-i18n="noMovesText">The board is full and no plants can merge.</p>
+              <div class="overlay-scores">
+                <div><span data-i18n="final">Final</span><strong id="finalScore">0</strong></div>
+                <div><span data-i18n="best">Best</span><strong id="finalBest">0</strong></div>
+                <div><span data-i18n="topPlant">Top Plant</span><strong id="finalTile">2</strong></div>
+                <div><span data-i18n="bestCombo">Best Combo</span><strong id="finalCombo">—</strong></div>
+              </div>
+              <form class="score-submit" id="scoreForm">
+                <label for="playerName" data-i18n="joinLeaderboard">Join the leaderboard</label>
+                <div class="score-submit-row">
+                  <input id="playerName" name="playerName" type="text" minlength="2" maxlength="16" autocomplete="nickname" placeholder="Your name" required />
+                  <button class="btn submit-score-btn" id="submitScoreBtn" type="submit" data-i18n="submit">Submit</button>
+                </div>
+                <span class="score-submit-status" id="scoreSubmitStatus" aria-live="polite"></span>
+              </form>
+              <button class="btn milestone-continue-btn overlay-btn" id="continueMilestoneBtn" type="button" data-i18n="continueGame" hidden>Continue Growing</button>
+              <button class="btn new-btn overlay-btn" id="playAgainBtn" type="button" data-i18n="playAgain">Play Again</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="toast" id="toast" hidden></div>
+    </main>
+
+    <div class="world-event-layer" id="worldEventLayer" aria-hidden="true"></div>
+
+    <div class="settings-backdrop" id="settingsBackdrop" hidden></div>
+    <section class="settings-panel" id="settingsPanel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
+      <button class="settings-close" id="settingsClose" type="button" aria-label="Close settings">×</button>
+      <h2 class="settings-title" id="settingsTitle" data-i18n="settings">Settings</h2>
+      <label class="setting-row language-row">
+        <span class="setting-label" data-i18n="language">Language</span>
+        <select id="languageSelect" class="language-select" aria-label="Language">
+          <option value="en">English</option><option value="tr">Türkçe</option><option value="zh">中文</option>
+          <option value="ja">日本語</option><option value="ko">한국어</option><option value="es">Español</option>
+          <option value="pt">Português</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="ru">Русский</option>
+        </select>
+      </label>
+      <label class="setting-row music-volume-row">
+        <span class="setting-label" data-i18n="music">Music</span>
+        <span class="volume-control">
+          <input class="volume-slider" id="musicVolume" type="range" min="0" max="100" step="1" value="100" aria-label="Music volume" />
+          <output class="volume-value" id="musicVolumeValue" for="musicVolume">100%</output>
+        </span>
+      </label>
+      <label class="setting-row"><span class="setting-label" data-i18n="comboPiano">Combo Piano</span><button class="toggle" id="pianoToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
+      <label class="setting-row"><span class="setting-label" data-i18n="soundEffects">Sound Effects</span><button class="toggle" id="sfxToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
+      <label class="setting-row"><span class="setting-label" data-i18n="livingBackground">Living Background</span><button class="toggle" id="motionToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
+      <label class="setting-row"><span class="setting-label" data-i18n="extraParticles">Extra Particles</span><button class="toggle" id="particlesToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
+      <label class="setting-row"><span class="setting-label" data-i18n="highContrast">High Contrast</span><button class="toggle" id="contrastToggle" type="button" role="switch" aria-checked="false"><span class="toggle-knob"></span></button></label>
+      <p class="performance-note" id="performanceNote" data-i18n="performance">Performance adapts automatically.</p>
+    </section>
+
+    <div class="leaderboard-modal" id="leaderboardModal" hidden>
+      <section class="leaderboard-card" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
+        <button class="leaderboard-close" id="leaderboardClose" type="button" aria-label="Close leaderboard">×</button>
+        <header class="leaderboard-header">
+          <span class="leaderboard-ornament" aria-hidden="true"><i></i><b>✦</b><i></i></span>
+          <span class="leaderboard-kicker" data-i18n="hallOfFame">Garden Hall of Fame</span>
+          <h2 id="leaderboardTitle" data-i18n="leaderboard">Leaderboard</h2>
+        </header>
+        <div class="leaderboard-list" id="leaderboardList"><p class="leaderboard-message">Loading scores…</p></div>
+      </section>
+    </div>
+
+    <div class="score-confirm-modal" id="lowerScoreConfirm" hidden>
+      <section class="score-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="lowerScoreTitle" aria-describedby="lowerScoreMessage">
+        <h2 id="lowerScoreTitle" data-i18n="lowerScoreTitle">Lower score</h2>
+        <p id="lowerScoreMessage"></p>
+        <div class="score-confirm-actions">
+          <button class="btn score-confirm-cancel" id="cancelLowerScore" type="button" data-i18n="cancelLowerScore">Cancel</button>
+          <button class="btn score-confirm-submit" id="confirmLowerScore" type="button" data-i18n="confirmLowerScore">Yes, submit</button>
+        </div>
+      </section>
+    </div>
+
+  <script type="module" src="/src/main.js?v=42"></script>
+  </body>
+</html>

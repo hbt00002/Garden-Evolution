@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.wrangler/
+
+.dev.vars
+.env
+.env.*
+!.dev.vars.example
+
+*.log
+.codex-backups/
+.codex-chrome-profile/
+.codex-edge-profile/
+archive/
+design-candidates/
+backup*.sql

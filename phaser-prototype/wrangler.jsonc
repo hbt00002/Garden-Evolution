@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "play",
+  "main": "./cloudflare/worker.js",
+  "compatibility_date": "2026-09-02",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
+    "not_found_handling": "single-page-application"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "garden-evolution-leaderboard",
+      "database_id": "a16a2f0e-db1e-453f-baea-a1c57d5f9ac8",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "triggers": {
+    // Runs handleScheduledCleanup() in worker.js instead of doing cleanup
+    // work inline on every leaderboard POST.
+    "crons": ["*/15 * * * *"]
+  }
+}
