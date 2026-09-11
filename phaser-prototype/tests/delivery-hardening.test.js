@@ -30,3 +30,10 @@ test("social metadata points at the Garden Evolution deployment", async () => {
   assert.doesNotMatch(html, /bolt\.new\/static\/og_default/);
   assert.match(html, /play\.gardenevolution\.workers\.dev\/assets\/menu\/sakura-garden-menu-bg-day\.png/);
 });
+
+test("a delayed mobile menu-music request cannot continue into gameplay", async () => {
+  const script = await readFile(projectFile("script.js"), "utf8");
+  assert.match(script, /request !== menuMusicRequest \|\| !menuMode \|\| !musicOn/);
+  assert.match(script, /menuMode && !startsGame/);
+  assert.match(script, /function stopMenuMusic[\s\S]*?menuMusicRequest \+= 1;[\s\S]*?menuMusic\.pause\(\)/);
+});

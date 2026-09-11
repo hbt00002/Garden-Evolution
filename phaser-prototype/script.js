@@ -1205,6 +1205,7 @@ import { canMergeValues, endingForMergedValue } from "./src/game-rules.js";
   let musicTimer = null;
   let musicRunning = false;
   let menuMode = !startScreenEl.hidden;
+  let menuMusicRequest = 0;
   const menuMusic = new Audio("/assets/audio/bit-forest-intro.mp3");
   menuMusic.loop = true;
   menuMusic.preload = "auto";
@@ -1220,12 +1221,19 @@ import { canMergeValues, endingForMergedValue } from "./src/game-rules.js";
   function startMenuMusic() {
     if (!menuMode || !musicOn) return;
     stopMusic();
+    const request = ++menuMusicRequest;
     // Browsers may reject autoplay until the first real user gesture. The
     // global audio-unlock handler retries from that gesture without errors.
-    menuMusic.play().catch(() => {});
+    menuMusic.play().then(() => {
+      // Mobile browsers can settle play() after the Play button has already
+      // switched to gameplay. Do not let that delayed request revive the
+      // menu track over the procedural in-game music.
+      if (request !== menuMusicRequest || !menuMode || !musicOn) menuMusic.pause();
+    }).catch(() => {});
   }
 
   function stopMenuMusic(reset = false) {
+    menuMusicRequest += 1;
     menuMusic.pause();
     if (reset) {
       try { menuMusic.currentTime = 0; } catch (_) {}
@@ -2646,8 +2654,9 @@ import { canMergeValues, endingForMergedValue } from "./src/game-rules.js";
 
   // First user interaction unlocks audio + starts music
   let audioUnlocked = false;
-  async function firstInteraction() {
+  async function firstInteraction(event) {
     if (audioUnlocked) return;
+    const startsGame = event?.target instanceof Element && Boolean(event.target.closest("#startPlayBtn"));
     ensureAudio();
     if (!audioCtx) return;
     try {
@@ -2655,7 +2664,10 @@ import { canMergeValues, endingForMergedValue } from "./src/game-rules.js";
       if (audioCtx.state === "running") {
         audioUnlocked = true;
         if (musicOn) {
-          if (menuMode) startMenuMusic();
+          // The Play tap is also the first permitted audio gesture on mobile.
+          // Let its click handler start gameplay audio directly instead of
+          // briefly scheduling the menu track during the same interaction.
+          if (menuMode && !startsGame) startMenuMusic();
           else startMusic();
         }
         window.removeEventListener("pointerdown", firstInteraction, true);
