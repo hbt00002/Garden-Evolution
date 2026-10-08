@@ -1,6 +1,7 @@
 "use strict";
 import { createBloomFlow } from "./src/bloom-flow.js";
 import { canMergeValues, endingForMergedValue } from "./src/game-rules.js";
+import { SAVE_KEY, parseSavedGame, serializeGame } from "./src/game-save.js";
 
 /* ============================================================
    Garden Evolution — a relaxing 2048-inspired garden game
@@ -350,6 +351,27 @@ import { canMergeValues, endingForMergedValue } from "./src/game-rules.js";
   function savePref(key, val) { try { localStorage.setItem(key, String(val)); } catch (e) {} }
   function loadPlayerName() { try { return localStorage.getItem("gardenEvolutionPlayerName") || ""; } catch (e) { return ""; } }
   function savePlayerName(name) { try { localStorage.setItem("gardenEvolutionPlayerName", name); } catch (e) {} }
+  /* ---------- In-progress game ----------
+     The board is written after every completed move and cleared when a run
+     ends or a new one starts. Validation lives in src/game-save.js. The combo
+     streak and flow energy are intentionally not saved: they are short-lived
+     audiovisual state that restarts cleanly.
+  */
+  function saveGame() {
+    if (!completedMoves || !grid || victoryAchieved) return;
+    try {
+      localStorage.setItem(SAVE_KEY, serializeGame({
+        board: grid.map(row => row.map(id => (id == null ? 0 : tiles[id].value))),
+        score, maxValueReached, bestCombo, completedMoves, goldenAchieved,
+        session: gameSession
+      }));
+    } catch (e) {}
+  }
+  function clearSavedGame() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  function loadSavedGame() {
+    try { return parseSavedGame(localStorage.getItem(SAVE_KEY)); }
+    catch (e) { return null; }
+  }
   // Stable per-browser id so the leaderboard can keep one "best score" row
   // per device instead of growing forever. Not a security boundary (an
   // attacker can clear storage or fabricate a UUID) — it's a courtesy id
@@ -603,6 +625,8 @@ import { canMergeValues, endingForMergedValue } from "./src/game-rules.js";
       // 8192 is the official ending. Do not add another random tile after the
       // winning merge; freeze the exact completed board behind the final card.
       if (endingPending !== "victory") spawn();
+      if (endingPending === "victory" || isGameOver()) clearSavedGame();
+      else saveGame();
       if (endingPending === "victory") showGameOver("victory");
       else if (isGameOver()) showGameOver("noMoves");
       else if (endingPending === "milestone") showMilestone();
@@ -781,6 +805,7 @@ import { canMergeValues, endingForMergedValue } from "./src/game-rules.js";
         });
         if (!response.ok) throw new Error("session_failed");
         gameSession = await response.json();
+        saveGame();
         return gameSession;
       } catch (error) {
         gameSession = null;
@@ -2407,35 +2432,44 @@ import { canMergeValues, endingForMergedValue } from "./src/game-rules.js";
   }
 
   /* ---------- New game ---------- */
-  function newGame() {
+  function newGame(saved = null) {
     gameGeneration++;
-    completedMoves = 0;
+    completedMoves = saved ? saved.completedMoves : 0;
     closeRestart(false);
-    gameSession = null;
-    gameSessionPromise = null;
+    // A restored game keeps its leaderboard session so the server-side timing
+    // check still measures real play time across a page reload.
+    gameSession = saved?.session || null;
+    gameSessionPromise = gameSession ? Promise.resolve(gameSession) : null;
     // The boot-time board is hidden behind the menu. Start the signed timer
     // only once the player is actually playing, not while they read the menu.
     if (!menuMode) ensureGameSession().catch(() => {});
     grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
     tiles = {};
     nextId = 1;
-    score = 0;
-    goldenAchieved = false;
+    score = saved ? saved.score : 0;
+    goldenAchieved = saved ? saved.goldenAchieved : false;
     victoryAchieved = false;
     busy = false;
     queuedDirection = null;
-    maxValueReached = 0;
-    bestCombo = 0;
+    maxValueReached = saved ? saved.maxValueReached : 0;
+    bestCombo = saved ? saved.bestCombo : 0;
     scoreSubmitted = false;
     resetCombo();
     tilesEl.innerHTML = "";
     boardEl.querySelectorAll(".particle").forEach(p => p.remove());
     tilesEl.querySelectorAll(".particle").forEach(p => p.remove());
     hideGameOver();
-    setEnvironmentStage(1, true);
+    setEnvironmentStage(saved ? stageFor(saved.maxValueReached) : 1, true);
     measure();
-    spawn();
-    spawn();
+    if (saved) {
+      saved.board.forEach((row, r) => row.forEach((value, c) => {
+        if (value) createTile(r, c, value, false);
+      }));
+    } else {
+      clearSavedGame();
+      spawn();
+      spawn();
+    }
     updateScore();
   }
 
@@ -2698,7 +2732,7 @@ import { canMergeValues, endingForMergedValue } from "./src/game-rules.js";
   syncToggles();
   buildGrid();
   setEnvironmentStage(1, true);
-  newGame();
+  newGame(loadSavedGame());
   // Local art direction helper: http://localhost:4173/?stage=2
   if (["localhost", "127.0.0.1"].includes(location.hostname)) {
     const previewParams = new URLSearchParams(location.search);
