@@ -62,3 +62,23 @@ test("the game starts even when the Phaser scenery cannot", async () => {
   const engine = await readFile(projectFile("src/engine.js"), "utf8");
   assert.ok(!engine.includes('import("../script.js")'));
 });
+
+test("fonts are self-hosted: no Google Fonts requests and a tighter policy", async () => {
+  const html = await readFile(projectFile("index.html"), "utf8");
+  const headers = await readFile(projectFile("public/_headers"), "utf8");
+  assert.ok(!html.includes("fonts.googleapis.com") && !html.includes("fonts.gstatic.com"));
+  assert.ok(!headers.includes("fonts.googleapis.com") && !headers.includes("fonts.gstatic.com"));
+  assert.match(headers, /font-src 'self' data:;/);
+  const fonts = await readFile(projectFile("src/fonts.js"), "utf8");
+  for (const family of ["oxanium", "pixelify-sans", "quicksand"]) assert.ok(fonts.includes(`@fontsource/${family}/`), family);
+});
+
+test("live announcements and dialog focus handling are in place", async () => {
+  const html = await readFile(projectFile("index.html"), "utf8");
+  assert.match(html, /id="toast" role="status"/);
+  assert.match(html, /id="a11yAnnouncer" role="status"/);
+  assert.match(html, /id="comboHud"[^>]*aria-hidden="true"/);
+  const css = await readFile(projectFile("style.css"), "utf8");
+  assert.match(css, /\.sr-only\s*\{/);
+  assert.match(css, /\.language-select:focus-visible/);
+});

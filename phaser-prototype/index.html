@@ -15,10 +15,7 @@
     <meta property="og:description" content="Grow a peaceful garden through five evolving worlds." />
     <meta property="og:url" content="https://play.gardenevolution.workers.dev/" />
     <title>Garden Evolution</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700&family=Pixelify+Sans:wght@500;600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="style.css?v=50" />
+    <link rel="stylesheet" href="style.css" />
     <meta property="og:image" content="https://play.gardenevolution.workers.dev/assets/menu/sakura-garden-menu-bg-day.png">
     <meta property="og:image:alt" content="Garden Evolution pixel-art garden landscape">
     <meta name="twitter:card" content="summary_large_image">
@@ -92,7 +89,7 @@
           <span class="stage-fill" id="stageFill"></span>
           <span class="stage-dot active"></span><span class="stage-dot"></span><span class="stage-dot"></span><span class="stage-dot"></span><span class="stage-dot"></span>
         </div>
-        <div class="combo-hud" id="comboHud" hidden aria-live="polite"><strong id="comboValue">2×</strong><span data-i18n="combo">Bloom Streak</span><i aria-hidden="true"></i></div>
+        <div class="combo-hud" id="comboHud" hidden aria-hidden="true"><strong id="comboValue">2×</strong><span data-i18n="combo">Bloom Streak</span><i aria-hidden="true"></i></div>
       </section>
 
       <div class="board-wrap">
@@ -133,7 +130,8 @@
         </div>
       </div>
 
-      <div class="toast" id="toast" hidden></div>
+      <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+      <div class="sr-only" id="a11yAnnouncer" role="status" aria-live="polite"></div>
     </main>
 
     <div class="world-event-layer" id="worldEventLayer" aria-hidden="true"></div>
@@ -188,6 +186,6 @@
       </section>
     </div>
 
-  <script type="module" src="/src/main.js?v=42"></script>
+  <script type="module" src="/src/main.js"></script>
   </body>
 </html>

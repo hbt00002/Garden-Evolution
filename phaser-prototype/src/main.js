@@ -2,6 +2,8 @@
 // is an enhancement. Without WebGL (or if Phaser fails to start) the game
 // falls back to the built-in SVG scenery that script.js already contains.
 
+import "./fonts.js";
+
 const webglAvailable = (() => {
   try {
     const canvas = document.createElement("canvas");
