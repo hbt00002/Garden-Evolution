@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { leaderboardCacheKey } from "../cloudflare/worker.js";
@@ -36,4 +37,28 @@ test("a delayed mobile menu-music request cannot continue into gameplay", async 
   assert.match(script, /request !== menuMusicRequest \|\| !menuMode \|\| !musicOn/);
   assert.match(script, /menuMode && !startsGame/);
   assert.match(script, /function stopMenuMusic[\s\S]*?menuMusicRequest \+= 1;[\s\S]*?menuMusic\.pause\(\)/);
+});
+
+test("hashed bundles are cached for a year and art for a week", async () => {
+  const raw = await readFile(projectFile("public/_headers"), "utf8");
+  const headers = raw.split("\r\n").join("\n");
+  assert.ok(headers.includes("/assets/:file\n  Cache-Control: public, max-age=31536000, immutable"));
+  // Every art/audio folder shipped in public/assets needs its own short rule.
+  const folders = readdirSync(projectFile("public/assets"), { withFileTypes: true })
+    .filter(entry => entry.isDirectory()).map(entry => entry.name);
+  assert.ok(folders.length > 0);
+  for (const folder of folders) {
+    assert.ok(headers.includes(`/assets/${folder}/*\n  Cache-Control: public, max-age=604800`), folder);
+  }
+});
+
+test("the game starts even when the Phaser scenery cannot", async () => {
+  const main = await readFile(projectFile("src/main.js"), "utf8");
+  // WebGL is probed, Phaser is imported inside try/catch, and the game is
+  // imported unconditionally afterwards.
+  assert.ok(main.includes('getContext("webgl2")'));
+  assert.match(main, /try \{\s+await import\("\.\/engine\.js"\)/);
+  assert.match(main, /\}\s+await import\("\.\.\/script\.js"\);\s*$/);
+  const engine = await readFile(projectFile("src/engine.js"), "utf8");
+  assert.ok(!engine.includes('import("../script.js")'));
 });

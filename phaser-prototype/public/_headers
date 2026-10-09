@@ -5,3 +5,36 @@
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
+
+# Vite's hashed bundles sit directly in /assets (the file name changes with
+# its content), so they can be cached for a year. :file matches a single path
+# segment, which keeps the sub-folders below out of this rule.
+/assets/:file
+  Cache-Control: public, max-age=31536000, immutable
+
+# Art and audio live in versioned sub-folders. They are not content-hashed,
+# so cache for a week instead of forever: a replaced file still reaches
+# returning players. Each folder is listed explicitly because headers from
+# overlapping rules are merged rather than overridden.
+/assets/audio/*
+  Cache-Control: public, max-age=604800
+/assets/menu/*
+  Cache-Control: public, max-age=604800
+/assets/tiles/*
+  Cache-Control: public, max-age=604800
+/assets/stage1/*
+  Cache-Control: public, max-age=604800
+/assets/stage1-v2/*
+  Cache-Control: public, max-age=604800
+/assets/stage2-v1/*
+  Cache-Control: public, max-age=604800
+/assets/stage2-v3/*
+  Cache-Control: public, max-age=604800
+/assets/stage3-board-approved/*
+  Cache-Control: public, max-age=604800
+/assets/stage3-v1/*
+  Cache-Control: public, max-age=604800
+/assets/stage4-v1/*
+  Cache-Control: public, max-age=604800
+/assets/stage5-v2/*
+  Cache-Control: public, max-age=604800
