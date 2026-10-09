@@ -1,3 +1,5 @@
+import { MAX_MOVES, replayGame } from "../src/game-core.js";
+
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store",
@@ -8,11 +10,20 @@ const JSON_HEADERS = {
 const SCORE_LIMIT = 100_000_000;
 const RATE_WINDOW_SECONDS = 10 * 60;
 const RATE_WINDOW_LIMIT = 5;
+// Starting a game fetches a session. The limit is generous for real players
+// (a game lasts minutes) but stops someone from requesting thousands of
+// sessions to hunt for a lucky tile sequence.
+const SESSION_WINDOW_LIMIT = 30;
 // Matches the 14-day lifetime of a saved game (src/game-save.js), so a game
 // that is restored after a long pause still carries a session the server
 // accepts. The wall-clock floor below only needs the session's age.
 const SESSION_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
-const MAX_BODY_BYTES = 2048;
+// One character per move plus the small fields around it.
+const MAX_BODY_BYTES = MAX_MOVES + 4096;
+// A move cannot be made faster than the slide animation, and even a key held
+// down repeats more slowly than this; a record claiming more moves than the
+// session's age allows was not played in real time.
+const MIN_MS_PER_MOVE = 40;
 
 // Rough floor on how many seconds a legitimate run needs to reach a given
 // tile. These are deliberately conservative (fast but not impossible) —
@@ -47,31 +58,12 @@ function cleanName(value) {
     .slice(0, 16);
 }
 
-function expectedStage(maxTile) {
+export function expectedStage(maxTile) {
   if (maxTile <= 64) return 1;
   if (maxTile <= 256) return 2;
   if (maxTile <= 512) return 3;
   if (maxTile <= 1024) return 4;
   return 5;
-}
-
-// Score is the sum of every merged value. Building one tile of value v out of
-// spawned 2s and 4s adds v per merge level: at most v * (log2(v) - 1) when it
-// grows from 2s, at least v * (log2(v) - 2) when it grows from 4s.
-//
-// Upper bound: a finished board holds at most 16 tiles. Equal neighbours merge,
-// so even a checkerboard of T and T/2 sums to 12T. Every unit of that mass
-// scored at most (log2(T) - 1), which is a ceiling no legitimate run can hit
-// but far below SCORE_LIMIT. Lower bound: reaching T without its 4-spawn tree
-// is impossible. Both are deliberately loose: a false rejection of a real run
-// is worse than letting a slightly inflated score through.
-function scoreBoundsForTile(maxTile) {
-  const levels = Math.log2(maxTile);
-  return {
-    min: maxTile * Math.max(0, levels - 2),
-    // A 2 can only be the top tile if nothing ever merged (a merge makes 4).
-    max: maxTile === 2 ? 0 : 12 * maxTile * Math.max(1, levels - 1)
-  };
 }
 
 function validPowerOfTwo(value) {
@@ -102,18 +94,20 @@ function timingSafeEqual(a, b) {
   return diff === 0;
 }
 
-async function fingerprint(request, secret) {
+async function fingerprint(request, secret, scope = "score") {
   const address = request.headers.get("CF-Connecting-IP") || "local";
   const agent = (request.headers.get("user-agent") || "unknown").slice(0, 160);
-  return hmacHex(secret, `${address}|${agent}`).then(full => full.slice(0, 32));
+  // Score submissions keep their original key so existing counters stay valid.
+  const message = scope === "score" ? `${address}|${agent}` : `${scope}|${address}|${agent}`;
+  return hmacHex(secret, message).then(full => full.slice(0, 32));
 }
 
-async function enforceRateLimit(request, env) {
+async function enforceRateLimit(request, env, { scope = "score", limit = RATE_WINDOW_LIMIT } = {}) {
   if (!env.RATE_LIMIT_SALT || env.RATE_LIMIT_SALT.length < 24) {
     throw new Error("RATE_LIMIT_SALT is not configured securely.");
   }
   const bucket = Math.floor(Date.now() / 1000 / RATE_WINDOW_SECONDS);
-  const key = await fingerprint(request, env.RATE_LIMIT_SALT);
+  const key = await fingerprint(request, env.RATE_LIMIT_SALT, scope);
   const result = await env.DB.prepare(`
     INSERT INTO submission_limits (fingerprint, bucket, count)
     VALUES (?, ?, 1)
@@ -122,7 +116,7 @@ async function enforceRateLimit(request, env) {
     RETURNING count
   `).bind(key, bucket).first();
   const count = Number(result?.count || 1);
-  return { allowed: count <= RATE_WINDOW_LIMIT, retryAfter: RATE_WINDOW_SECONDS };
+  return { allowed: count <= limit, retryAfter: RATE_WINDOW_SECONDS };
 }
 
 // required=true is used for POST: an attacker can omit Origin, so writes
@@ -171,6 +165,10 @@ async function readJsonWithLimit(request, maxBytes) {
 // but it closes the "hand-craft one POST with no game played" case and
 // gives us a wall-clock floor to sanity-check reported progress against.
 
+export async function seedForSession(secret, sid) {
+  return parseInt((await hmacHex(secret, `seed.${sid}`)).slice(0, 8), 16);
+}
+
 async function issueSession(request, env) {
   if (request.method !== "POST") {
     return json(405, { error: "Method not allowed." }, { allow: "POST" });
@@ -181,10 +179,19 @@ async function issueSession(request, env) {
   if (!env.SESSION_SECRET || env.SESSION_SECRET.length < 24) {
     return json(503, { error: "Leaderboard is not configured." });
   }
+  if (!env.DB) return json(503, { error: "Leaderboard database is not configured." });
+  const rate = await enforceRateLimit(request, env, { scope: "session", limit: SESSION_WINDOW_LIMIT });
+  if (!rate.allowed) {
+    return json(429, { error: "Too many new games. Please try again later." }, {
+      "retry-after": String(rate.retryAfter)
+    });
+  }
   const sid = crypto.randomUUID();
   const iat = Date.now();
   const sig = await hmacHex(env.SESSION_SECRET, `${sid}.${iat}`);
-  return json(200, { sid, iat, sig });
+  // The seed is derived from the session id with the server's secret, so the
+  // player cannot choose it and the Worker can recompute it when replaying.
+  return json(200, { sid, iat, sig, seed: await seedForSession(env.SESSION_SECRET, sid) });
 }
 
 async function verifySession(session, env) {
@@ -203,10 +210,10 @@ async function verifySession(session, env) {
   const used = await env.DB.prepare("SELECT 1 FROM used_sessions WHERE sid = ?").bind(sid).first();
   if (used) return { ok: false, reason: "already_used" };
 
-  return { ok: true, sid, ageMs };
+  return { ok: true, sid, ageMs, seed: await seedForSession(env.SESSION_SECRET, sid) };
 }
 
-function isTimingPlausible(maxTile, ageMs) {
+export function isTimingPlausible(maxTile, ageMs) {
   const minSeconds = MIN_SECONDS_PER_TILE[maxTile] ?? 0;
   return ageMs / 1000 >= minSeconds;
 }
@@ -272,7 +279,8 @@ async function leaderboard(request, env, ctx) {
   const maxTile = Number(raw.maxTile);
   const bestCombo = Number(raw.bestCombo);
   const comboRules = raw.comboRules ?? 1;
-  if (comboRules !== 1 && comboRules !== 2) return json(400, { error: "Invalid combo rules." });
+  // Combos are the turn-based streak the replay computes (rules version 2).
+  if (comboRules !== 2) return json(400, { error: "Invalid combo rules." });
   const reachedStage = Number(raw.reachedStage);
   const deviceId = isValidUuid(raw.deviceId) ? raw.deviceId : null;
   const replaceLowerScore = raw.replaceLowerScore === true;
@@ -281,15 +289,29 @@ async function leaderboard(request, env, ctx) {
   if (!Number.isSafeInteger(score) || score < 0 || score > SCORE_LIMIT) return json(400, { error: "Invalid score." });
   if (!validPowerOfTwo(maxTile)) return json(400, { error: "Invalid top plant." });
   if (!Number.isSafeInteger(bestCombo) || bestCombo < 0 || bestCombo > 1000) return json(400, { error: "Invalid combo." });
-  const bounds = scoreBoundsForTile(maxTile);
-  if (score < bounds.min || score > bounds.max) {
-    return json(400, { error: "Score does not match the top plant." });
-  }
   if (!Number.isInteger(reachedStage) || reachedStage !== expectedStage(maxTile)) {
     return json(400, { error: "World and top plant do not match." });
   }
   if (!isTimingPlausible(maxTile, session.ageMs)) {
     return json(400, { error: "Score submitted too quickly for this progress." });
+  }
+
+  // The run is verified, not trusted: replay the recorded moves from the
+  // seed this session was issued with and require the finished game to match
+  // every number the player claims.
+  const moves = raw.moves;
+  if (typeof moves !== "string" || !/^[LRUD]+$/.test(moves)) {
+    return json(400, { error: "Missing game record." });
+  }
+  if (session.ageMs < moves.length * MIN_MS_PER_MOVE) {
+    return json(400, { error: "Score submitted too quickly for this many moves." });
+  }
+  const record = replayGame(session.seed, moves);
+  if (!record || !record.over) {
+    return json(400, { error: "Game record is not a finished game." });
+  }
+  if (record.score !== score || record.maxTile !== maxTile || record.bestCombo !== bestCombo) {
+    return json(400, { error: "Game record does not match the score." });
   }
 
   if (deviceId && !replaceLowerScore) {

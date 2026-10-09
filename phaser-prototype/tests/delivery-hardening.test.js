@@ -82,3 +82,13 @@ test("live announcements and dialog focus handling are in place", async () => {
   assert.match(css, /\.sr-only\s*\{/);
   assert.match(css, /\.language-select:focus-visible/);
 });
+
+test("tiles are dealt from the run's seed, never from Math.random", async () => {
+  const script = await readFile(projectFile("script.js"), "utf8");
+  const spawn = script.slice(script.indexOf("function spawn()"), script.indexOf("function spawn()") + 400);
+  assert.ok(spawn.includes("drawSpawn(valueGrid().flat(), runRng)"));
+  assert.ok(!spawn.includes("Math.random"));
+  // The submission carries the record the Worker replays.
+  assert.match(script, /moves: moveLog,/);
+  assert.match(script, /moveLog \+= DIRECTION_CHARS\[dir\]/);
+});

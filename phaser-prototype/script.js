@@ -5,6 +5,7 @@ import { SAVE_KEY, isSessionUsable, parseSavedGame, serializeGame } from "./src/
 import { directionForKey } from "./src/input.js";
 import { nextFocus } from "./src/focus-trap.js";
 import { BOARD_SIZE, hasMoves, planMove } from "./src/board.js";
+import { DIRECTION_CHARS, createRng, drawSpawn } from "./src/game-core.js";
 import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIONS } from "./src/i18n.js";
 
 /* ============================================================
@@ -132,6 +133,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   const finalTileEl = document.getElementById("finalTile");
   const finalComboEl = document.getElementById("finalCombo");
   const finalEmblemEl = document.getElementById("finalEmblem");
+  const unrankedNoteEl = document.getElementById("unrankedNote");
   const gameMainEl = document.querySelector("main.game");
   const announcerEl = document.getElementById("a11yAnnouncer");
   const milestoneArtEl = document.getElementById("milestoneArt");
@@ -157,6 +159,12 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   let flow = 0;
   let flowTimer = null;
   let completedMoves = 0;
+  // A run is its seed plus the moves played: the Worker replays exactly these
+  // to verify a score. runPending is true until the first tiles are dealt.
+  let runSeed = null;
+  let runRng = null;
+  let moveLog = "";
+  let runPending = false;
   let gameGeneration = 0;
   const restartPanel = document.getElementById("newGameConfirm");
   const cancelRestart = document.getElementById("cancelNewGame");
@@ -233,13 +241,9 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
      audiovisual state that restarts cleanly.
   */
   function saveGame() {
-    if (!completedMoves || !grid || victoryAchieved) return;
+    if (!completedMoves || !grid || victoryAchieved || runSeed === null) return;
     try {
-      localStorage.setItem(SAVE_KEY, serializeGame({
-        board: grid.map(row => row.map(id => (id == null ? 0 : tiles[id].value))),
-        score, maxValueReached, bestCombo, completedMoves, goldenAchieved,
-        session: gameSession
-      }));
+      localStorage.setItem(SAVE_KEY, serializeGame({ seed: runSeed, moves: moveLog, session: gameSession }));
     } catch (e) {}
   }
   function clearSavedGame() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
@@ -386,25 +390,17 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   }
 
   /* ---------- Game logic (unchanged 2048 rules) ---------- */
-  function emptyCells() {
-    const out = [];
-    for (let r = 0; r < SIZE; r++)
-      for (let c = 0; c < SIZE; c++)
-        if (grid[r][c] == null) out.push([r, c]);
-    return out;
-  }
-
+  // Deals the next tile from the run's seeded stream, so the Worker can
+  // replay the same game from the recorded moves.
   function spawn() {
-    const empty = emptyCells();
-    if (!empty.length) return null;
-    const [r, c] = empty[Math.floor(Math.random() * empty.length)];
-    const value = Math.random() < 0.9 ? 2 : 4;
-    maxValueReached = Math.max(maxValueReached, value);
-    return createTile(r, c, value, true);
+    const next = drawSpawn(valueGrid().flat(), runRng);
+    if (!next) return null;
+    maxValueReached = Math.max(maxValueReached, next.value);
+    return createTile(Math.floor(next.index / SIZE), next.index % SIZE, next.value, true);
   }
 
   function inputBlocked() {
-    return menuMode || !restartPanel.hidden || !settingsPanel.hidden || !leaderboardModalEl.hidden || !overlayEl.hidden;
+    return menuMode || runPending || !restartPanel.hidden || !settingsPanel.hidden || !leaderboardModalEl.hidden || !overlayEl.hidden;
   }
 
   // Screen readers and Tab must not reach the game behind the start menu or a
@@ -469,6 +465,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
         return;
       }
       completedMoves++;
+      moveLog += DIRECTION_CHARS[dir];
       let stageAdvancePending = false;
       let endingPending = null;
       updateCombo(merges.length);
@@ -630,7 +627,9 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     finalComboEl.textContent = `${bestCombo || 0}×`;
     finalEmblemEl.textContent = stageMeta(endingStage).emblem;
     playerNameEl.value = loadPlayerName();
-    scoreFormEl.hidden = milestone;
+    const ranked = isRankedRun();
+    scoreFormEl.hidden = milestone || !ranked;
+    unrankedNoteEl.hidden = milestone || ranked;
     scoreFormEl.classList.remove("success");
     scoreSubmitStatusEl.textContent = "";
     submitScoreBtn.disabled = false;
@@ -648,7 +647,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     clearTimeout(showEndOverlay._readyTimer);
     showEndOverlay._readyTimer = setTimeout(() => {
       overlayEl.classList.add("ready");
-      (milestone ? continueMilestoneBtn : playerNameEl).focus();
+      (milestone ? continueMilestoneBtn : ranked ? playerNameEl : playAgainBtn).focus();
     }, milestone ? 350 : 850);
     if (!milestone) playGameOver();
   }
@@ -670,13 +669,8 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   let gameSession = null;
   let gameSessionPromise = null;
   async function ensureGameSession() {
-    // A session kept across a long pause may be about to expire; fetch a new
-    // one rather than handing the server a token it will refuse.
-    if (gameSession && !isSessionUsable(gameSession)) {
-      gameSession = null;
-      gameSessionPromise = null;
-    }
     if (gameSessionPromise) return gameSessionPromise;
+    const generation = gameGeneration;
     gameSessionPromise = (async () => {
       try {
         const response = await fetch("/api/session", {
@@ -684,16 +678,58 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
           headers: { accept: "application/json" }
         });
         if (!response.ok) throw new Error("session_failed");
-        gameSession = await response.json();
-        saveGame();
-        return gameSession;
+        const session = await response.json();
+        if (!Number.isSafeInteger(session?.seed)) throw new Error("session_failed");
+        // A slow reply must not attach itself to a newer game.
+        if (generation === gameGeneration) {
+          gameSession = session;
+          saveGame();
+        }
+        return session;
       } catch (error) {
-        gameSession = null;
-        gameSessionPromise = null;
+        if (generation === gameGeneration) {
+          gameSession = null;
+          gameSessionPromise = null;
+        }
         throw new Error(TRANSLATIONS[currentLanguage].sessionError);
       }
     })();
     return gameSessionPromise;
+  }
+
+  // Only a run played from the seed of its own server session can be verified
+  // and join the leaderboard; offline or failed starts are played unranked.
+  function isRankedRun() {
+    return Boolean(gameSession && runSeed !== null && gameSession.seed === runSeed && isSessionUsable(gameSession));
+  }
+
+  function withTimeout(promise, ms) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("timeout")), ms);
+      promise.then(value => { clearTimeout(timer); resolve(value); }, error => { clearTimeout(timer); reject(error); });
+    });
+  }
+
+  function randomSeed() {
+    try { return crypto.getRandomValues(new Uint32Array(1))[0]; }
+    catch (e) { return Math.floor(Math.random() * 4294967296) >>> 0; }
+  }
+
+  // Starts a fresh run: wait briefly for the server to hand out a session (and
+  // with it the seed), then deal the first two tiles from that seed. If the
+  // server cannot be reached the game still starts, unranked.
+  async function beginRun() {
+    const generation = gameGeneration;
+    let session = null;
+    try { session = await withTimeout(ensureGameSession(), 3000); } catch (e) {}
+    if (generation !== gameGeneration || !runPending) return;
+    runSeed = session ? session.seed >>> 0 : randomSeed();
+    runRng = createRng(runSeed);
+    moveLog = "";
+    runPending = false;
+    spawn();
+    spawn();
+    updateScore();
   }
   function renderLeaderboardEntries(entries) {
     const text = TRANSLATIONS[currentLanguage];
@@ -830,7 +866,10 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     submitScoreBtn.textContent = text.sending;
     scoreSubmitStatusEl.textContent = "";
     try {
-      const session = await ensureGameSession();
+      // The record is verified against the session's seed, so only the
+      // session this run was dealt from can be presented.
+      if (!isRankedRun()) throw new Error(text.sessionError);
+      const session = gameSession;
       const deviceId = loadDeviceId();
       const payload = {
           playerName,
@@ -838,7 +877,8 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
           maxTile: Math.max(2, maxValueReached),
           bestCombo,
           comboRules: 2,
-          reachedStage: currentStage,
+          reachedStage: stageFor(Math.max(2, maxValueReached)),
+          moves: moveLog,
           deviceId,
           session
       };
@@ -2324,13 +2364,10 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     gameGeneration++;
     completedMoves = saved ? saved.completedMoves : 0;
     closeRestart(false);
-    // A restored game keeps its leaderboard session so the server-side timing
-    // check still measures real play time across a page reload.
+    // A restored game keeps its leaderboard session (and so its seed) across
+    // a reload; a new one asks the server for a session once play starts.
     gameSession = saved?.session || null;
     gameSessionPromise = gameSession ? Promise.resolve(gameSession) : null;
-    // The boot-time board is hidden behind the menu. Start the signed timer
-    // only once the player is actually playing, not while they read the menu.
-    if (!menuMode) ensureGameSession().catch(() => {});
     grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
     tiles = {};
     nextId = 1;
@@ -2343,6 +2380,11 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     bestCombo = saved ? saved.bestCombo : 0;
     scoreSubmitted = false;
     resetCombo();
+    if (saved) bloomFlow.restore(saved.streak, saved.bestCombo);
+    runSeed = saved ? saved.seed : null;
+    runRng = saved ? { s: saved.rngState } : null;
+    moveLog = saved ? saved.moves : "";
+    runPending = !saved;
     tilesEl.innerHTML = "";
     boardEl.querySelectorAll(".particle").forEach(p => p.remove());
     tilesEl.querySelectorAll(".particle").forEach(p => p.remove());
@@ -2355,8 +2397,9 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
       }));
     } else {
       clearSavedGame();
-      spawn();
-      spawn();
+      // The boot-time board waits behind the menu; the run (and the signed
+      // timer) starts once the player actually presses Play.
+      if (!menuMode) beginRun();
     }
     updateScore();
   }
@@ -2454,7 +2497,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   startPlayBtn.addEventListener("click", () => {
     ensureAudio();
     menuMode = false;
-    ensureGameSession().catch(() => {});
+    if (runPending) beginRun();
     window.dispatchEvent(new CustomEvent("garden:game-started"));
     stopMenuMusic(true);
     if (audioCtx?.state === "running") startMusic();
