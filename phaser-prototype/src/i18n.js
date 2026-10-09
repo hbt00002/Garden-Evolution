@@ -122,16 +122,16 @@ for (const [language, copy] of Object.entries(LEADERBOARD_COPY)) {
 }
 
 const EXTRA_COPY = {
-  en: { crownBloomed:"The Sakura Crown has bloomed!", submitRateLimited:"Too many submissions. Please try again later.", closeSettings:"Close settings", closeLeaderboard:"Close leaderboard" },
-  tr: { crownBloomed:"Sakura Tacı çiçek açtı!", submitRateLimited:"Çok fazla gönderim yapıldı. Lütfen daha sonra tekrar dene.", closeSettings:"Ayarları kapat", closeLeaderboard:"Liderlik tablosunu kapat" },
-  zh: { crownBloomed:"樱花冠绽放了！", submitRateLimited:"提交次数过多，请稍后再试。", closeSettings:"关闭设置", closeLeaderboard:"关闭排行榜" },
-  ja: { crownBloomed:"桜の冠が咲きました！", submitRateLimited:"送信が多すぎます。しばらくしてからお試しください。", closeSettings:"設定を閉じる", closeLeaderboard:"ランキングを閉じる" },
-  ko: { crownBloomed:"벚꽃 왕관이 피었습니다!", submitRateLimited:"제출이 너무 많습니다. 나중에 다시 시도해 주세요.", closeSettings:"설정 닫기", closeLeaderboard:"순위표 닫기" },
-  es: { crownBloomed:"¡La Corona de sakura ha florecido!", submitRateLimited:"Demasiados envíos. Inténtalo de nuevo más tarde.", closeSettings:"Cerrar ajustes", closeLeaderboard:"Cerrar clasificación" },
-  pt: { crownBloomed:"A Coroa de sakura floresceu!", submitRateLimited:"Muitos envios. Tente novamente mais tarde.", closeSettings:"Fechar configurações", closeLeaderboard:"Fechar classificação" },
-  fr: { crownBloomed:"La Couronne de sakura a fleuri !", submitRateLimited:"Trop d'envois. Réessayez plus tard.", closeSettings:"Fermer les réglages", closeLeaderboard:"Fermer le classement" },
-  de: { crownBloomed:"Die Kirschblütenkrone blüht!", submitRateLimited:"Zu viele Einsendungen. Bitte versuche es später erneut.", closeSettings:"Einstellungen schließen", closeLeaderboard:"Bestenliste schließen" },
-  ru: { crownBloomed:"Сакуровая крона расцвела!", submitRateLimited:"Слишком много отправок. Попробуйте позже.", closeSettings:"Закрыть настройки", closeLeaderboard:"Закрыть таблицу лидеров" }
+  en: { unrankedRun:"This run could not be verified, so it cannot join the leaderboard.", crownBloomed:"The Sakura Crown has bloomed!", submitRateLimited:"Too many submissions. Please try again later.", closeSettings:"Close settings", closeLeaderboard:"Close leaderboard" },
+  tr: { unrankedRun:"Bu oyun doğrulanamadı, bu yüzden liderlik tablosuna katılamaz.", crownBloomed:"Sakura Tacı çiçek açtı!", submitRateLimited:"Çok fazla gönderim yapıldı. Lütfen daha sonra tekrar dene.", closeSettings:"Ayarları kapat", closeLeaderboard:"Liderlik tablosunu kapat" },
+  zh: { unrankedRun:"这局游戏无法验证，因此无法加入排行榜。", crownBloomed:"樱花冠绽放了！", submitRateLimited:"提交次数过多，请稍后再试。", closeSettings:"关闭设置", closeLeaderboard:"关闭排行榜" },
+  ja: { unrankedRun:"このプレイは検証できなかったため、ランキングには参加できません。", crownBloomed:"桜の冠が咲きました！", submitRateLimited:"送信が多すぎます。しばらくしてからお試しください。", closeSettings:"設定を閉じる", closeLeaderboard:"ランキングを閉じる" },
+  ko: { unrankedRun:"이 플레이는 확인할 수 없어 순위표에 등록할 수 없습니다.", crownBloomed:"벚꽃 왕관이 피었습니다!", submitRateLimited:"제출이 너무 많습니다. 나중에 다시 시도해 주세요.", closeSettings:"설정 닫기", closeLeaderboard:"순위표 닫기" },
+  es: { unrankedRun:"No se pudo verificar esta partida, así que no puede entrar en la clasificación.", crownBloomed:"¡La Corona de sakura ha florecido!", submitRateLimited:"Demasiados envíos. Inténtalo de nuevo más tarde.", closeSettings:"Cerrar ajustes", closeLeaderboard:"Cerrar clasificación" },
+  pt: { unrankedRun:"Não foi possível verificar esta partida, então ela não pode entrar na classificação.", crownBloomed:"A Coroa de sakura floresceu!", submitRateLimited:"Muitos envios. Tente novamente mais tarde.", closeSettings:"Fechar configurações", closeLeaderboard:"Fechar classificação" },
+  fr: { unrankedRun:"Cette partie n'a pas pu être vérifiée et ne peut donc pas rejoindre le classement.", crownBloomed:"La Couronne de sakura a fleuri !", submitRateLimited:"Trop d'envois. Réessayez plus tard.", closeSettings:"Fermer les réglages", closeLeaderboard:"Fermer le classement" },
+  de: { unrankedRun:"Dieses Spiel konnte nicht überprüft werden und kann daher nicht in die Bestenliste.", crownBloomed:"Die Kirschblütenkrone blüht!", submitRateLimited:"Zu viele Einsendungen. Bitte versuche es später erneut.", closeSettings:"Einstellungen schließen", closeLeaderboard:"Bestenliste schließen" },
+  ru: { unrankedRun:"Эту партию не удалось проверить, поэтому она не попадёт в таблицу лидеров.", crownBloomed:"Сакуровая крона расцвела!", submitRateLimited:"Слишком много отправок. Попробуйте позже.", closeSettings:"Закрыть настройки", closeLeaderboard:"Закрыть таблицу лидеров" }
 };
 for (const [language, copy] of Object.entries(EXTRA_COPY)) {
   Object.assign(TRANSLATIONS[language], copy);

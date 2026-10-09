@@ -14,6 +14,9 @@ export function createBloomFlow() {
     },
     level,
     cool() { energy = 0; lastMerge = -Infinity; },
+    // Resume the turn-based streak of a restored run; the time-based energy
+    // simply starts cold.
+    restore(restoredStreak, restoredBest) { streak = restoredStreak; best = restoredBest; this.cool(); },
     reset() { streak = 0; best = 0; this.cool(); }
   };
 }
