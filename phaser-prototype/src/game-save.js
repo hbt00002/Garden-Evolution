@@ -13,7 +13,7 @@ const SCORE_LIMIT = 100_000_000; // mirrors cloudflare/worker.js
 const COMBO_LIMIT = 1000;
 // Mirrors SESSION_MAX_AGE_MS in cloudflare/worker.js, minus a safety margin so
 // a session that would expire mid-submit is replaced instead of restored.
-const SESSION_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+const SESSION_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const SESSION_MARGIN_MS = 5 * 60 * 1000;
 
 const isPowerOfTwo = value => Number.isInteger(value) && value >= 2 && value <= MAX_TILE && (value & (value - 1)) === 0;
@@ -51,6 +51,12 @@ function cleanSession(session, now) {
   if (!Number.isSafeInteger(iat) || iat > now) return null;
   if (now - iat > SESSION_MAX_AGE_MS - SESSION_MARGIN_MS) return null;
   return { sid, iat, sig };
+}
+
+// True while a leaderboard session is still far enough from expiring that it
+// can be presented at the end of the run.
+export function isSessionUsable(session, now = Date.now()) {
+  return cleanSession(session, now) !== null;
 }
 
 export function serializeGame(state, now = Date.now()) {

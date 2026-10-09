@@ -173,7 +173,7 @@ test("submit: rejects a bad, expired, future-dated or reused session", async () 
   const wrongSecret = await signedSession(10 * 60 * 1000, "x".repeat(32));
   assert.equal((await submit(env, await validScore({ session: wrongSecret }))).status, 400);
 
-  const expired = await signedSession(2 * 60 * 60 * 1000 + 1000);
+  const expired = await signedSession(14 * 24 * 60 * 60 * 1000 + 1000);
   assert.equal((await submit(env, await validScore({ session: expired }))).status, 400);
 
   const future = await signedSession(-60 * 1000);
@@ -207,6 +207,26 @@ test("submit: validates name, score, tile, combo, stage and combo rules", async 
   assert.equal(rows(env).length, 0);
 });
 
+test("submit: the score must be possible for the top plant", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const status = async (maxTile, reachedStage, score, ip) =>
+    (await submit(env, await validScore({ maxTile, reachedStage, score, session: await signedSession(2_000_000) }), {
+      headers: { "CF-Connecting-IP": ip }
+    })).status;
+
+  // 512 is built from 4-spawns at best (512 * 7) and from 2-spawns at most
+  // 12 boards' worth (12 * 512 * 8).
+  assert.equal(await status(512, 3, 512 * 7 - 2, "198.51.100.1"), 400, "below the cheapest way to reach the tile");
+  assert.equal(await status(512, 3, 512 * 7, "198.51.100.2"), 201);
+  assert.equal(await status(512, 3, 12 * 512 * 8, "198.51.100.3"), 201);
+  assert.equal(await status(512, 3, 12 * 512 * 8 + 2, "198.51.100.4"), 400, "above anything a 4x4 board can score");
+  assert.equal(await status(2048, 5, 100_000_000, "198.51.100.5"), 400, "a huge score with a modest tile");
+  assert.equal(await status(2, 1, 0, "198.51.100.6"), 201, "a run that never merged");
+  assert.equal(await status(2, 1, 2, "198.51.100.7"), 400);
+  assert.equal(rows(env).length, 3);
+});
+
 test("submit: sanitises the player name", async () => {
   installCacheStub();
   const env = makeEnv();
@@ -223,12 +243,12 @@ test("submit: rejects scores that arrive implausibly fast for the top plant", as
   installCacheStub();
   const env = makeEnv();
   // 8192 needs at least 800 s of play; a 10 s old session must be refused.
-  const fast = await validScore({ maxTile: 8192, reachedStage: 5, session: await signedSession(10_000) });
+  const fast = await validScore({ maxTile: 8192, reachedStage: 5, score: 200_000, session: await signedSession(10_000) });
   const refused = await submit(env, fast);
   assert.equal(refused.status, 400);
   assert.match((await refused.json()).error, /too quickly/);
   // The same claim after 900 s is accepted.
-  const slow = await validScore({ maxTile: 8192, reachedStage: 5, session: await signedSession(900_000) });
+  const slow = await validScore({ maxTile: 8192, reachedStage: 5, score: 200_000, session: await signedSession(900_000) });
   assert.equal((await submit(env, slow)).status, 201);
 });
 
@@ -237,7 +257,8 @@ test("submit: stage must match the top plant at every boundary", async () => {
   const env = makeEnv();
   const cases = [[64, 1], [128, 2], [256, 2], [512, 3], [1024, 4], [2048, 5], [8192, 5]];
   for (const [index, [maxTile, reachedStage]] of cases.entries()) {
-    const body = await validScore({ maxTile, reachedStage, session: await signedSession(2_000_000) });
+    const score = maxTile * Math.max(1, Math.log2(maxTile) - 1);
+    const body = await validScore({ maxTile, reachedStage, score, session: await signedSession(2_000_000) });
     // Distinct clients, so the per-fingerprint rate limit is not what is tested.
     const headers = { "CF-Connecting-IP": `198.51.100.${index + 1}` };
     assert.equal((await submit(env, body, { headers })).status, 201, `tile ${maxTile} -> stage ${reachedStage}`);
@@ -250,7 +271,7 @@ test("device: a better score replaces the device's row, keeping one row per devi
   installCacheStub();
   const env = makeEnv();
   const deviceId = crypto.randomUUID();
-  assert.equal((await submit(env, await validScore({ deviceId, score: 1000, playerName: "First" }))).status, 201);
+  assert.equal((await submit(env, await validScore({ deviceId, score: 4000, playerName: "First" }))).status, 201);
   assert.equal((await submit(env, await validScore({ deviceId, score: 9000, playerName: "Second" }))).status, 201);
   const all = rows(env);
   assert.equal(all.length, 1);
@@ -265,7 +286,7 @@ test("device: a lower score needs confirmation and only overwrites when confirme
   await submit(env, await validScore({ deviceId, score: 9000 }));
 
   const lowerSession = await signedSession();
-  const first = await submit(env, await validScore({ deviceId, score: 100, session: lowerSession }));
+  const first = await submit(env, await validScore({ deviceId, score: 3600, session: lowerSession }));
   assert.equal(first.status, 409);
   const conflict = await first.json();
   assert.equal(conflict.code, "lower_score_confirmation_required");
@@ -274,17 +295,17 @@ test("device: a lower score needs confirmation and only overwrites when confirme
 
   // The 409 happens before the session is consumed, so the same session can
   // be re-sent with the explicit confirmation flag.
-  const confirmed = await submit(env, await validScore({ deviceId, score: 100, session: lowerSession, replaceLowerScore: true }));
+  const confirmed = await submit(env, await validScore({ deviceId, score: 3600, session: lowerSession, replaceLowerScore: true }));
   assert.equal(confirmed.status, 201);
   assert.equal(rows(env).length, 1);
-  assert.equal(rows(env)[0].score, 100);
+  assert.equal(rows(env)[0].score, 3600);
 });
 
 test("device: submissions without a valid deviceId are always inserted", async () => {
   installCacheStub();
   const env = makeEnv();
-  await submit(env, await validScore({ deviceId: undefined, score: 10 }));
-  await submit(env, await validScore({ deviceId: "not-a-uuid", score: 20 }));
+  await submit(env, await validScore({ deviceId: undefined, score: 3700 }));
+  await submit(env, await validScore({ deviceId: "not-a-uuid", score: 3800 }));
   assert.equal(rows(env).length, 2);
   assert.ok(rows(env).every(row => row.device_id === null));
 });
@@ -296,7 +317,7 @@ test("rate limit: the 6th submission in a window is refused with Retry-After", a
   const env = makeEnv();
   const headers = { "CF-Connecting-IP": "203.0.113.7", "user-agent": "test-agent" };
   for (let i = 0; i < 5; i++) {
-    const response = await submit(env, await validScore({ score: 100 + i }), { headers });
+    const response = await submit(env, await validScore({ score: 4000 + i }), { headers });
     assert.equal(response.status, 201, `submission ${i + 1}`);
   }
   const limited = await submit(env, await validScore(), { headers });
@@ -445,7 +466,7 @@ test("scheduled cleanup removes stale rate-limit buckets and old sessions only",
   const sqlite = env.DB.sqlite;
   sqlite.prepare("INSERT INTO submission_limits (fingerprint, bucket, count) VALUES (?, ?, 1)").run("old", bucket - 7);
   sqlite.prepare("INSERT INTO submission_limits (fingerprint, bucket, count) VALUES (?, ?, 1)").run("recent", bucket - 1);
-  sqlite.prepare("INSERT INTO used_sessions (sid, used_at) VALUES (?, ?)").run("old-sid", new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString());
+  sqlite.prepare("INSERT INTO used_sessions (sid, used_at) VALUES (?, ?)").run("old-sid", new Date(Date.now() - 29 * 24 * 60 * 60 * 1000).toISOString());
   sqlite.prepare("INSERT INTO used_sessions (sid, used_at) VALUES (?, ?)").run("new-sid", new Date().toISOString());
 
   const ctx = makeCtx();

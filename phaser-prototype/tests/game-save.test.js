@@ -126,12 +126,17 @@ test("a fresh leaderboard session is restored with the game", () => {
   assert.deepEqual(parseSavedGame(save({ session }), NOW).session, session);
 });
 
+test("a session from a day-old game is still restored", () => {
+  const session = { sid: "0b9d6c3e-6a43-4a0e-9d5b-0c1d2e3f4a5b", iat: NOW - 24 * HOUR, sig: "ab".repeat(32) };
+  assert.deepEqual(parseSavedGame(save({ session }, NOW - 24 * HOUR + MINUTE), NOW).session, session);
+});
+
 test("a stale or invalid session is dropped without losing the board", () => {
   const sid = "0b9d6c3e-6a43-4a0e-9d5b-0c1d2e3f4a5b";
   const sig = "ab".repeat(32);
   const cases = [
-    { sid, iat: NOW - 2 * HOUR, sig },
-    { sid, iat: NOW - 115 * MINUTE - 1, sig },
+    { sid, iat: NOW - 14 * 24 * HOUR, sig },
+    { sid, iat: NOW - 14 * 24 * HOUR + 5 * MINUTE - 1, sig },
     { sid, iat: NOW + MINUTE, sig },
     { sid, iat: "yesterday", sig },
     { sid, iat: NOW - MINUTE },

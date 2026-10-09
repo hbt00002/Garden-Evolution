@@ -8,7 +8,10 @@ const JSON_HEADERS = {
 const SCORE_LIMIT = 100_000_000;
 const RATE_WINDOW_SECONDS = 10 * 60;
 const RATE_WINDOW_LIMIT = 5;
-const SESSION_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours: generous upper bound for a play session
+// Matches the 14-day lifetime of a saved game (src/game-save.js), so a game
+// that is restored after a long pause still carries a session the server
+// accepts. The wall-clock floor below only needs the session's age.
+const SESSION_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_BODY_BYTES = 2048;
 
 // Rough floor on how many seconds a legitimate run needs to reach a given
@@ -50,6 +53,25 @@ function expectedStage(maxTile) {
   if (maxTile <= 512) return 3;
   if (maxTile <= 1024) return 4;
   return 5;
+}
+
+// Score is the sum of every merged value. Building one tile of value v out of
+// spawned 2s and 4s adds v per merge level: at most v * (log2(v) - 1) when it
+// grows from 2s, at least v * (log2(v) - 2) when it grows from 4s.
+//
+// Upper bound: a finished board holds at most 16 tiles. Equal neighbours merge,
+// so even a checkerboard of T and T/2 sums to 12T. Every unit of that mass
+// scored at most (log2(T) - 1), which is a ceiling no legitimate run can hit
+// but far below SCORE_LIMIT. Lower bound: reaching T without its 4-spawn tree
+// is impossible. Both are deliberately loose: a false rejection of a real run
+// is worse than letting a slightly inflated score through.
+function scoreBoundsForTile(maxTile) {
+  const levels = Math.log2(maxTile);
+  return {
+    min: maxTile * Math.max(0, levels - 2),
+    // A 2 can only be the top tile if nothing ever merged (a merge makes 4).
+    max: maxTile === 2 ? 0 : 12 * maxTile * Math.max(1, levels - 1)
+  };
 }
 
 function validPowerOfTwo(value) {
@@ -259,6 +281,10 @@ async function leaderboard(request, env, ctx) {
   if (!Number.isSafeInteger(score) || score < 0 || score > SCORE_LIMIT) return json(400, { error: "Invalid score." });
   if (!validPowerOfTwo(maxTile)) return json(400, { error: "Invalid top plant." });
   if (!Number.isSafeInteger(bestCombo) || bestCombo < 0 || bestCombo > 1000) return json(400, { error: "Invalid combo." });
+  const bounds = scoreBoundsForTile(maxTile);
+  if (score < bounds.min || score > bounds.max) {
+    return json(400, { error: "Score does not match the top plant." });
+  }
   if (!Number.isInteger(reachedStage) || reachedStage !== expectedStage(maxTile)) {
     return json(400, { error: "World and top plant do not match." });
   }
