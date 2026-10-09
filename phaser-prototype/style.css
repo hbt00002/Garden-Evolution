@@ -1975,3 +1975,8 @@ body.score-confirm-open .env-particle { animation-play-state:paused !important; 
   .overlay[data-mode="victory"] .victory-art { top:-50px; width:120px; height:110px; }
   .overlay[data-mode="victory"] .victory-art img { width:108px; height:108px; }
 }
+
+/* Screen-reader-only text (live announcements). */
+.sr-only { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+/* These two controls drop the default outline, so give keyboard users one back. */
+.language-select:focus-visible, .score-submit input:focus-visible { outline:3px solid #ad6e91; outline-offset:2px; }

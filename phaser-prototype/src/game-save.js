@@ -5,7 +5,9 @@
 
 export const SAVE_KEY = "gardenEvolutionSave";
 export const SAVE_VERSION = 1;
-export const BOARD_SIZE = 4;
+import { BOARD_SIZE, hasMoves } from "./board.js";
+
+export { BOARD_SIZE, hasMoves };
 
 const MAX_SAVE_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_TILE = 8192;
@@ -18,17 +20,6 @@ const SESSION_MARGIN_MS = 5 * 60 * 1000;
 
 const isPowerOfTwo = value => Number.isInteger(value) && value >= 2 && value <= MAX_TILE && (value & (value - 1)) === 0;
 const isCount = (value, max) => Number.isSafeInteger(value) && value >= 0 && value <= max;
-
-export function hasMoves(board) {
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
-      if (!board[r][c]) return true;
-      if (c + 1 < BOARD_SIZE && board[r][c + 1] === board[r][c]) return true;
-      if (r + 1 < BOARD_SIZE && board[r + 1][c] === board[r][c]) return true;
-    }
-  }
-  return false;
-}
 
 function validBoard(board) {
   if (!Array.isArray(board) || board.length !== BOARD_SIZE) return false;

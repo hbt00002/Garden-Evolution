@@ -17,6 +17,8 @@
       "migrations_dir": "./migrations"
     }
   ],
+  // Worker logs and errors in the Cloudflare dashboard.
+  "observability": { "enabled": true },
   "triggers": {
     // Runs handleScheduledCleanup() in worker.js instead of doing cleanup
     // work inline on every leaderboard POST.

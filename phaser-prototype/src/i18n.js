@@ -2,7 +2,7 @@
 // tests can check that no language is missing a string.
 export const TRANSLATIONS = {
   en: { hint:"Swipe or use arrow keys to grow your garden.",score:"Score",best:"Best",leaderboard:"Leaderboard",hallOfFame:"Garden Hall of Fame",newGame:"New Game",settings:"Settings",language:"Language",music:"Music",soundEffects:"Sound Effects",livingBackground:"Living Background",extraParticles:"Extra Particles",highContrast:"High Contrast",performance:"Performance adapts automatically.",combo:"Bloom Combo",noMoves:"No Moves Left",noMovesText:"The board is full and no plants can merge.",final:"Final",topPlant:"Top Plant",bestCombo:"Best Combo",joinLeaderboard:"Join the leaderboard",submit:"Submit",playAgain:"Play Again",nextWorld:"Next world at",fullyEvolved:"World fully evolved",world:"World",of:"of",yourName:"Your name",balanced:"Balanced mode is active for smoother play.",fullDetail:"Full detail mode is active." },
-  tr: { hint:"Bahçeni büyütmek için kaydır veya yön tuşlarını kullan.",score:"Skor",best:"En İyi",leaderboard:"Liderlik Tablosu",hallOfFame:"Bahçe Şöhretler Salonu",newGame:"Yeni Oyun",settings:"Ayarlar",language:"Dil",music:"Müzik",soundEffects:"Ses Efektleri",livingBackground:"Canlı Arka Plan",extraParticles:"Ekstra Parçacıklar",highContrast:"Yüksek Kontrast",performance:"Performans otomatik olarak ayarlanır.",combo:"Çiçek Kombosu",noMoves:"Hamle Kalmadı",noMovesText:"Board doldu ve birleşebilecek bitki kalmadı.",final:"Final",topPlant:"En Büyük Bitki",bestCombo:"En İyi Kombo",joinLeaderboard:"Liderlik tablosuna katıl",submit:"Kaydet",playAgain:"Tekrar Oyna",nextWorld:"Sonraki dünya",fullyEvolved:"Dünya tamamen gelişti",world:"Dünya",of:"/",yourName:"Adın",balanced:"Daha akıcı oyun için dengeli mod aktif.",fullDetail:"Tam detay modu aktif." },
+  tr: { hint:"Bahçeni büyütmek için kaydır veya yön tuşlarını kullan.",score:"Skor",best:"En İyi",leaderboard:"Liderlik Tablosu",hallOfFame:"Bahçe Şöhretler Salonu",newGame:"Yeni Oyun",settings:"Ayarlar",language:"Dil",music:"Müzik",soundEffects:"Ses Efektleri",livingBackground:"Canlı Arka Plan",extraParticles:"Ekstra Parçacıklar",highContrast:"Yüksek Kontrast",performance:"Performans otomatik olarak ayarlanır.",combo:"Çiçek Kombosu",noMoves:"Hamle Kalmadı",noMovesText:"Tahta doldu ve birleşebilecek bitki kalmadı.",final:"Final",topPlant:"En Büyük Bitki",bestCombo:"En İyi Kombo",joinLeaderboard:"Liderlik tablosuna katıl",submit:"Kaydet",playAgain:"Tekrar Oyna",nextWorld:"Sonraki dünya",fullyEvolved:"Dünya tamamen gelişti",world:"Dünya",of:"/",yourName:"Adın",balanced:"Daha akıcı oyun için dengeli mod aktif.",fullDetail:"Tam detay modu aktif." },
   zh: {hint:"滑动或使用方向键来培育你的花园。",score:"得分",best:"最佳",leaderboard:"排行榜",hallOfFame:"花园名人堂",newGame:"新游戏",settings:"设置",language:"语言",music:"音乐",soundEffects:"音效",livingBackground:"动态背景",extraParticles:"额外粒子",highContrast:"高对比度",performance:"性能会自动调整。",combo:"绽放连击",noMoves:"无可用移动",noMovesText:"棋盘已满，没有植物可以合并。",final:"最终",topPlant:"最高植物",bestCombo:"最佳连击",joinLeaderboard:"加入排行榜",submit:"提交",playAgain:"再玩一次",nextWorld:"下一世界",fullyEvolved:"世界已完全进化",world:"世界",of:"/",yourName:"你的名字",balanced:"平衡模式已启用。",fullDetail:"完整细节模式已启用。"},
   ja: {hint:"スワイプまたは矢印キーで庭を育てよう。",score:"スコア",best:"ベスト",leaderboard:"ランキング",hallOfFame:"ガーデン殿堂",newGame:"ニューゲーム",settings:"設定",language:"言語",music:"音楽",soundEffects:"効果音",livingBackground:"動く背景",extraParticles:"追加パーティクル",highContrast:"高コントラスト",performance:"パフォーマンスは自動調整されます。",combo:"ブルームコンボ",noMoves:"動かせません",noMovesText:"ボードが埋まり、結合できる植物がありません。",final:"最終",topPlant:"最高の植物",bestCombo:"最高コンボ",joinLeaderboard:"ランキングに参加",submit:"登録",playAgain:"もう一度",nextWorld:"次の世界",fullyEvolved:"世界は完全に進化しました",world:"ワールド",of:"/",yourName:"名前",balanced:"バランスモードが有効です。",fullDetail:"フルディテールモードが有効です。"},
   ko: {hint:"스와이프하거나 방향키로 정원을 키우세요.",score:"점수",best:"최고",leaderboard:"순위표",hallOfFame:"정원 명예의 전당",newGame:"새 게임",settings:"설정",language:"언어",music:"음악",soundEffects:"효과음",livingBackground:"움직이는 배경",extraParticles:"추가 파티클",highContrast:"고대비",performance:"성능이 자동 조정됩니다.",combo:"블룸 콤보",noMoves:"이동 불가",noMovesText:"보드가 가득 차 합칠 식물이 없습니다.",final:"최종",topPlant:"최고 식물",bestCombo:"최고 콤보",joinLeaderboard:"순위표 참가",submit:"등록",playAgain:"다시 하기",nextWorld:"다음 세계",fullyEvolved:"세계가 완전히 진화했습니다",world:"월드",of:"/",yourName:"이름",balanced:"균형 모드가 활성화되었습니다.",fullDetail:"전체 디테일 모드가 활성화되었습니다."},
@@ -39,7 +39,7 @@ export const PLAY_LABELS = { en:"Play", tr:"Oyna", zh:"开始游戏", ja:"プレ
 const BLOOM_LABELS = {
   en: ["Your current garden will be cleared.", "Cancel", "Start new garden", "Bloom Streak", "Best Streak"],
   tr: ["Mevcut bahçen temizlenecek.", "İptal", "Yeni bahçe başlat", "Birleşme Serisi", "En İyi Seri"],
-  zh: ["当前花园将被清空。", "取消", "开始新花园", "连续合并", "最佳连合"],
+  zh: ["当前花园将被清空。", "取消", "开始新花园", "连续合并", "最佳连续合并"],
   ja: ["現在の庭がリセットされます。", "キャンセル", "新しい庭を始める", "連続合成", "最高連続合成"],
   ko: ["현재 정원이 초기화됩니다.", "취소", "새 정원 시작", "연속 합치기", "최고 연속 합치기"],
   es: ["Se borrará tu jardín actual.", "Cancelar", "Crear otro jardín", "Racha floral", "Mejor racha"],
@@ -120,3 +120,33 @@ const LEADERBOARD_COPY = {
 for (const [language, copy] of Object.entries(LEADERBOARD_COPY)) {
   Object.assign(TRANSLATIONS[language], copy);
 }
+
+const EXTRA_COPY = {
+  en: { crownBloomed:"The Sakura Crown has bloomed!", submitRateLimited:"Too many submissions. Please try again later.", closeSettings:"Close settings", closeLeaderboard:"Close leaderboard" },
+  tr: { crownBloomed:"Sakura Tacı çiçek açtı!", submitRateLimited:"Çok fazla gönderim yapıldı. Lütfen daha sonra tekrar dene.", closeSettings:"Ayarları kapat", closeLeaderboard:"Liderlik tablosunu kapat" },
+  zh: { crownBloomed:"樱花冠绽放了！", submitRateLimited:"提交次数过多，请稍后再试。", closeSettings:"关闭设置", closeLeaderboard:"关闭排行榜" },
+  ja: { crownBloomed:"桜の冠が咲きました！", submitRateLimited:"送信が多すぎます。しばらくしてからお試しください。", closeSettings:"設定を閉じる", closeLeaderboard:"ランキングを閉じる" },
+  ko: { crownBloomed:"벚꽃 왕관이 피었습니다!", submitRateLimited:"제출이 너무 많습니다. 나중에 다시 시도해 주세요.", closeSettings:"설정 닫기", closeLeaderboard:"순위표 닫기" },
+  es: { crownBloomed:"¡La Corona de sakura ha florecido!", submitRateLimited:"Demasiados envíos. Inténtalo de nuevo más tarde.", closeSettings:"Cerrar ajustes", closeLeaderboard:"Cerrar clasificación" },
+  pt: { crownBloomed:"A Coroa de sakura floresceu!", submitRateLimited:"Muitos envios. Tente novamente mais tarde.", closeSettings:"Fechar configurações", closeLeaderboard:"Fechar classificação" },
+  fr: { crownBloomed:"La Couronne de sakura a fleuri !", submitRateLimited:"Trop d'envois. Réessayez plus tard.", closeSettings:"Fermer les réglages", closeLeaderboard:"Fermer le classement" },
+  de: { crownBloomed:"Die Kirschblütenkrone blüht!", submitRateLimited:"Zu viele Einsendungen. Bitte versuche es später erneut.", closeSettings:"Einstellungen schließen", closeLeaderboard:"Bestenliste schließen" },
+  ru: { crownBloomed:"Сакуровая крона расцвела!", submitRateLimited:"Слишком много отправок. Попробуйте позже.", closeSettings:"Закрыть настройки", closeLeaderboard:"Закрыть таблицу лидеров" }
+};
+for (const [language, copy] of Object.entries(EXTRA_COPY)) {
+  Object.assign(TRANSLATIONS[language], copy);
+}
+
+// Plant names in tile order (2, 4, 8 ... 8192), used for screen-reader labels.
+export const TILE_NAMES = {
+  en: ["Seed", "Sprout", "Young Plant", "Flower", "Bush", "Sapling", "Young Tree", "Mature Tree", "Mini Forest", "Ancient Tree", "Sakura Crown", "Tree of Life", "Celestial Tree"],
+  tr: ["Tohum", "Filiz", "Genç Bitki", "Çiçek", "Çalı", "Fidan", "Genç Ağaç", "Olgun Ağaç", "Mini Orman", "Kadim Ağaç", "Sakura Tacı", "Yaşam Ağacı", "Göksel Ağaç"],
+  zh: ["种子", "嫩芽", "幼苗", "花朵", "灌木", "树苗", "小树", "成年树", "迷你森林", "古树", "樱花冠", "生命之树", "天界之树"],
+  ja: ["種", "芽", "若い植物", "花", "茂み", "苗木", "若木", "成木", "ミニ森", "古木", "桜の冠", "生命の樹", "天空の樹"],
+  ko: ["씨앗", "새싹", "어린 식물", "꽃", "덤불", "묘목", "어린 나무", "다 자란 나무", "미니 숲", "고목", "벚꽃 왕관", "생명의 나무", "천상의 나무"],
+  es: ["Semilla", "Brote", "Planta joven", "Flor", "Arbusto", "Retoño", "Árbol joven", "Árbol maduro", "Mini bosque", "Árbol ancestral", "Corona de sakura", "Árbol de la vida", "Árbol celestial"],
+  pt: ["Semente", "Broto", "Planta jovem", "Flor", "Arbusto", "Muda", "Árvore jovem", "Árvore madura", "Mini floresta", "Árvore ancestral", "Coroa de sakura", "Árvore da vida", "Árvore celestial"],
+  fr: ["Graine", "Pousse", "Jeune plante", "Fleur", "Buisson", "Arbrisseau", "Jeune arbre", "Arbre mature", "Mini-forêt", "Arbre ancien", "Couronne de sakura", "Arbre de vie", "Arbre céleste"],
+  de: ["Samen", "Spross", "Junge Pflanze", "Blume", "Busch", "Setzling", "Junger Baum", "Reifer Baum", "Mini-Wald", "Uralter Baum", "Kirschblütenkrone", "Baum des Lebens", "Himmelsbaum"],
+  ru: ["Семя", "Росток", "Молодое растение", "Цветок", "Куст", "Саженец", "Молодое дерево", "Зрелое дерево", "Мини-лес", "Древнее дерево", "Сакуровая крона", "Древо жизни", "Небесное древо"]
+};

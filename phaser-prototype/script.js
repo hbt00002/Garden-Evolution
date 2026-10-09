@@ -3,7 +3,9 @@ import { createBloomFlow } from "./src/bloom-flow.js";
 import { canMergeValues, endingForMergedValue } from "./src/game-rules.js";
 import { SAVE_KEY, isSessionUsable, parseSavedGame, serializeGame } from "./src/game-save.js";
 import { directionForKey } from "./src/input.js";
-import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from "./src/i18n.js";
+import { nextFocus } from "./src/focus-trap.js";
+import { BOARD_SIZE, hasMoves, planMove } from "./src/board.js";
+import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIONS } from "./src/i18n.js";
 
 /* ============================================================
    Garden Evolution — a relaxing 2048-inspired garden game
@@ -11,46 +13,31 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
    ============================================================ */
 
 (() => {
-  const SIZE = 4;
+  const SIZE = BOARD_SIZE;
   const SLIDE_MS = 115;
   const MERGE_MS = 210;
   const SWIPE_THRESHOLD = 24;
 
   /* ---------- Evolution chain ----------
-     Each tile gets a distinct background tone and inline SVG art.
-     bg = tile fill; fg = number text color on that fill.
+     Each tile gets a distinct background tone (bg) and number colour (fg).
   */
   const LEVELS = [
-    { v: 2, name: "Seed", bg: "#efe0c6", fg: "#7a5c34",
-      svg: `<svg viewBox="0 0 100 100"><ellipse cx="50" cy="78" rx="20" ry="7" fill="#8c6438" opacity=".35"/><path d="M50 22 C30 22 24 50 32 72 C36 82 64 82 68 72 C76 50 70 22 50 22 Z" fill="#b87e44"/><path d="M44 26 C32 30 28 52 34 68 C37 76 46 76 44 26 Z" fill="#d49b59" opacity=".75"/><path d="M50 22 Q58 35 52 50" stroke="#7a4e22" stroke-width="3" stroke-linecap="round" fill="none" opacity=".6"/><circle cx="48" cy="22" r="3.5" fill="#8cc152"/></svg>` },
-    { v: 4, name: "Sprout", bg: "#e6f0cf", fg: "#5d7a2e",
-      svg: `<svg viewBox="0 0 100 100"><ellipse cx="50" cy="80" rx="26" ry="8" fill="#6b8b3a" opacity=".3"/><path d="M30 80 Q50 74 70 80 Q50 86 30 80Z" fill="#a07446"/><path d="M50 80 Q48 50 50 34" stroke="#689932" stroke-width="6" stroke-linecap="round" fill="none"/><path d="M50 48 C25 40 18 18 48 30 C48 42 36 50 50 48 Z" fill="#7ab648"/><path d="M50 48 C75 40 82 18 52 30 C52 42 64 50 50 48 Z" fill="#9dd35a"/><path d="M48 30 Q34 32 26 26" stroke="#bfe07a" stroke-width="2" fill="none" opacity=".8"/></svg>` },
-    { v: 8, name: "Young Plant", bg: "#d6efda", fg: "#3f6b35",
-      svg: `<svg viewBox="0 0 100 100"><ellipse cx="50" cy="82" rx="24" ry="7" fill="#5c7a38" opacity=".3"/><path d="M50 82 V32" stroke="#5b8a2c" stroke-width="6" stroke-linecap="round"/><path d="M50 64 C22 56 16 34 48 46 C48 58 34 66 50 64 Z" fill="#6b9b36"/><path d="M50 52 C78 44 84 22 52 34 C52 46 66 54 50 52 Z" fill="#7ab648"/><path d="M50 40 C28 30 24 10 48 22 C48 32 36 40 50 40 Z" fill="#9dd35a"/><circle cx="50" cy="20" r="4.5" fill="#bfe07a"/></svg>` },
-    { v: 16, name: "Flower", bg: "#f7dde2", fg: "#9c4a64",
-      svg: `<svg viewBox="0 0 100 100"><path d="M50 84 V46" stroke="#5b8a2c" stroke-width="5" stroke-linecap="round"/><path d="M50 70 Q30 64 26 52 Q40 50 50 62Z" fill="#7ab648"/><path d="M50 62 Q70 56 74 44 Q60 42 50 54Z" fill="#9dd35a"/><g><circle cx="50" cy="34" r="13" fill="#f78fb3"/><circle cx="65" cy="44" r="12" fill="#f78fb3"/><circle cx="35" cy="44" r="12" fill="#f78fb3"/><circle cx="40" cy="22" r="12" fill="#f78fb3"/><circle cx="60" cy="22" r="12" fill="#f78fb3"/><circle cx="50" cy="34" r="10" fill="#fce4ec"/><circle cx="50" cy="34" r="7" fill="#f6d743"/></g></svg>` },
-    { v: 32, name: "Bush", bg: "#cfe6b4", fg: "#3f6b28",
-      svg: `<svg viewBox="0 0 100 100"><ellipse cx="50" cy="78" rx="34" ry="10" fill="#4a6b28" opacity=".35"/><circle cx="34" cy="56" r="22" fill="#5b8a2c"/><circle cx="66" cy="56" r="22" fill="#6b9b36"/><circle cx="50" cy="42" r="24" fill="#7ab648"/><circle cx="38" cy="38" r="16" fill="#9dd35a"/><circle cx="60" cy="38" r="14" fill="#bfe07a" opacity=".8"/><circle cx="32" cy="50" r="3.5" fill="#f78fb3"/><circle cx="68" cy="48" r="3.5" fill="#f78fb3"/><circle cx="50" cy="30" r="4" fill="#f6d743"/></svg>` },
-    { v: 64, name: "Sapling", bg: "#c2d9c2", fg: "#3a5c44",
-      svg: `<svg viewBox="0 0 100 100"><path d="M50 86 V48" stroke="#7a5224" stroke-width="8" stroke-linecap="round"/><circle cx="50" cy="36" r="26" fill="#5b8a2c"/><circle cx="34" cy="42" r="18" fill="#6b9b36"/><circle cx="66" cy="42" r="18" fill="#7ab648"/><circle cx="50" cy="24" r="16" fill="#9dd35a"/><circle cx="42" cy="30" r="7" fill="#bfe07a" opacity=".75"/></svg>` },
-    { v: 128, name: "Young Tree", bg: "#a8c9a0", fg: "#2f5230",
-      svg: `<svg viewBox="0 0 100 100"><path d="M50 88 V44" stroke="#6b4520" stroke-width="10" stroke-linecap="round"/><circle cx="50" cy="36" r="30" fill="#4a7a24"/><circle cx="32" cy="42" r="20" fill="#5b8a2c"/><circle cx="68" cy="42" r="20" fill="#6b9b36"/><circle cx="50" cy="22" r="20" fill="#7ab648"/><circle cx="42" cy="28" r="10" fill="#9dd35a" opacity=".7"/></svg>` },
-    { v: 256, name: "Mature Tree", bg: "#8eb07e", fg: "#244a26",
-      svg: `<svg viewBox="0 0 100 100"><path d="M46 90 V46" stroke="#5c3818" stroke-width="12" stroke-linecap="round"/><path d="M54 90 V46" stroke="#7a4e22" stroke-width="7" stroke-linecap="round"/><circle cx="50" cy="36" r="34" fill="#3f6b1e"/><circle cx="30" cy="42" r="22" fill="#4a7a24"/><circle cx="70" cy="42" r="22" fill="#5b8a2c"/><circle cx="50" cy="20" r="22" fill="#6b9b36"/><circle cx="40" cy="28" r="12" fill="#7ab648" opacity=".7"/><circle cx="60" cy="30" r="10" fill="#9dd35a" opacity=".7"/></svg>` },
-    { v: 512, name: "Fruit Tree", bg: "#e6c79a", fg: "#7a4a22",
-      svg: `<svg viewBox="0 0 100 100"><path d="M48 90 V46" stroke="#6b4520" stroke-width="11" stroke-linecap="round"/><circle cx="50" cy="36" r="34" fill="#4a7a24"/><circle cx="30" cy="42" r="22" fill="#5b8a2c"/><circle cx="70" cy="42" r="22" fill="#6b9b36"/><circle cx="50" cy="20" r="22" fill="#7ab648"/><circle cx="34" cy="36" r="5.5" fill="#e84a4a"/><circle cx="64" cy="34" r="5.5" fill="#e84a4a"/><circle cx="52" cy="48" r="5.5" fill="#e84a4a"/><circle cx="42" cy="22" r="5" fill="#e84a4a"/><circle cx="60" cy="22" r="5" fill="#e84a4a"/></svg>` },
-    { v: 1024, name: "Ancient Tree", bg: "#6f8a60", fg: "#1e3a1a",
-      svg: `<svg viewBox="0 0 100 100"><path d="M42 90 Q46 66 50 46" stroke="#4a2d13" stroke-width="14" stroke-linecap="round" fill="none"/><path d="M58 90 Q54 66 50 46" stroke="#6b4520" stroke-width="10" stroke-linecap="round" fill="none"/><circle cx="50" cy="34" r="38" fill="#2d5216"/><circle cx="26" cy="42" r="26" fill="#3f6b1e"/><circle cx="74" cy="42" r="26" fill="#4a7a24"/><circle cx="50" cy="18" r="26" fill="#5b8a2c"/><circle cx="38" cy="28" r="14" fill="#7ab648" opacity=".65"/><circle cx="62" cy="26" r="12" fill="#9dd35a" opacity=".65"/></svg>` },
-    { v: 2048, name: "Golden Tree", bg: "#f2d985", fg: "#6b4d12",
-      svg: `<svg viewBox="0 0 100 100"><path d="M48 90 V44" stroke="#6b4520" stroke-width="11" stroke-linecap="round"/><circle cx="50" cy="36" r="34" fill="#e8b421"/><circle cx="30" cy="42" r="22" fill="#f0c43a"/><circle cx="70" cy="42" r="22" fill="#f4d04e"/><circle cx="50" cy="20" r="22" fill="#f7d86a"/><circle cx="42" cy="28" r="11" fill="#fcea94" opacity=".8"/><circle cx="50" cy="36" r="8" fill="#ffffff" opacity=".7"/></svg>` },
-    { v: 4096, name: "Tree of Life", bg: "#b8e0a0", fg: "#2a5a1a",
-      svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="38" r="42" fill="#f4d76e" opacity=".25"/><path d="M48 90 V44" stroke="#5c3818" stroke-width="11" stroke-linecap="round"/><circle cx="50" cy="36" r="32" fill="#2f8b3a"/><circle cx="32" cy="42" r="20" fill="#3fa84a"/><circle cx="68" cy="42" r="20" fill="#52c056"/><circle cx="50" cy="22" r="20" fill="#f4d04e"/><g stroke="#fcea94" stroke-width="2.5" stroke-linecap="round"><line x1="50" y1="4" x2="50" y2="10"/><line x1="16" y1="38" x2="22" y2="38"/><line x1="78" y1="38" x2="84" y2="38"/></g><circle cx="50" cy="36" r="8" fill="#ffffff"/></svg>` },
-    { v: 8192, name: "Celestial Tree", bg: "#9eb8d6", fg: "#2a3a5e",
-      svg: `<svg viewBox="0 0 100 100"><circle cx="50" cy="38" r="44" fill="#cfe8ff" opacity=".22"/><path d="M48 90 V44" stroke="#4a637d" stroke-width="10" stroke-linecap="round"/><circle cx="50" cy="36" r="32" fill="#8cb9e0"/><circle cx="32" cy="42" r="20" fill="#a4cbef"/><circle cx="68" cy="42" r="20" fill="#bfe0ff"/><circle cx="50" cy="22" r="20" fill="#e0f0ff"/><g fill="#ffffff"><circle cx="38" cy="28" r="2.5"/><circle cx="62" cy="26" r="2.5"/><circle cx="50" cy="42" r="2"/></g><circle cx="50" cy="36" r="8" fill="#ffffff" opacity=".9"/><circle cx="50" cy="36" r="4" fill="#f4d76e" opacity=".8"/></svg>` }
+    { v: 2, name: "Seed", bg: "#efe0c6", fg: "#7a5c34" },
+    { v: 4, name: "Sprout", bg: "#e6f0cf", fg: "#5d7a2e" },
+    { v: 8, name: "Young Plant", bg: "#d6efda", fg: "#3f6b35" },
+    { v: 16, name: "Flower", bg: "#f7dde2", fg: "#9c4a64" },
+    { v: 32, name: "Bush", bg: "#cfe6b4", fg: "#3f6b28" },
+    { v: 64, name: "Sapling", bg: "#c2d9c2", fg: "#3a5c44" },
+    { v: 128, name: "Young Tree", bg: "#a8c9a0", fg: "#2f5230" },
+    { v: 256, name: "Mature Tree", bg: "#8eb07e", fg: "#244a26" },
+    { v: 512, name: "Fruit Tree", bg: "#e6c79a", fg: "#7a4a22" },
+    { v: 1024, name: "Ancient Tree", bg: "#6f8a60", fg: "#1e3a1a" },
+    { v: 2048, name: "Golden Tree", bg: "#f2d985", fg: "#6b4d12" },
+    { v: 4096, name: "Tree of Life", bg: "#b8e0a0", fg: "#2a5a1a" },
+    { v: 8192, name: "Celestial Tree", bg: "#9eb8d6", fg: "#2a3a5e" }
   ];
 
-  // Modern shared tile pack. The original inline-SVG pack is intentionally
-  // retained above as a lossless fallback and is also archived separately.
+  // Tile colours; the artwork itself is the PNG pack in /assets/tiles.
   const TILE_PALETTE = [
     ["#f4ead8", "#70502e"], ["#e8f1d5", "#4c6b2c"], ["#dcebd2", "#385f36"],
     ["#f3e0e2", "#85475c"], ["#d7e7c1", "#3e632e"], ["#b7d09b", "#315b35"],
@@ -70,7 +57,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
   const BY_VALUE = {};
   LEVELS.forEach(l => (BY_VALUE[l.v] = l));
   function levelFor(v) {
-    return BY_VALUE[v] || { v, name: "Bloomed", bg: LEVELS[LEVELS.length - 1].bg, fg: "#fff", svg: LEVELS[LEVELS.length - 1].svg };
+    return BY_VALUE[v] || { v, name: "Bloomed", bg: LEVELS[LEVELS.length - 1].bg, fg: "#fff" };
   }
 
   /* ---------- Environment stages (by highest tile value) ---------- */
@@ -145,6 +132,8 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
   const finalTileEl = document.getElementById("finalTile");
   const finalComboEl = document.getElementById("finalCombo");
   const finalEmblemEl = document.getElementById("finalEmblem");
+  const gameMainEl = document.querySelector("main.game");
+  const announcerEl = document.getElementById("a11yAnnouncer");
   const milestoneArtEl = document.getElementById("milestoneArt");
   const victoryArtEl = document.getElementById("victoryArt");
 
@@ -174,7 +163,9 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
   const confirmRestart = document.getElementById("confirmNewGame");
   let worldEventTimer = null;
   let scoreSubmitted = false;
-  let reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let reduceMotion = reduceMotionQuery.matches;
+  reduceMotionQuery.addEventListener?.("change", event => { reduceMotion = event.matches; });
 
   const STAGE_META = [
     { name: "Winter Beginning", next: 128, line: "A quiet beginning beneath the snow.", emblem: "❄" },
@@ -210,6 +201,8 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
     playerNameEl.placeholder=text.yourName;settingsBtn.setAttribute("aria-label",text.settings);musicVolumeEl.setAttribute("aria-label",text.music);
     performanceNoteEl.textContent=lowPowerDevice?text.balanced:text.fullDetail;
     localizeGameOver(text);
+    settingsCloseBtn.setAttribute("aria-label",text.closeSettings);leaderboardCloseBtn.setAttribute("aria-label",text.closeLeaderboard);
+    if(tiles)Object.values(tiles).forEach(t=>{if(t&&t.el)t.el.setAttribute("aria-label",tileLabel(t.value));});
     if(currentStage)updateEvolutionUI(currentStage);
     try{localStorage.setItem("gardenEvolutionLanguage",currentLanguage);}catch(e){}
   }
@@ -324,6 +317,12 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
   }
 
   /* ---------- Rendering ---------- */
+  function tileLabel(value) {
+    const lvl = levelFor(value);
+    const name = TILE_NAMES[currentLanguage]?.[LEVELS.indexOf(lvl)] || lvl.name;
+    return `${name}, ${value}`;
+  }
+
   function renderTileContent(el, value) {
     const lvl = levelFor(value);
     const sprite = Number.isInteger(lvl.sprite) ? lvl.sprite : LEVELS.length - 1;
@@ -331,7 +330,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
     el.dataset.tier = sprite + 1;
     el.style.background = lvl.bg;
     el.style.setProperty("--fg", lvl.fg);
-    el.setAttribute("aria-label", `${lvl.name}, ${value}`);
+    el.setAttribute("aria-label", tileLabel(value));
     el.classList.toggle("glow", value >= 512);
     el.classList.toggle("golden", value >= 2048);
     const assetValue = LEVELS[sprite]?.v || 8192;
@@ -404,25 +403,46 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
     return createTile(r, c, value, true);
   }
 
-  function linesFor(dir) {
-    const lines = [];
-    if (dir === "left" || dir === "right") {
-      for (let r = 0; r < SIZE; r++) {
-        const cols = dir === "left" ? [0, 1, 2, 3] : [3, 2, 1, 0];
-        lines.push(cols.map(c => ({ r, c })));
-      }
-    } else {
-      for (let c = 0; c < SIZE; c++) {
-        const rows = dir === "up" ? [0, 1, 2, 3] : [3, 2, 1, 0];
-        lines.push(rows.map(r => ({ r, c })));
-      }
-    }
-    return lines;
-  }
-
   function inputBlocked() {
     return menuMode || !restartPanel.hidden || !settingsPanel.hidden || !leaderboardModalEl.hidden || !overlayEl.hidden;
   }
+
+  // Screen readers and Tab must not reach the game behind the start menu or a
+  // modal dialog.
+  function syncInert() {
+    const modalOpen = !settingsPanel.hidden || !leaderboardModalEl.hidden || !lowerScoreConfirmEl.hidden;
+    gameMainEl.inert = !startScreenEl.hidden || modalOpen;
+    startScreenEl.inert = modalOpen;
+  }
+  new MutationObserver(syncInert).observe(document.body, {
+    subtree: true, attributes: true, attributeFilter: ["hidden"]
+  });
+
+  function announce(message) {
+    announcerEl.textContent = "";
+    requestAnimationFrame(() => { announcerEl.textContent = message; });
+  }
+
+  const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  function openDialog() {
+    if (!lowerScoreConfirmEl.hidden) return lowerScoreConfirmEl;
+    if (!leaderboardModalEl.hidden) return leaderboardModalEl;
+    if (!settingsPanel.hidden) return settingsPanel;
+    if (!overlayEl.hidden) return overlayEl;
+    return null;
+  }
+  document.addEventListener("keydown", event => {
+    // The restart confirmation has its own two-button trap.
+    if (event.key !== "Tab" || !restartPanel.hidden) return;
+    const dialog = openDialog();
+    if (!dialog) return;
+    const focusables = [...dialog.querySelectorAll(FOCUSABLE)].filter(el => el.getClientRects().length > 0);
+    const target = nextFocus(focusables, document.activeElement, event.shiftKey);
+    if (target) {
+      event.preventDefault();
+      target.focus();
+    }
+  });
 
   function move(dir) {
     if (inputBlocked()) return;
@@ -431,41 +451,13 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
       queuedDirection = dir;
       return;
     }
-    const lines = linesFor(dir);
-    let moved = false;
-    const slides = [];
-    const merges = [];
+    const plan = planMove(valueGrid(), dir);
+    if (!plan.moved) return;
+    const idAt = ({ r, c }) => grid[r][c];
     const newGrid = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
-
-    lines.forEach(line => {
-      const ids = [];
-      line.forEach(({ r, c }) => { const id = grid[r][c]; if (id != null) ids.push(id); });
-      let write = 0;
-      let i = 0;
-      while (i < ids.length) {
-        const id = ids[i];
-        const next = ids[i + 1];
-        const dest = line[write];
-        if (next && canMergeValues(tiles[id].value, tiles[next].value)) {
-          const newVal = tiles[id].value * 2;
-          merges.push({ survivor: id, absorbed: next, value: newVal, r: dest.r, c: dest.c });
-          slides.push({ id, r: dest.r, c: dest.c });
-          slides.push({ id: next, r: dest.r, c: dest.c });
-          newGrid[dest.r][dest.c] = id;
-          moved = true;
-          i += 2;
-          write++;
-        } else {
-          slides.push({ id, r: dest.r, c: dest.c });
-          if (tiles[id].r !== dest.r || tiles[id].c !== dest.c) moved = true;
-          newGrid[dest.r][dest.c] = id;
-          i++;
-          write++;
-        }
-      }
-    });
-
-    if (!moved) return;
+    const slides = plan.slides.map(slide => ({ id: idAt(slide.from), r: slide.to.r, c: slide.to.c, absorbed: slide.absorbed }));
+    slides.forEach(slide => { if (!slide.absorbed) newGrid[slide.r][slide.c] = slide.id; });
+    const merges = plan.merges.map(m => ({ survivor: idAt(m.survivor), absorbed: idAt(m.absorbed), value: m.value, r: m.to.r, c: m.to.c }));
     busy = true;
     grid = newGrid;
 
@@ -531,16 +523,12 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
     else setTimeout(finalize, SLIDE_MS);
   }
 
+  function valueGrid() {
+    return grid.map(row => row.map(id => (id == null ? 0 : tiles[id].value)));
+  }
+
   function isGameOver() {
-    if (emptyCells().length) return false;
-    for (let r = 0; r < SIZE; r++) {
-      for (let c = 0; c < SIZE; c++) {
-        const v = tiles[grid[r][c]].value;
-        if (c + 1 < SIZE && tiles[grid[r][c + 1]].value === v) return false;
-        if (r + 1 < SIZE && tiles[grid[r + 1][c]].value === v) return false;
-      }
-    }
-    return true;
+    return !hasMoves(valueGrid());
   }
 
   function updateScore() {
@@ -778,6 +766,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
     coolFlow();
     queuedDirection = null;
     leaderboardModalEl.hidden = false;
+    syncInert();
     document.body.style.overflow = "hidden";
     fetchLeaderboard();
     requestAnimationFrame(() => leaderboardCloseBtn.focus());
@@ -786,6 +775,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
   function closeLeaderboard() {
     leaderboardModalEl.hidden = true;
     document.body.style.overflow = "";
+    syncInert();
     const returnTarget = !startScreenEl.hidden ? startLeaderboardBtn : leaderboardBtn;
     returnTarget.focus();
   }
@@ -794,17 +784,19 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
     const copy = LOWER_SCORE_COPY[currentLanguage] || LOWER_SCORE_COPY.en;
     lowerScoreTitleEl.textContent = copy[0];
     lowerScoreMessageEl.textContent = copy[1]
-      .replace("{newScore}", Number(newScore).toLocaleString())
-      .replace("{currentScore}", Number(currentScore).toLocaleString());
+      .replace("{newScore}", Number(newScore).toLocaleString(currentLanguage))
+      .replace("{currentScore}", Number(currentScore).toLocaleString(currentLanguage));
     cancelLowerScoreBtn.textContent = copy[2];
     confirmLowerScoreBtn.textContent = copy[3];
     lowerScoreConfirmEl.hidden = false;
+    syncInert();
     document.body.classList.add("score-confirm-open");
     window.dispatchEvent(new CustomEvent("garden:score-confirm", { detail: { open: true } }));
     confirmLowerScoreBtn.focus();
     return new Promise(resolve => {
       const finish = accepted => {
         lowerScoreConfirmEl.hidden = true;
+        syncInert();
         document.body.classList.remove("score-confirm-open");
         window.dispatchEvent(new CustomEvent("garden:score-confirm", { detail: { open: false } }));
         cancelLowerScoreBtn.removeEventListener("click", cancel);
@@ -868,6 +860,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
         response = await send(true);
         data = await response.json().catch(() => ({}));
       }
+      if (response.status === 429) throw new Error("score_rate_limited");
       if (!response.ok) throw new Error("score_submit_failed");
       scoreSubmitted = true;
       leaderboardCache = null;
@@ -879,7 +872,9 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
     } catch (error) {
       submitScoreBtn.disabled = false;
       submitScoreBtn.textContent = text.submit;
-      scoreSubmitStatusEl.textContent = error.message === "score_submit_failed" ? text.submitError : (error.message || text.submitError);
+      scoreSubmitStatusEl.textContent = error.message === "score_rate_limited" ? text.submitRateLimited
+        : error.message === "score_submit_failed" ? text.submitError
+        : (error.message || text.submitError);
     }
   }
 
@@ -908,7 +903,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
 
   /* ---------- Golden Tree celebration ---------- */
   function celebrate() {
-    showToast("The Sakura Crown has bloomed!");
+    showToast(TRANSLATIONS[currentLanguage].crownBloomed);
     playGolden();
     if (reduceMotion) return;
     boardEl.classList.add("celebrate");
@@ -942,7 +937,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
   }
 
   /* ============================================================
-     AUDIO â€” procedural Web Audio
+     AUDIO — procedural Web Audio
      - Warm, layered merge sound (low body + woody transient + airy poof + tonal accent)
      - Procedural ambient music with stage variations
      - Separate Music / SFX toggles
@@ -1067,16 +1062,16 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
     if (!audioCtx) return;
     const t0 = audioCtx.currentTime;
     const log = Math.log2(v);
-    // Warm low body â€” lower for higher values
+    // Warm low body — lower for higher values
     const bodyFreq = 150 - Math.min(60, log * 5);
     bodySound(bodyFreq, 0.16, 0.32, t0);
-    // Woody transient â€” slightly higher pitch for small merges
+    // Woody transient — slightly higher pitch for small merges
     woodySound(260 + log * 18, 0.09, 0.14, t0);
     // Airy poof
     poofSound(0.12, 0.06, t0);
 
     if (v >= 2048) {
-      // Golden: richer, elegant â€” deep body + warm shimmer + tonal bloom
+      // Golden: richer, elegant — deep body + warm shimmer + tonal bloom
       bodySound(90, 0.28, 0.3, t0);
       accentSound(523.25, 0.5, 0.1, t0);          // C5
       accentSound(659.25, 0.5, 0.08, t0 + 0.05);  // E5
@@ -1090,7 +1085,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
       // Medium: fuller woody impact + gentle tone
       accentSound(330 + log * 14, 0.18, 0.08, t0 + 0.01);
     } else {
-      // Low: small soft pop â€” just body + poof + faint accent
+      // Low: small soft pop — just body + poof + faint accent
       accentSound(440, 0.1, 0.04, t0 + 0.005);
     }
   }
@@ -1114,7 +1109,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
   }
 
   /* ============================================================
-     AMBIENT MUSIC â€” slow procedural pad + occasional pentatonic notes
+     AMBIENT MUSIC — slow procedural pad + occasional pentatonic notes
      The same lightweight system now runs through every gameplay stage.
      Combo energy is deliberately kept out of the bed; its only musical
      response is the separate rising piano accent below.
@@ -1125,7 +1120,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
   let menuMusicRequest = 0;
   const menuMusic = new Audio("/assets/audio/bit-forest-intro.mp3");
   menuMusic.loop = true;
-  menuMusic.preload = "auto";
+  menuMusic.preload = "metadata";
   menuMusic.autoplay = true;
   menuMusic.playsInline = true;
   menuMusic.volume = 0.38 * (musicVolume / 100);
@@ -1362,11 +1357,11 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
   }
 
   /* ============================================================
-     EVOLVING ENVIRONMENT â€” Japanese countryside, 5 stages
+     EVOLVING ENVIRONMENT — Japanese countryside, 5 stages
      SVG layers + CSS crossfades + drifting particles.
      ============================================================ */
   const STAGE_SVG = [
-    // Stage 1 â€” Radical Winter Mountain Overlook (asymmetrical high-altitude summit POV plunging into a deep valley)
+    // Stage 1 — Radical Winter Mountain Overlook (asymmetrical high-altitude summit POV plunging into a deep valley)
     `<defs>
       <linearGradient id="s1sky" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="#7291aa"/>
@@ -1511,7 +1506,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
       </g>
     </g>`,
 
-    // Stage 2 â€” Snowmelt / Early Spring: descended into a Swiss alpine valley.
+    // Stage 2 — Snowmelt / Early Spring: descended into a Swiss alpine valley.
     // Cool pale sky, leftover snow, thawing soil, icy meltwater. Not lush, not floral.
     `<defs>
       <linearGradient id="s2sky" x1="0" y1="0" x2="0" y2="1">
@@ -1755,7 +1750,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
       <path d="M0 8 Q2 -8 1 -18" stroke="#4a6a38" stroke-width="2" fill="none"/>
       <ellipse cx="1" cy="-20" rx="3" ry="4.5" fill="#f4f6f2"/>
     </g>`,
-    // Stage 3 â€” Blooming Spring (life returning, wildflowers across meadows, floral haze)
+    // Stage 3 — Blooming Spring (life returning, wildflowers across meadows, floral haze)
     `<defs>
       <linearGradient id="s3sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#78c9ed"/><stop offset="55%" stop-color="#c9eee1"/><stop offset="100%" stop-color="#f0f6df"/></linearGradient>
       <linearGradient id="s3stream" x1="0" y1="0" x2=".3" y2="1"><stop offset="0%" stop-color="#a5e4df"/><stop offset="100%" stop-color="#559fbd"/></linearGradient>
@@ -1873,7 +1868,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
     <g transform="translate(190 570) scale(1.2)"><g class="env-bird-perch"><path d="M-6 -1 Q-16 -9 -23 -6 L-12 5 Q-8 6 -5 3Z" fill="#48637d"/><ellipse rx="10" ry="7" fill="#627e9b"/><circle cx="8" cy="-6" r="6" fill="#8fa6bd"/><circle cx="10" cy="-8" r="1.5" fill="#17212a"/><path d="M14 -6 l8 3 -8 3Z" fill="#d9a54b"/></g></g>
     <g transform="translate(1225 585) scale(1.2)"><ellipse cx="0" cy="5" rx="19" ry="8" fill="#6f4b31"/><path d="M-16 3 Q0 -9 16 3 M-14 7 Q0 -3 14 7" stroke="#a27a50" stroke-width="3" fill="none"/><g class="env-bird-perch env-bird-late"><path d="M-6 -1 Q-16 -8 -22 -5 L-12 5 Q-8 6 -5 3Z" fill="#7f5049"/><ellipse rx="10" ry="7" fill="#a76d61"/><circle cx="8" cy="-6" r="6" fill="#c99382"/><circle cx="10" cy="-8" r="1.5" fill="#281915"/><path d="M14 -6 l8 3 -8 3Z" fill="#d9a54b"/></g></g>`,
 
-    // Stage 4 â€” lush spring Sakura Garden, bright blue sky, rolling alpine hills & falling petals
+    // Stage 4 — lush spring Sakura Garden, bright blue sky, rolling alpine hills & falling petals
     `<defs>
       <linearGradient id="s4sky" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="#3b9de3"/>
@@ -1995,8 +1990,8 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
       <circle cx="385" cy="180" r="15" fill="#ffffff" opacity="0.7"/>
     </g>`,
 
-    // Stage 5 â€” Night of the completed world: Stage 4 valley after dusk.
-    // Same sakura, river, meadows â€” now moonlit, framed by great trees, fireflies.
+    // Stage 5 — Night of the completed world: Stage 4 valley after dusk.
+    // Same sakura, river, meadows — now moonlit, framed by great trees, fireflies.
     `<defs>
       <linearGradient id="s5sky" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="#0c1028"/>
@@ -2236,11 +2231,12 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
     scheduleWorldEvent();
     if (!menuMode && audioCtx?.state === "running" && musicOn) startMusic();
     if (!immediate) {
+      announce(`${stageKickerEl.textContent}: ${stageNameEl.textContent}`);
       playStageRise(stage);
       showStageTransition(stage, previousStage);
     }
   }
-  window.debugSetEnvironmentStage = setEnvironmentStage;
+  if (["localhost", "127.0.0.1"].includes(location.hostname)) window.debugSetEnvironmentStage = setEnvironmentStage;
 
   const preloadedTileAssets = new Set();
   const TILE_PRELOAD_GROUPS = [
@@ -2466,6 +2462,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
     startScreenEl.classList.add("leaving");
     const finish = () => {
       startScreenEl.hidden = true;
+      syncInert();
       startScreenEl.classList.remove("leaving");
       document.body.classList.remove("start-menu-active");
       boardEl.focus?.();
@@ -2518,6 +2515,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
       settingsPanel.style.top = `${rect.bottom + 9}px`;
     }
     settingsPanel.hidden = !open;
+    syncInert();
     settingsBackdrop.hidden = !open || inGame;
     settingsBtn.setAttribute("aria-expanded", String(open));
     startSettingsBtn.setAttribute("aria-expanded", String(open));
@@ -2569,7 +2567,6 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
   // Conserve battery/GPU time on modest devices and whenever the page is not visible.
   const lowPowerDevice = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
   document.body.classList.toggle("perf-low", Boolean(lowPowerDevice));
-  performanceNoteEl.textContent = lowPowerDevice ? "Balanced mode is active for smoother play." : "Full detail mode is active.";
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) { coolFlow(); queuedDirection = null; }
     document.body.classList.toggle("page-hidden", document.hidden);
@@ -2620,6 +2617,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TRANSLATIONS } from ".
   applyVisualPrefs();
   syncToggles();
   buildGrid();
+  syncInert();
   setEnvironmentStage(1, true);
   newGame(loadSavedGame());
   // Local art direction helper: http://localhost:4173/?stage=2
