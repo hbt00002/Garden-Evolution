@@ -172,7 +172,13 @@
           <span class="leaderboard-kicker" data-i18n="hallOfFame">Garden Hall of Fame</span>
           <h2 id="leaderboardTitle" data-i18n="leaderboard">Leaderboard</h2>
         </header>
-        <div class="leaderboard-list" id="leaderboardList"><p class="leaderboard-message">Loading scores…</p></div>
+        <div class="lb-tabs" role="tablist" aria-label="Leaderboard period">
+          <button class="lb-tab" id="lbTab-all" type="button" role="tab" data-period="all" aria-selected="true" aria-controls="leaderboardList" data-i18n="lbTabAll">All Time</button>
+          <button class="lb-tab" id="lbTab-week" type="button" role="tab" data-period="week" aria-selected="false" tabindex="-1" aria-controls="leaderboardList" data-i18n="lbTabWeek">7 Days</button>
+          <button class="lb-tab" id="lbTab-day" type="button" role="tab" data-period="day" aria-selected="false" tabindex="-1" aria-controls="leaderboardList" data-i18n="lbTabDay">24 Hours</button>
+        </div>
+        <div class="lb-me" id="leaderboardMe" aria-live="polite" hidden></div>
+        <div class="leaderboard-list" id="leaderboardList" role="tabpanel" aria-labelledby="lbTab-all"><p class="leaderboard-message">Loading scores…</p></div>
       </section>
     </div>
 
