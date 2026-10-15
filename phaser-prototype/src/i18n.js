@@ -137,6 +137,22 @@ for (const [language, copy] of Object.entries(EXTRA_COPY)) {
   Object.assign(TRANSLATIONS[language], copy);
 }
 
+const BOARD_COPY = {
+  en: { lbTabAll:"All Time", lbTabWeek:"7 Days", lbTabDay:"24 Hours", lbYourRank:"Your rank", lbYou:"You", lbJoinPrompt:"Finish a game and submit your score to enter the ranking.", lbRetry:"Try again", lbEmptyPeriod:"No scores in this period yet.", nameNotAllowed:"That name is not allowed. Please choose another.", lbOfPlayers:"of {total} players", lbTop:"Top {percent}%" },
+  tr: { lbTabAll:"Tüm Zamanlar", lbTabWeek:"7 Gün", lbTabDay:"24 Saat", lbYourRank:"Sıran", lbYou:"Sen", lbJoinPrompt:"Bir oyunu bitirip skorunu göndererek sıralamaya gir.", lbRetry:"Tekrar dene", lbEmptyPeriod:"Bu dönemde henüz skor yok.", nameNotAllowed:"Bu ad kullanılamaz. Lütfen başka bir ad seç.", lbOfPlayers:"{total} oyuncu içinde", lbTop:"İlk %{percent}" },
+  zh: { lbTabAll:"总榜", lbTabWeek:"7天", lbTabDay:"24小时", lbYourRank:"你的排名", lbYou:"你", lbJoinPrompt:"完成一局并提交分数即可进入排名。", lbRetry:"重试", lbEmptyPeriod:"此时间段暂无分数。", nameNotAllowed:"该名称不可用，请换一个。", lbOfPlayers:"共 {total} 名玩家", lbTop:"前 {percent}%" },
+  ja: { lbTabAll:"全期間", lbTabWeek:"7日間", lbTabDay:"24時間", lbYourRank:"あなたの順位", lbYou:"あなた", lbJoinPrompt:"ゲームを終えてスコアを送信すると順位に載ります。", lbRetry:"再試行", lbEmptyPeriod:"この期間のスコアはまだありません。", nameNotAllowed:"その名前は使えません。別の名前にしてください。", lbOfPlayers:"{total}人中", lbTop:"上位 {percent}%" },
+  ko: { lbTabAll:"전체", lbTabWeek:"7일", lbTabDay:"24시간", lbYourRank:"내 순위", lbYou:"나", lbJoinPrompt:"게임을 끝내고 점수를 제출하면 순위에 오릅니다.", lbRetry:"다시 시도", lbEmptyPeriod:"이 기간에는 아직 점수가 없습니다.", nameNotAllowed:"사용할 수 없는 이름입니다. 다른 이름을 입력해 주세요.", lbOfPlayers:"{total}명 중", lbTop:"상위 {percent}%" },
+  es: { lbTabAll:"Siempre", lbTabWeek:"7 días", lbTabDay:"24 horas", lbYourRank:"Tu puesto", lbYou:"Tú", lbJoinPrompt:"Termina una partida y envía tu puntuación para entrar en la clasificación.", lbRetry:"Reintentar", lbEmptyPeriod:"Aún no hay puntuaciones en este periodo.", nameNotAllowed:"Ese nombre no está permitido. Elige otro.", lbOfPlayers:"de {total} jugadores", lbTop:"Top {percent} %" },
+  pt: { lbTabAll:"Sempre", lbTabWeek:"7 dias", lbTabDay:"24 horas", lbYourRank:"Sua posição", lbYou:"Você", lbJoinPrompt:"Termine uma partida e envie sua pontuação para entrar na classificação.", lbRetry:"Tentar de novo", lbEmptyPeriod:"Ainda não há pontuações neste período.", nameNotAllowed:"Esse nome não é permitido. Escolha outro.", lbOfPlayers:"de {total} jogadores", lbTop:"Top {percent}%" },
+  fr: { lbTabAll:"Tout temps", lbTabWeek:"7 jours", lbTabDay:"24 heures", lbYourRank:"Votre rang", lbYou:"Vous", lbJoinPrompt:"Terminez une partie et envoyez votre score pour entrer au classement.", lbRetry:"Réessayer", lbEmptyPeriod:"Aucun score sur cette période.", nameNotAllowed:"Ce nom n'est pas autorisé. Choisissez-en un autre.", lbOfPlayers:"sur {total} joueurs", lbTop:"Top {percent} %" },
+  de: { lbTabAll:"Gesamt", lbTabWeek:"7 Tage", lbTabDay:"24 Stunden", lbYourRank:"Dein Rang", lbYou:"Du", lbJoinPrompt:"Beende ein Spiel und sende deine Punktzahl, um in die Rangliste zu kommen.", lbRetry:"Erneut versuchen", lbEmptyPeriod:"In diesem Zeitraum gibt es noch keine Punkte.", nameNotAllowed:"Dieser Name ist nicht erlaubt. Bitte wähle einen anderen.", lbOfPlayers:"von {total} Spielern", lbTop:"Top {percent} %" },
+  ru: { lbTabAll:"За всё время", lbTabWeek:"7 дней", lbTabDay:"24 часа", lbYourRank:"Ваше место", lbYou:"Вы", lbJoinPrompt:"Завершите игру и отправьте результат, чтобы попасть в рейтинг.", lbRetry:"Повторить", lbEmptyPeriod:"За этот период пока нет результатов.", nameNotAllowed:"Это имя недопустимо. Выберите другое.", lbOfPlayers:"из {total} игроков", lbTop:"Топ {percent}%" }
+};
+for (const [language, copy] of Object.entries(BOARD_COPY)) {
+  Object.assign(TRANSLATIONS[language], copy);
+}
+
 // Plant names in tile order (2, 4, 8 ... 8192), used for screen-reader labels.
 export const TILE_NAMES = {
   en: ["Seed", "Sprout", "Young Plant", "Flower", "Bush", "Sapling", "Young Tree", "Mature Tree", "Mini Forest", "Ancient Tree", "Sakura Crown", "Tree of Life", "Celestial Tree"],

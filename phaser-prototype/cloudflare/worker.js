@@ -1,4 +1,5 @@
 import { MAX_MOVES, replayGame } from "../src/game-core.js";
+import { isNameAllowed } from "./name-filter.js";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -42,11 +43,46 @@ function json(status, body, extraHeaders = {}) {
   });
 }
 
-function leaderboardCacheKey(request) {
+// The boards a player can look at. "all" is the best score ever per device;
+// the others rank each player's best score within a rolling window.
+const PERIOD_MS = { all: null, week: 7 * 24 * 60 * 60 * 1000, day: 24 * 60 * 60 * 1000 };
+const LEADERBOARD_SIZE = 20;
+// score_log rows are only needed for the longest window.
+const SCORE_LOG_RETENTION_MS = 8 * 24 * 60 * 60 * 1000;
+
+function periodFrom(url) {
+  const period = new URL(url).searchParams.get("period") || "all";
+  return Object.hasOwn(PERIOD_MS, period) ? period : null;
+}
+
+// The query string is ignored for caching except for the board itself, so
+// ?fresh=1 cannot be used to bypass or fill the cache.
+function leaderboardCacheKey(request, period = periodFrom(request.url) || "all") {
   const cacheUrl = new URL(request.url);
-  cacheUrl.search = "";
+  cacheUrl.search = period === "all" ? "" : `?period=${period}`;
   cacheUrl.hash = "";
   return new Request(cacheUrl.toString(), { method: "GET" });
+}
+
+function periodCutoff(period) {
+  return new Date(Date.now() - PERIOD_MS[period]).toISOString();
+}
+
+// Each player's best score inside the window (one row per device).
+const BEST_IN_PERIOD = `
+  best AS (
+    SELECT player_name, score, max_tile, best_combo, reached_stage, created_at, device_id
+    FROM (
+      SELECT *, ROW_NUMBER() OVER (
+        PARTITION BY COALESCE(device_id, 'row-' || id) ORDER BY score DESC, created_at ASC
+      ) AS rn
+      FROM score_log WHERE created_at >= ?
+    )
+    WHERE rn = 1
+  )`;
+
+function isMissingScoreLog(error) {
+  return /no such table:?\s*score_log/i.test(String(error?.message || error));
 }
 
 function cleanName(value) {
@@ -221,23 +257,81 @@ export function isTimingPlausible(maxTile, ageMs) {
 /* ---------- Leaderboard ---------- */
 
 async function handleLeaderboardGet(request, env, ctx) {
+  const period = periodFrom(request.url);
+  if (!period) return json(400, { error: "Unknown leaderboard period." });
   const cache = caches.default;
-  const cacheKey = leaderboardCacheKey(request);
+  const cacheKey = leaderboardCacheKey(request, period);
   const cached = await cache.match(cacheKey);
   if (cached) return cached;
 
-  const result = await env.DB.prepare(`
-    SELECT player_name, score, max_tile, best_combo, combo_rules, reached_stage, created_at
-    FROM leaderboard
-    ORDER BY score DESC, created_at ASC
-    LIMIT 20
-  `).all();
+  let result;
+  try {
+    result = period === "all"
+      ? await env.DB.prepare(`
+          SELECT player_name, score, max_tile, best_combo, combo_rules, reached_stage, created_at
+          FROM leaderboard
+          ORDER BY score DESC, created_at ASC
+          LIMIT ${LEADERBOARD_SIZE}
+        `).all()
+      : await env.DB.prepare(`
+          WITH ${BEST_IN_PERIOD}
+          SELECT player_name, score, max_tile, best_combo, reached_stage, created_at
+          FROM best
+          ORDER BY score DESC, created_at ASC
+          LIMIT ${LEADERBOARD_SIZE}
+        `).bind(periodCutoff(period)).all();
+  } catch (error) {
+    if (isMissingScoreLog(error)) return json(503, { error: "This board is not available yet." });
+    throw error;
+  }
 
-  const response = json(200, { entries: result.results || [] }, {
+  const response = json(200, { period, entries: result.results || [] }, {
     "cache-control": "public, max-age=30"
   });
   ctx.waitUntil(cache.put(cacheKey, response.clone()));
   return response;
+}
+
+// Where one device stands on a board: its own entry and rank (computed with
+// the same ordering as the list, so the rank is the row number) and how many
+// players are ranked. Never cached: it is specific to the device.
+async function handleLeaderboardMe(request, env) {
+  if (!env.DB) return json(503, { error: "Leaderboard database is not configured." });
+  if (request.method !== "GET") return json(405, { error: "Method not allowed." }, { allow: "GET" });
+  const url = new URL(request.url);
+  const period = periodFrom(request.url);
+  const device = url.searchParams.get("device");
+  if (!period) return json(400, { error: "Unknown leaderboard period." });
+  if (!isValidUuid(device)) return json(400, { error: "Invalid device." });
+
+  const ahead = "(SELECT COUNT(*) FROM %T% b WHERE b.score > a.score OR (b.score = a.score AND b.created_at < a.created_at)) + 1";
+  let entry;
+  let total;
+  try {
+    if (period === "all") {
+      entry = await env.DB.prepare(`
+        SELECT player_name, score, max_tile, best_combo, reached_stage, created_at,
+               ${ahead.replace("%T%", "leaderboard")} AS rank
+        FROM leaderboard a WHERE a.device_id = ?
+      `).bind(device).first();
+      total = await env.DB.prepare("SELECT COUNT(*) AS n FROM leaderboard").first();
+    } else {
+      const cutoff = periodCutoff(period);
+      entry = await env.DB.prepare(`
+        WITH ${BEST_IN_PERIOD}
+        SELECT player_name, score, max_tile, best_combo, reached_stage, created_at,
+               ${ahead.replace("%T%", "best")} AS rank
+        FROM best a WHERE a.device_id = ?
+      `).bind(cutoff, device).first();
+      total = await env.DB.prepare(`WITH ${BEST_IN_PERIOD} SELECT COUNT(*) AS n FROM best`).bind(cutoff).first();
+    }
+  } catch (error) {
+    if (isMissingScoreLog(error)) return json(503, { error: "This board is not available yet." });
+    throw error;
+  }
+
+  const { rank, ...rest } = entry || {};
+  return json(200, { period, total: Number(total?.n || 0), rank: entry ? Number(rank) : null, entry: entry ? rest : null });
 }
 
 async function leaderboard(request, env, ctx) {
@@ -286,6 +380,9 @@ async function leaderboard(request, env, ctx) {
   const replaceLowerScore = raw.replaceLowerScore === true;
 
   if (playerName.length < 2) return json(400, { error: "Name must contain at least 2 characters." });
+  if (!isNameAllowed(playerName)) {
+    return json(400, { error: "That name is not allowed.", code: "name_not_allowed" });
+  }
   if (!Number.isSafeInteger(score) || score < 0 || score > SCORE_LIMIT) return json(400, { error: "Invalid score." });
   if (!validPowerOfTwo(maxTile)) return json(400, { error: "Invalid top plant." });
   if (!Number.isSafeInteger(bestCombo) || bestCombo < 0 || bestCombo > 1000) return json(400, { error: "Invalid combo." });
@@ -352,8 +449,8 @@ async function leaderboard(request, env, ctx) {
           best_combo = excluded.best_combo,
           combo_rules = excluded.combo_rules,
           reached_stage = excluded.reached_stage,
-          created_at = excluded.created_at
-        WHERE excluded.score > leaderboard.score OR ? = 1
+          created_at = CASE WHEN excluded.score = leaderboard.score THEN leaderboard.created_at ELSE excluded.created_at END
+        WHERE excluded.score >= leaderboard.score OR ? = 1
       `).bind(playerName, score, maxTile, bestCombo, reachedStage, deviceId, now, comboRules, replaceLowerScore ? 1 : 0)
     );
   } else {
@@ -367,12 +464,25 @@ async function leaderboard(request, env, ctx) {
     );
   }
 
-  await env.DB.batch(statements);
+  // Every accepted run also goes into the log the 24-hour and 7-day boards
+  // are ranked from.
+  const logged = [...statements, env.DB.prepare(`
+    INSERT INTO score_log (device_id, player_name, score, max_tile, best_combo, reached_stage, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).bind(deviceId, playerName, score, maxTile, bestCombo, reachedStage, now)];
+  try {
+    await env.DB.batch(logged);
+  } catch (error) {
+    // Until migration 0004 is applied the period boards do not exist; never
+    // let that stop the all-time board from taking scores.
+    if (!isMissingScoreLog(error)) throw error;
+    await env.DB.batch(statements);
+  }
 
   // A successful write must be visible on the very next leaderboard read.
   // Await deletion instead of using waitUntil so the response cannot win a
   // race against an older 30-second edge-cache entry.
-  await caches.default.delete(leaderboardCacheKey(request));
+  await Promise.all(Object.keys(PERIOD_MS).map(period => caches.default.delete(leaderboardCacheKey(request, period))));
 
   return json(201, { ok: true, playerName });
 }
@@ -384,6 +494,12 @@ async function handleScheduledCleanup(env) {
     env.DB.prepare("DELETE FROM submission_limits WHERE bucket < ?").bind(bucket - 6),
     env.DB.prepare("DELETE FROM used_sessions WHERE used_at < ?").bind(sessionCutoff)
   ]);
+  try {
+    await env.DB.prepare("DELETE FROM score_log WHERE created_at < ?")
+      .bind(new Date(Date.now() - SCORE_LOG_RETENTION_MS).toISOString()).run();
+  } catch (error) {
+    if (!isMissingScoreLog(error)) throw error;
+  }
 }
 
 export default {
@@ -394,6 +510,7 @@ export default {
         return await issueSession(request, env);
       }
       if (url.pathname === "/api/leaderboard") return await leaderboard(request, env, ctx);
+      if (url.pathname === "/api/leaderboard/me") return await handleLeaderboardMe(request, env);
       return env.ASSETS.fetch(request);
     } catch (error) {
       console.error("Leaderboard worker failure", error);

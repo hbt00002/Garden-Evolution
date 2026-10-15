@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import worker, { expectedStage, isTimingPlausible, seedForSession } from "../cloudflare/worker.js";
-import { applyMove, createGame, createRng, nextRandom } from "../src/game-core.js";
+import { applyMove, createGame, createRng, nextRandom, replayGame } from "../src/game-core.js";
 
 const ORIGIN = "https://play.test";
 const SESSION_SECRET = "s".repeat(32);
@@ -309,9 +309,13 @@ test("submit: a missing, malformed or edited record is refused", async () => {
   const session = await signedSession();
   const run = await validScore({ session });
   assert.equal((await submit(env, { ...run, moves: run.moves.slice(0, -1) })).status, 400);
-  // The last move changed, or one more move than the game allows.
+  // The last move changed. Two different last moves can end in the very same
+  // finished game, so the Worker is only required to refuse the edit when the
+  // replay really differs from what is claimed.
   const flipped = run.moves.slice(0, -1) + (run.moves.at(-1) === "L" ? "R" : "L");
-  assert.equal((await submit(env, { ...run, moves: flipped })).status, 400);
+  const altered = replayGame(await seedForSession(SESSION_SECRET, session.sid), flipped);
+  const stillHonest = altered && altered.over && altered.score === run.score && altered.maxTile === run.maxTile && altered.bestCombo === run.bestCombo;
+  if (!stillHonest) assert.equal((await submit(env, { ...run, moves: flipped })).status, 400);
   assert.equal((await submit(env, { ...run, moves: run.moves + "L" })).status, 400);
   // The untouched record still works: nothing above used up the session.
   assert.equal((await submit(env, run)).status, 201);
@@ -575,4 +579,186 @@ test("scheduled cleanup removes stale rate-limit buckets and old sessions only",
 
   assert.deepEqual(sqlite.prepare("SELECT fingerprint FROM submission_limits").all().map(r => r.fingerprint), ["recent"]);
   assert.deepEqual(sqlite.prepare("SELECT sid FROM used_sessions").all().map(r => r.sid), ["new-sid"]);
+});
+
+/* ---------- Period boards, a player's own rank and name rules ---------- */
+
+const insertLog = (env, device, name, score, createdAt, maxTile = 128) =>
+  env.DB.sqlite.prepare(
+    "INSERT INTO score_log (device_id, player_name, score, max_tile, best_combo, reached_stage, created_at) VALUES (?, ?, ?, ?, 3, 2, ?)"
+  ).run(device, name, score, maxTile, createdAt);
+const insertBoardRow = (env, device, name, score, createdAt, maxTile = 128) =>
+  env.DB.sqlite.prepare(
+    "INSERT INTO leaderboard (device_id, player_name, score, max_tile, best_combo, reached_stage, created_at, combo_rules) VALUES (?, ?, ?, ?, 3, 2, ?, 2)"
+  ).run(device, name, score, maxTile, createdAt);
+const ago = ms => new Date(Date.now() - ms).toISOString();
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+const get = async (env, path) => {
+  const response = await call(env, path);
+  return { status: response.status, body: await response.json() };
+};
+
+test("boards: 24 hours and 7 days rank each player's best score inside the window", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const [a, b, c] = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
+  insertLog(env, a, "Ayla", 9000, ago(10 * DAY_MS));   // best ever, but out of both windows
+  insertLog(env, a, "Ayla", 4000, ago(2 * HOUR_MS));   // her best inside the day
+  insertLog(env, a, "Ayla", 3000, ago(5 * HOUR_MS));
+  insertLog(env, b, "Bora", 6000, ago(3 * DAY_MS));    // inside the week only
+  insertLog(env, c, "Cem", 2000, ago(HOUR_MS));
+  insertLog(env, null, "Anon", 1000, ago(HOUR_MS));    // no device id still ranks
+
+  const day = await get(env, "/api/leaderboard?period=day");
+  assert.equal(day.status, 200);
+  assert.equal(day.body.period, "day");
+  assert.deepEqual(day.body.entries.map(e => [e.player_name, e.score]), [["Ayla", 4000], ["Cem", 2000], ["Anon", 1000]]);
+
+  const week = await get(env, "/api/leaderboard?period=week");
+  assert.deepEqual(week.body.entries.map(e => [e.player_name, e.score]), [["Bora", 6000], ["Ayla", 4000], ["Cem", 2000], ["Anon", 1000]]);
+
+  assert.equal((await get(env, "/api/leaderboard?period=year")).status, 400);
+  assert.equal((await get(env, "/api/leaderboard")).body.period, "all");
+});
+
+test("boards: each period is cached on its own and a submission clears all of them", async () => {
+  const cache = installCacheStub();
+  const env = makeEnv();
+  const ctx = makeCtx();
+  for (const period of ["all", "week", "day"]) await call(env, `/api/leaderboard?period=${period}`, { ctx });
+  await ctx.settled();
+  assert.equal(cache.size, 3);
+  await call(env, "/api/leaderboard?period=week&fresh=1", { ctx });
+  await ctx.settled();
+  assert.equal(cache.size, 3, "extra query parameters do not create cache entries");
+
+  assert.equal((await submit(env, await validScore({ playerName: "Fresh" }))).status, 201);
+  assert.equal(cache.size, 0);
+  const day = await get(env, "/api/leaderboard?period=day");
+  assert.equal(day.body.entries[0].player_name, "Fresh");
+});
+
+test("boards: an accepted run is logged for the period boards", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const body = await validScore();
+  assert.equal((await submit(env, body)).status, 201);
+  const [row] = env.DB.sqlite.prepare("SELECT * FROM score_log").all();
+  assert.equal(row.score, body.score);
+  assert.equal(row.device_id, body.deviceId);
+  assert.equal(row.max_tile, body.maxTile);
+});
+
+test("me: reports the device's rank, entry and the number of ranked players", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const mine = crypto.randomUUID();
+  for (let i = 0; i < 30; i++) insertBoardRow(env, crypto.randomUUID(), `P${i}`, 10000 - i * 100, ago(DAY_MS));
+  insertBoardRow(env, mine, "Me", 10000 - 24 * 100 - 50, ago(DAY_MS)); // between P24 and P25 -> rank 26
+
+  const me = await get(env, `/api/leaderboard/me?device=${mine}`);
+  assert.equal(me.status, 200);
+  assert.equal(me.body.rank, 26);
+  assert.equal(me.body.total, 31);
+  assert.equal(me.body.entry.player_name, "Me");
+  assert.ok(!("device_id" in me.body.entry), "the device id is never echoed back");
+
+  const list = (await get(env, "/api/leaderboard")).body.entries;
+  assert.equal(list.length, 20);
+  assert.ok(list.every(e => e.player_name !== "Me"), "rank 26 is outside the top 20");
+});
+
+test("me: ties rank by who got there first, matching the list order", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const [first, second] = [crypto.randomUUID(), crypto.randomUUID()];
+  insertBoardRow(env, first, "Early", 5000, ago(2 * DAY_MS));
+  insertBoardRow(env, second, "Late", 5000, ago(DAY_MS));
+  assert.equal((await get(env, `/api/leaderboard/me?device=${first}`)).body.rank, 1);
+  assert.equal((await get(env, `/api/leaderboard/me?device=${second}`)).body.rank, 2);
+  const list = (await get(env, "/api/leaderboard")).body.entries;
+  assert.deepEqual(list.map(e => e.player_name), ["Early", "Late"]);
+});
+
+test("me: works on the period boards and for a device with no entry", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const [a, b] = [crypto.randomUUID(), crypto.randomUUID()];
+  insertLog(env, a, "Ayla", 4000, ago(2 * HOUR_MS));
+  insertLog(env, b, "Bora", 6000, ago(3 * DAY_MS));
+  const weekA = (await get(env, `/api/leaderboard/me?period=week&device=${a}`)).body;
+  assert.equal(weekA.rank, 2);
+  assert.equal(weekA.total, 2);
+  const dayB = (await get(env, `/api/leaderboard/me?period=day&device=${b}`)).body;
+  assert.equal(dayB.rank, null, "Bora has no run in the last 24 hours");
+  assert.equal(dayB.entry, null);
+  assert.equal(dayB.total, 1);
+  const stranger = (await get(env, `/api/leaderboard/me?device=${crypto.randomUUID()}`)).body;
+  assert.deepEqual([stranger.rank, stranger.entry, stranger.total], [null, null, 0]);
+});
+
+test("me: validates the device and the period, never caches and accepts only GET", async () => {
+  const cache = installCacheStub();
+  const env = makeEnv();
+  assert.equal((await get(env, "/api/leaderboard/me")).status, 400);
+  assert.equal((await get(env, "/api/leaderboard/me?device=nope")).status, 400);
+  assert.equal((await get(env, `/api/leaderboard/me?period=year&device=${crypto.randomUUID()}`)).status, 400);
+  const ok = await call(env, `/api/leaderboard/me?device=${crypto.randomUUID()}`);
+  assert.equal(ok.headers.get("cache-control"), "no-store");
+  assert.equal(cache.size, 0);
+  assert.equal((await call(env, `/api/leaderboard/me?device=${crypto.randomUUID()}`, { method: "POST" })).status, 405);
+  assert.equal((await call(makeEnv({ DB: undefined }), `/api/leaderboard/me?device=${crypto.randomUUID()}`)).status, 503);
+});
+
+test("device: the same score again updates the name but keeps the earlier time", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const deviceId = crypto.randomUUID();
+  const run = await validScore({ deviceId });
+  assert.equal((await submit(env, { ...run, playerName: "Old Name" })).status, 201);
+  const before = rows(env)[0];
+  const sameScore = await validScore({ deviceId });
+  // Make the stored score equal to the new run's, then submit it again.
+  env.DB.sqlite.prepare("UPDATE leaderboard SET score = ? WHERE id = ?").run(sameScore.score, before.id);
+  const stored = rows(env)[0];
+  assert.equal((await submit(env, { ...sameScore, playerName: "New Name" })).status, 201);
+  const after = rows(env)[0];
+  assert.equal(after.player_name, "New Name");
+  assert.equal(after.created_at, stored.created_at, "the tie-break time did not move");
+  assert.equal(rows(env).length, 1);
+});
+
+test("submit: names that are not allowed are refused with a code", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const response = await submit(env, await validScore({ playerName: "Admin" }));
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).code, "name_not_allowed");
+  const rude = await submit(env, await validScore({ playerName: "xX_f.u.c.k_Xx" }));
+  assert.equal(rude.status, 400);
+  assert.equal(rows(env).length, 0);
+  assert.equal((await submit(env, await validScore({ playerName: "山田太郎" }))).status, 201);
+});
+
+test("migration gap: scores are still accepted before score_log exists", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  env.DB.sqlite.exec("DROP TABLE score_log");
+  assert.equal((await submit(env, await validScore())).status, 201);
+  assert.equal(rows(env).length, 1);
+  assert.equal((await get(env, "/api/leaderboard")).status, 200);
+  assert.equal((await get(env, "/api/leaderboard?period=week")).status, 503);
+  assert.equal((await get(env, `/api/leaderboard/me?period=day&device=${crypto.randomUUID()}`)).status, 503);
+});
+
+test("scheduled cleanup trims the score log to the longest window", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  insertLog(env, crypto.randomUUID(), "Old", 100, ago(9 * DAY_MS));
+  insertLog(env, crypto.randomUUID(), "New", 100, ago(6 * DAY_MS));
+  const ctx = makeCtx();
+  await worker.scheduled({}, env, ctx);
+  await ctx.settled();
+  assert.deepEqual(env.DB.sqlite.prepare("SELECT player_name FROM score_log").all().map(r => r.player_name), ["New"]);
 });
