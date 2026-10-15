@@ -2076,3 +2076,16 @@ body.score-confirm-open .env-particle { animation-play-state:paused !important; 
   .lb-plant img { width:26px; height:26px; }
   .leaderboard-player { gap:7px; }
 }
+
+/* Shown when the game's code could not be loaded (see src/main.js). */
+.load-error { position:fixed; inset:0; z-index:200; display:grid; place-items:center; padding:18px; background:rgba(13,24,24,.72); }
+.load-error[hidden] { display:none; }
+.load-error-card {
+  width:min(420px,100%); padding:24px 22px 22px; border:2px solid #d9efb5; border-radius:16px; text-align:center;
+  background:linear-gradient(180deg,#fbf5e8 0%,#efe3c8 100%); color:var(--ink);
+  box-shadow:0 7px 0 #254b27,0 22px 58px rgba(5,14,13,.42),inset 0 2px 0 rgba(255,255,255,.82);
+}
+.load-error-card h2 { margin:0 0 10px; font-family:"Oxanium","Trebuchet MS",sans-serif; font-size:1.4rem; letter-spacing:.02em; }
+.load-error-card p { margin:0 0 18px; font-size:.92rem; font-weight:600; line-height:1.5; color:var(--ink-soft); }
+.load-error-card .btn { min-width:140px; }
+.noscript-note { position:fixed; inset:auto 12px 12px; z-index:300; margin:0; padding:12px 14px; border-radius:10px; background:#f7f1e3; color:#5b4a32; font:600 .9rem/1.4 system-ui,sans-serif; text-align:center; }

@@ -24,6 +24,7 @@
     <meta name="twitter:image" content="https://play.gardenevolution.workers.dev/assets/menu/sakura-garden-menu-bg-day.png">
 </head>
   <body class="start-menu-active">
+    <noscript><p class="noscript-note">Garden Evolution needs JavaScript. Please enable it and reload.</p></noscript>
     <!-- Evolving Japanese countryside environment (behind everything) -->
     <div class="env" id="env" aria-hidden="true">
       <div class="phaser-world" id="phaserWorld"></div>
@@ -134,6 +135,14 @@
       <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
       <div class="sr-only" id="a11yAnnouncer" role="status" aria-live="polite"></div>
     </main>
+
+    <div class="load-error" id="loadError" role="alertdialog" aria-modal="true" aria-labelledby="loadErrorTitle" aria-describedby="loadErrorText" hidden>
+      <div class="load-error-card">
+        <h2 id="loadErrorTitle"></h2>
+        <p id="loadErrorText"></p>
+        <button class="btn" id="loadErrorRetry" type="button"></button>
+      </div>
+    </div>
 
     <div class="world-event-layer" id="worldEventLayer" aria-hidden="true"></div>
 
