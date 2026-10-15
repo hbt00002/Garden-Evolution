@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import worker, { expectedStage, isTimingPlausible, seedForSession } from "../cloudflare/worker.js";
-import { applyMove, createGame, createRng, nextRandom } from "../src/game-core.js";
+import { applyMove, createGame, createRng, nextRandom, replayGame } from "../src/game-core.js";
 
 const ORIGIN = "https://play.test";
 const SESSION_SECRET = "s".repeat(32);
@@ -309,9 +309,13 @@ test("submit: a missing, malformed or edited record is refused", async () => {
   const session = await signedSession();
   const run = await validScore({ session });
   assert.equal((await submit(env, { ...run, moves: run.moves.slice(0, -1) })).status, 400);
-  // The last move changed, or one more move than the game allows.
+  // The last move changed. Two different last moves can end in the very same
+  // finished game, so the Worker is only required to refuse the edit when the
+  // replay really differs from what is claimed.
   const flipped = run.moves.slice(0, -1) + (run.moves.at(-1) === "L" ? "R" : "L");
-  assert.equal((await submit(env, { ...run, moves: flipped })).status, 400);
+  const altered = replayGame(await seedForSession(SESSION_SECRET, session.sid), flipped);
+  const stillHonest = altered && altered.over && altered.score === run.score && altered.maxTile === run.maxTile && altered.bestCombo === run.bestCombo;
+  if (!stillHonest) assert.equal((await submit(env, { ...run, moves: flipped })).status, 400);
   assert.equal((await submit(env, { ...run, moves: run.moves + "L" })).status, 400);
   // The untouched record still works: nothing above used up the session.
   assert.equal((await submit(env, run)).status, 201);
