@@ -3,6 +3,7 @@
 // falls back to the built-in SVG scenery that script.js already contains.
 
 import "./fonts.js";
+import { loadErrorCopy } from "./load-error.js";
 
 const webglAvailable = (() => {
   try {
@@ -27,4 +28,20 @@ if (webglAvailable) {
   }
 }
 
-await import("../script.js");
+try {
+  await import("../script.js");
+} catch (error) {
+  // Without the game's code every button is dead. Say why instead of leaving a
+  // silent, frozen page: an ad blocker swallowing a file is the usual reason.
+  console.error("The game could not be loaded.", error);
+  let stored = null;
+  try { stored = localStorage.getItem("gardenEvolutionLanguage"); } catch (e) { /* storage blocked */ }
+  const [title, text, label] = loadErrorCopy(stored, navigator.language);
+  document.getElementById("loadErrorTitle").textContent = title;
+  document.getElementById("loadErrorText").textContent = text;
+  const retry = document.getElementById("loadErrorRetry");
+  retry.textContent = label;
+  retry.addEventListener("click", () => location.reload());
+  document.getElementById("loadError").hidden = false;
+  retry.focus();
+}

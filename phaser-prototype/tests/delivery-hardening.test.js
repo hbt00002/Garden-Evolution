@@ -58,7 +58,9 @@ test("the game starts even when the Phaser scenery cannot", async () => {
   // imported unconditionally afterwards.
   assert.ok(main.includes('getContext("webgl2")'));
   assert.match(main, /try \{\s+await import\("\.\/engine\.js"\)/);
-  assert.match(main, /\}\s+await import\("\.\.\/script\.js"\);\s*$/);
+  // The game is imported unconditionally afterwards (and a failure to load it
+  // is reported to the visitor, see load-error.test.js).
+  assert.match(main, /\}\s+try \{\s+await import\("\.\.\/script\.js"\);/);
   const engine = await readFile(projectFile("src/engine.js"), "utf8");
   assert.ok(!engine.includes('import("../script.js")'));
 });
