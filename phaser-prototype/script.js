@@ -2455,6 +2455,11 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
       showStageTransition(stage, previousStage);
     }
   }
+  // If the Phaser scenery fails to start after the game, fall back to the SVG one.
+  window.addEventListener("garden:scenery-failed", () => {
+    renderStageSVG(currentStage || 1);
+    spawnEnvParticles(currentStage || 1);
+  });
   if (["localhost", "127.0.0.1"].includes(location.hostname)) window.debugSetEnvironmentStage = setEnvironmentStage;
 
   const preloadedTileAssets = new Set();

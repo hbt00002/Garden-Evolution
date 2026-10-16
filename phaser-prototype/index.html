@@ -15,6 +15,9 @@
     <meta property="og:description" content="Grow a peaceful garden through five evolving worlds." />
     <meta property="og:url" content="https://play.gardenevolution.workers.dev/" />
     <title>Garden Evolution</title>
+    <!-- The menu backdrop is the largest thing the first screen shows: start it
+         now instead of waiting for the stylesheet to reveal it. -->
+    <link rel="preload" as="image" type="image/webp" href="/assets/menu/sakura-garden-menu-bg-day.webp" />
     <link rel="stylesheet" href="style.css" />
     <meta property="og:image" content="https://play.gardenevolution.workers.dev/assets/menu/sakura-garden-menu-bg-day.png">
     <meta property="og:image:alt" content="Garden Evolution pixel-art garden landscape">
@@ -101,10 +104,10 @@
           <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="finalTitle" aria-describedby="finalExplanation" hidden>
             <div class="overlay-card">
               <div class="milestone-art" id="milestoneArt" aria-hidden="true">
-                <img src="/assets/tiles/v3/tile-2048.png" alt="" draggable="false" />
+                <img src="/assets/tiles/v3/tile-2048.png" alt="" draggable="false" loading="lazy" decoding="async" />
               </div>
               <div class="victory-art" id="victoryArt" aria-hidden="true">
-                <img src="/assets/tiles/v3/tile-8192-victory-green.png" alt="" draggable="false" />
+                <img src="/assets/tiles/v3/tile-8192-victory-green.png" alt="" draggable="false" loading="lazy" decoding="async" />
               </div>
               <div class="overlay-emblem" id="finalEmblem">❄</div>
               <span class="overlay-world" id="finalWorld">Winter Beginning</span>

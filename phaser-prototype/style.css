@@ -54,7 +54,7 @@ html, body {
   position: absolute;
   inset: -8px;
   z-index: -3;
-  background: #8bc7e8 url("/assets/menu/sakura-garden-menu-bg-day.png") center / cover no-repeat;
+  background: #8bc7e8 url("/assets/menu/sakura-garden-menu-bg-day.webp") center / cover no-repeat;
   filter: saturate(.86) contrast(1.04);
   image-rendering: pixelated;
 }

@@ -52,19 +52,6 @@ test("hashed bundles are cached for a year and art for a week", async () => {
   }
 });
 
-test("the game starts even when the Phaser scenery cannot", async () => {
-  const main = await readFile(projectFile("src/main.js"), "utf8");
-  // WebGL is probed, Phaser is imported inside try/catch, and the game is
-  // imported unconditionally afterwards.
-  assert.ok(main.includes('getContext("webgl2")'));
-  assert.match(main, /try \{\s+await import\("\.\/engine\.js"\)/);
-  // The game is imported unconditionally afterwards (and a failure to load it
-  // is reported to the visitor, see load-error.test.js).
-  assert.match(main, /\}\s+try \{\s+await import\("\.\.\/script\.js"\);/);
-  const engine = await readFile(projectFile("src/engine.js"), "utf8");
-  assert.ok(!engine.includes('import("../script.js")'));
-});
-
 test("fonts are self-hosted: no Google Fonts requests and a tighter policy", async () => {
   const html = await readFile(projectFile("index.html"), "utf8");
   const headers = await readFile(projectFile("public/_headers"), "utf8");

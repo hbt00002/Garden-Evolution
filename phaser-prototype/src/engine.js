@@ -205,6 +205,9 @@ const warmWorldScene = stage => {
   else setTimeout(prepare, 700);
 };
 window.addEventListener("garden:game-started", () => warmWorldScene(2), { once: true });
+// The game now starts before this module has loaded, so on a slow connection
+// the player may already be playing: prepare the next world right away.
+if (!document.body.classList.contains("start-menu-active")) warmWorldScene(2);
 
 const releaseOtherScenes = activeKey => {
   SCENE_KEYS.forEach(key => {
@@ -314,10 +317,10 @@ window.addEventListener("garden:combo", (event) => {
   game.scene.getScene(key)?.setHype(event.detail?.combo || 0);
 });
 
-// The game (script.js) is loaded right after this module. The initial
-// URL-selected stage can be set before Phaser finishes booting, so synchronize
-// again once both systems are ready instead of waiting for a later stage
-// mutation.
+// The game (script.js) is loaded alongside this module, in either order, and
+// may already have set the stage or the preferences before the observers and
+// listeners above existed. Synchronize once more now that both systems are
+// ready instead of waiting for a later change.
 game.events.once("ready", syncScene);
 requestAnimationFrame(syncScene);
 setTimeout(syncScene, 500);
