@@ -43,7 +43,7 @@ test("bundle names carry no word an ad blocker's filter list would match", () =>
 
 test("a failed game import shows the message and a reload button", async () => {
   const main = await readFile(projectFile("src/main.js"), "utf8");
-  assert.match(main, /try \{\s+await import\("\.\.\/script\.js"\);\s+\} catch \(error\) \{/);
+  assert.match(main, /try \{\s+await gameLoad;[\s\S]*?\} catch \(error\) \{/);
   assert.ok(main.includes('document.getElementById("loadError").hidden = false'));
   assert.ok(main.includes("location.reload()"));
   const html = await readFile(projectFile("index.html"), "utf8");

@@ -100,6 +100,13 @@ it does not deploy.
   (`app`, `game`, `scenery`, `vendor`, see `vite.config.js`), and if the game's
   code still fails to load the visitor gets an explanation instead of a frozen
   page.
+- **Start-up order.** The game comes first and never waits for Phaser. `src/main.js`
+  starts both downloads at once, awaits the game, and only then the scenery;
+  `vite.config.js` declares the game (normal priority) and the scenery (low
+  priority) as `modulepreload` links in the page so neither waits for the
+  entry script. The menu backdrop is a WebP preloaded by the page (its PNG
+  master stays for link previews; rebuild it with `tools/make-menu-webp.mjs`).
+  `performance.getEntriesByType("mark")` shows `game-ready` and `scenery-ready`.
 - **Saved games** are the seed and the moves, replayed on load. Changing the
   rules or the random stream changes what old saves replay to, so bump
   `SAVE_VERSION` in `src/game-save.js` when you do.
