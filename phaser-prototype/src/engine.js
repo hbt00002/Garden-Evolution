@@ -100,6 +100,20 @@ const applyEnginePreferences = ({ motionOn = true, particlesOn = true } = {}) =>
 };
 window.addEventListener("garden:preferences", event => applyEnginePreferences(event.detail));
 
+// The world was resized (looking around the garden): if the living background
+// is switched off the loops are asleep, so wake them just long enough to paint.
+window.addEventListener("garden:world-resized", () => {
+  if (motionAllowed) return;
+  game.loop.wake();
+  boardGame.loop.wake();
+  setTimeout(() => {
+    if (!motionAllowed) {
+      game.loop.sleep();
+      boardGame.loop.sleep();
+    }
+  }, 350);
+});
+
 window.addEventListener("garden:score-confirm", event => {
   if (event.detail?.open) {
     game.loop.sleep();

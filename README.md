@@ -110,6 +110,44 @@ npm run cf:deploy             # 2. then build and deploy the Worker and the asse
 CI (GitHub Actions) runs the tests and the build on every push and pull request;
 it does not deploy.
 
+## Phones and the story in the background
+
+The worlds are 16:9 paintings behind the board. On a phone held upright only a
+strip of one is visible, and the board covers the middle of that, so there are
+two ways to see the rest:
+
+- **View garden** (the picture button next to the gear): the game steps aside
+  and the painting can be dragged (or moved with the arrow keys) from edge to
+  edge. Escape or "Back to game" returns.
+- **World reveal**: when a new world unlocks, the game steps aside for a few
+  seconds and shows the world with its name and a line of story; a tap skips it.
+  Players can turn it off in Settings. It runs a calmer, motionless version when
+  reduced motion is on.
+
+Held sideways the board sits in the middle with the world on both sides, as on a
+desktop. The page extends under notches and keeps clear of them.
+
+Both features are self-contained: `src/world-view.js` (state and motion),
+`src/pan.js` (the maths), one clearly marked block at the end of `style.css`, and
+a few lines in `script.js`.
+
+## Switching a feature off, and rolling back
+
+Newer features have switches (`src/features.js`), from the smallest step to the
+largest:
+
+- **One visitor:** add `?features=-gardenView,-worldReveal` to the address (the
+  choice can also be saved in that browser's `localStorage` under
+  `gardenEvolutionFeatures`).
+- **Everyone:** set the feature to `false` in `DEFAULTS` in `src/features.js` and
+  deploy. The button and the setting disappear and the controls keep their
+  previous layout.
+- **A bad deploy:** `npx wrangler rollback` (in `phaser-prototype`) puts the
+  previous version of the Worker and its assets back at once. It does not touch
+  the database.
+- **The code:** each change lands as its own small commit, so `git revert` of one
+  leaves the others alone.
+
 ## Good to know
 
 - **Ad blockers.** A filter list can swallow a bundle whose name looks like an

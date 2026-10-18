@@ -7,6 +7,8 @@ import { nextFocus } from "./src/focus-trap.js";
 import { BOARD_SIZE, hasMoves, planMove } from "./src/board.js";
 import { DIRECTION_CHARS, createRng, drawSpawn } from "./src/game-core.js";
 import { PERIODS, buildRows, plantIndex, topPercent } from "./src/leaderboard-view.js";
+import { currentFeatures } from "./src/features.js";
+import { createWorldView } from "./src/world-view.js";
 import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIONS } from "./src/i18n.js";
 
 /* ============================================================
@@ -137,6 +139,11 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   const finalComboEl = document.getElementById("finalCombo");
   const finalEmblemEl = document.getElementById("finalEmblem");
   const unrankedNoteEl = document.getElementById("unrankedNote");
+  const viewBtn = document.getElementById("viewBtn");
+  const gardenViewEl = document.getElementById("gardenView");
+  const worldRevealEl = document.getElementById("worldReveal");
+  const revealToggle = document.getElementById("revealToggle");
+  const revealRow = document.getElementById("revealRow");
   const gameMainEl = document.querySelector("main.game");
   const announcerEl = document.getElementById("a11yAnnouncer");
   const milestoneArtEl = document.getElementById("milestoneArt");
@@ -209,7 +216,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     document.documentElement.lang=currentLanguage;languageSelect.value=currentLanguage;
     document.querySelectorAll("[data-i18n]").forEach(el=>{const value=text[el.dataset.i18n];if(value)el.textContent=value;});
     startPlayBtn.textContent=PLAY_LABELS[currentLanguage]||PLAY_LABELS.en;
-    playerNameEl.placeholder=text.yourName;settingsBtn.setAttribute("aria-label",text.settings);musicVolumeEl.setAttribute("aria-label",text.music);
+    playerNameEl.placeholder=text.yourName;settingsBtn.setAttribute("aria-label",text.settings);viewBtn.setAttribute("aria-label",text.viewGarden);viewBtn.title=text.viewGarden;musicVolumeEl.setAttribute("aria-label",text.music);
     performanceNoteEl.textContent=lowPowerDevice?text.balanced:text.fullDetail;
     localizeGameOver(text);
     settingsCloseBtn.setAttribute("aria-label",text.closeSettings);leaderboardCloseBtn.setAttribute("aria-label",text.closeLeaderboard);
@@ -280,6 +287,11 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   let motionOn = loadPref("gardenEvolutionMotion", true);
   let particlesOn = loadPref("gardenEvolutionParticles", true);
   let contrastOn = loadPref("gardenEvolutionContrast", false);
+  let revealOn = loadPref("gardenEvolutionReveal", true);
+  // Newer, self-contained features can be switched off (src/features.js).
+  const features = currentFeatures();
+  let worldView = null;
+  let pendingReveal = 0;
 
   /* ---------- Layout ----------
      Single source of truth: CSS provides --gap and the board is square with
@@ -404,14 +416,14 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   }
 
   function inputBlocked() {
-    return menuMode || runPending || !restartPanel.hidden || !settingsPanel.hidden || !leaderboardModalEl.hidden || !overlayEl.hidden;
+    return menuMode || runPending || Boolean(worldView?.active) || !restartPanel.hidden || !settingsPanel.hidden || !leaderboardModalEl.hidden || !overlayEl.hidden;
   }
 
   // Screen readers and Tab must not reach the game behind the start menu or a
   // modal dialog.
   function syncInert() {
     const modalOpen = !settingsPanel.hidden || !leaderboardModalEl.hidden || !lowerScoreConfirmEl.hidden;
-    gameMainEl.inert = !startScreenEl.hidden || modalOpen;
+    gameMainEl.inert = !startScreenEl.hidden || modalOpen || Boolean(worldView?.active);
     startScreenEl.inert = modalOpen;
   }
   new MutationObserver(syncInert).observe(document.body, {
@@ -2453,7 +2465,31 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
       announce(`${stageKickerEl.textContent}: ${stageNameEl.textContent}`);
       playStageRise(stage);
       showStageTransition(stage, previousStage);
+      if (previousStage && stage > previousStage) scheduleWorldReveal(stage);
     }
+  }
+
+  // The showcase waits for the merge to settle, and for anything that is in the
+  // way (an ending card, a dialog) to be dealt with.
+  function scheduleWorldReveal(stage) {
+    if (!features.worldReveal || !revealOn) return;
+    const generation = gameGeneration;
+    setTimeout(() => {
+      if (generation !== gameGeneration) return;
+      if (!overlayEl.hidden) { pendingReveal = stage; return; }
+      showWorldReveal(stage);
+    }, 650);
+  }
+
+  function showWorldReveal(stage) {
+    if (!worldView || worldView.active || menuMode || document.hidden) return;
+    if (!restartPanel.hidden || !settingsPanel.hidden || !leaderboardModalEl.hidden || !overlayEl.hidden) return;
+    const meta = stageMeta(stage);
+    worldView.showReveal(stage, {
+      kicker: stageKickerEl.textContent,
+      name: stageNameEl.textContent,
+      line: meta.line
+    });
   }
   // If the Phaser scenery fails to start after the game, fall back to the SVG one.
   window.addEventListener("garden:scenery-failed", () => {
@@ -2563,6 +2599,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     maxValueReached = saved ? saved.maxValueReached : 0;
     bestCombo = saved ? saved.bestCombo : 0;
     scoreSubmitted = false;
+    pendingReveal = 0;
     resetCombo();
     if (saved) bloomFlow.restore(saved.streak, saved.bestCombo);
     runSeed = saved ? saved.seed : null;
@@ -2677,6 +2714,12 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   continueMilestoneBtn.addEventListener("click", () => {
     hideGameOver();
     boardEl.focus?.();
+    // The world that unlocked together with the milestone gets its showcase now.
+    if (pendingReveal) {
+      const stage = pendingReveal;
+      pendingReveal = 0;
+      setTimeout(() => showWorldReveal(stage), 450);
+    }
   });
   startPlayBtn.addEventListener("click", () => {
     ensureAudio();
@@ -2729,6 +2772,8 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     particlesToggle.classList.toggle("off", !particlesOn);
     contrastToggle.setAttribute("aria-checked", String(contrastOn));
     contrastToggle.classList.toggle("off", !contrastOn);
+    revealToggle.setAttribute("aria-checked", String(revealOn));
+    revealToggle.classList.toggle("off", !revealOn);
   }
   function applyVisualPrefs() {
     document.body.classList.toggle("motion-off", !motionOn);
@@ -2804,6 +2849,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   motionToggle.addEventListener("click", () => { motionOn = !motionOn; savePref("gardenEvolutionMotion", motionOn); applyVisualPrefs(); syncToggles(); });
   particlesToggle.addEventListener("click", () => { particlesOn = !particlesOn; savePref("gardenEvolutionParticles", particlesOn); applyVisualPrefs(); syncToggles(); });
   contrastToggle.addEventListener("click", () => { contrastOn = !contrastOn; savePref("gardenEvolutionContrast", contrastOn); applyVisualPrefs(); syncToggles(); });
+  revealToggle.addEventListener("click", () => { revealOn = !revealOn; savePref("gardenEvolutionReveal", revealOn); syncToggles(); });
   languageSelect.addEventListener("change", () => applyLanguage(languageSelect.value));
 
   // Resize handling
@@ -2866,6 +2912,31 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   applyVisualPrefs();
   syncToggles();
   buildGrid();
+  // Look around the world instead of playing.
+  viewBtn.hidden = !features.gardenView;
+  revealRow.hidden = !features.worldReveal;
+  document.body.classList.toggle("no-garden-view", !features.gardenView);
+  worldView = createWorldView({
+    env: envEl,
+    world: document.getElementById("phaserWorld"),
+    view: gardenViewEl,
+    reveal: worldRevealEl,
+    getStage: () => currentStage || 1,
+    getMotion: () => ({ reduced: reduceMotion || !motionOn }),
+    canPan: () => Boolean(window.gardenEngine),
+    announce,
+    text: key => TRANSLATIONS[currentLanguage][key],
+    onChange: active => {
+      if (active) { queuedDirection = null; coolFlow(); }
+      syncInert();
+    }
+  });
+  viewBtn.addEventListener("click", () => {
+    if (inputBlocked()) return;
+    document.getElementById("gvKicker").textContent = stageKickerEl.textContent;
+    document.getElementById("gvName").textContent = stageNameEl.textContent;
+    worldView.enterView();
+  });
   syncInert();
   setEnvironmentStage(1, true);
   newGame(loadSavedGame());

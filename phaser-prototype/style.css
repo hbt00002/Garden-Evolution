@@ -1674,7 +1674,7 @@ body.score-confirm-open .env-particle { animation-play-state:paused !important; 
 .score-box { flex:0 0 72px; width:72px; min-width:72px; height:50px; padding:6px 8px; overflow:hidden; justify-content:center; }
 .score-label { width:100%; overflow:hidden; text-align:center; text-overflow:ellipsis; white-space:nowrap; }
 
-.controls { display:grid; grid-template-columns:42px 156px 116px; justify-content:space-between; width:100%; }
+.controls { display:grid; grid-template-columns:42px 42px minmax(0,1fr) 116px; gap:10px; width:100%; }
 .controls .btn { width:100%; min-width:0; height:48px; margin:0; padding-block:6px; position:relative; isolation:isolate; overflow:hidden; display:grid; place-items:center; border:2px solid rgba(255,255,255,.76); border-radius:4px; clip-path:polygon(6px 0,calc(100% - 6px) 0,calc(100% - 6px) 2px,100% 2px,100% calc(100% - 6px),calc(100% - 2px) calc(100% - 6px),calc(100% - 2px) 100%,6px 100%,6px calc(100% - 2px),0 calc(100% - 2px),0 6px,2px 6px,2px 2px,6px 2px); color:#fffaf0; font-weight:800; line-height:1.05; letter-spacing:.045em; text-transform:uppercase; text-shadow:0 2px 0 rgba(37,18,48,.58); transition:transform .18s cubic-bezier(.2,1.6,.3,1),filter .18s ease,box-shadow .18s ease; }
 .controls .btn::before { content:""; position:absolute; z-index:-1; inset:2px 3px auto; height:38%; background:linear-gradient(180deg,rgba(255,255,255,.32),rgba(255,255,255,0)); clip-path:polygon(3px 0,calc(100% - 3px) 0,100% 100%,0 100%); pointer-events:none; }
 .controls .btn::after { content:""; position:absolute; top:-70%; left:-30%; width:24%; height:240%; background:rgba(255,255,255,.34); transform:rotate(24deg); opacity:0; pointer-events:none; }
@@ -1696,7 +1696,7 @@ body.score-confirm-open .env-particle { animation-play-state:paused !important; 
   .brand .hint { font-size:.68rem; }
   .scores { flex-basis:126px; width:126px; }
   .score-box { flex-basis:59px; width:59px; min-width:59px; height:46px; }
-  .controls { grid-template-columns:38px minmax(116px,1fr) minmax(94px,108px); gap:7px; }
+  .controls { grid-template-columns:38px 38px minmax(96px,1fr) minmax(90px,108px); gap:7px; }
   .controls .btn { height:44px; padding-inline:7px; font-size:.7rem; letter-spacing:.02em; }
   .language-select { max-width:104px; }
 }
@@ -1717,31 +1717,36 @@ body.score-confirm-open .env-particle { animation-play-state:paused !important; 
 }
 
 /* Stage-reactive arcade palettes. Geometry stays fixed; the world recolors it. */
-#env[data-stage="1"] ~ .game {
+#env[data-stage="1"] ~ .game,
+#env[data-stage="1"] ~ .world-ui {
   --arc-settings-a:#dff7ff; --arc-settings-b:#76bcd8; --arc-settings-edge:#ffffff; --arc-settings-shadow:#326783;
   --arc-leader-a:#4595d0; --arc-leader-b:#205b9c; --arc-leader-edge:#d7f5ff; --arc-leader-shadow:#12396b;
   --arc-new-a:#243f79; --arc-new-b:#142653; --arc-new-edge:#a9d8f3; --arc-new-shadow:#08142f;
   --arc-gear:#183d72;
 }
-#env[data-stage="2"] ~ .game {
+#env[data-stage="2"] ~ .game,
+#env[data-stage="2"] ~ .world-ui {
   --arc-settings-a:#55c7cf; --arc-settings-b:#25899b; --arc-settings-edge:#d4fbf3; --arc-settings-shadow:#145665;
   --arc-leader-a:#70ad55; --arc-leader-b:#3e783a; --arc-leader-edge:#d9efb5; --arc-leader-shadow:#254b27;
   --arc-new-a:#a7774d; --arc-new-b:#70472f; --arc-new-edge:#ecd2a5; --arc-new-shadow:#44291e;
   --arc-gear:#f3e5b7;
 }
-#env[data-stage="3"] ~ .game {
+#env[data-stage="3"] ~ .game,
+#env[data-stage="3"] ~ .world-ui {
   --arc-settings-a:#f5d766; --arc-settings-b:#d39b37; --arc-settings-edge:#fff5bd; --arc-settings-shadow:#81551d;
   --arc-leader-a:#9ccc69; --arc-leader-b:#60974a; --arc-leader-edge:#efffc6; --arc-leader-shadow:#3c652f;
   --arc-new-a:#c99158; --arc-new-b:#8d5d37; --arc-new-edge:#f5d9a9; --arc-new-shadow:#573721;
   --arc-gear:#6f461e;
 }
-#env[data-stage="4"] ~ .game {
+#env[data-stage="4"] ~ .game,
+#env[data-stage="4"] ~ .world-ui {
   --arc-settings-a:#f4a8c8; --arc-settings-b:#d9679d; --arc-settings-edge:#ffe2ef; --arc-settings-shadow:#8d3767;
   --arc-leader-a:#64c7e8; --arc-leader-b:#318fbe; --arc-leader-edge:#dcf8ff; --arc-leader-shadow:#1b5c83;
   --arc-new-a:#378fd5; --arc-new-b:#2768ad; --arc-new-edge:#cceeff; --arc-new-shadow:#153f78;
   --arc-gear:#fff0b2;
 }
-#env[data-stage="5"] ~ .game {
+#env[data-stage="5"] ~ .game,
+#env[data-stage="5"] ~ .world-ui {
   --arc-settings-a:#7655a5; --arc-settings-b:#493574; --arc-settings-edge:#d9c8ff; --arc-settings-shadow:#241942;
   --arc-leader-a:#283f78; --arc-leader-b:#152858; --arc-leader-edge:#afcdf5; --arc-leader-shadow:#09142f;
   --arc-new-a:#e8d891; --arc-new-b:#aa8d48; --arc-new-edge:#fff7c9; --arc-new-shadow:#665126;
@@ -2164,7 +2169,7 @@ body {
   .scores { grid-area: scores; justify-self: end; align-self: start; }
   .evolution { grid-area: world; align-self: end; }
   .board-wrap { grid-area: board; align-self: center; }
-  .controls {
+  .controls, body.no-garden-view .controls {
     grid-area: controls;
     align-self: end;
     width: 100%;
@@ -2222,3 +2227,144 @@ body {
   .scores { flex-basis: 118px; width: 118px; gap: 6px; }
   .controls .btn { height: 36px; font-size: .64rem; }
 }
+
+/* ============================================================
+   WORLD VIEW: "View garden" and the showcase when a world unlocks
+   One block at the end of the file; remove it (and the markup it styles) to
+   take the feature out without touching the rest of the design.
+   ============================================================ */
+
+/* The world widened to the painting's own proportions so it can slide (see
+   src/world-view.js). Same scale as before, so nothing changes size. */
+.env.wide .phaser-world { right: auto; width: var(--world-w); will-change: transform; }
+
+/* While looking at the world the game steps aside. */
+.game { transition: opacity .38s ease, transform .38s ease; }
+body.world-focus .game {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity .38s ease, transform .38s ease, visibility 0s linear .38s;
+}
+
+/* The new button sits next to the gear, in the same family. */
+.view-btn .view-ico { width: 24px; height: 24px; display: block; color: var(--arc-gear, #fff3a6); filter: drop-shadow(0 2px 0 rgba(40,20,60,.35)); }
+.controls .view-btn[hidden] { display: none; }
+
+/* ----- Garden view ----- */
+.garden-view { position: fixed; inset: 0; z-index: 40; touch-action: none; }
+.garden-view[hidden] { display: none; }
+.gv-drag { position: absolute; inset: 0; touch-action: none; -webkit-tap-highlight-color: transparent; }
+.garden-view.pannable .gv-drag { cursor: grab; }
+.garden-view.pannable.dragging .gv-drag { cursor: grabbing; }
+
+/* A soft shade at the foot of the screen so the bar reads over any world. */
+.garden-view::after {
+  content: ""; position: absolute; inset: auto 0 0 0; height: 34%; pointer-events: none;
+  background: linear-gradient(180deg, rgba(10,18,18,0), rgba(10,18,18,.34));
+  opacity: 0; transition: opacity .45s ease;
+}
+.garden-view.show::after { opacity: 1; }
+
+.gv-bar {
+  position: absolute; left: 50%; bottom: calc(14px + var(--safe-bottom));
+  width: min(560px, calc(100% - 24px - var(--safe-left) - var(--safe-right)));
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "caption back" "track track";
+  align-items: center; gap: 10px 14px; padding: 12px 14px 14px 16px;
+  border: 1px solid rgba(255,255,255,.72); border-radius: 17px;
+  background: linear-gradient(145deg, rgba(255,252,240,.97), rgba(236,228,205,.95));
+  box-shadow: 0 5px 0 rgba(105,78,48,.16), 0 16px 34px rgba(12,22,18,.34), inset 0 1px 0 rgba(255,255,255,.78);
+  opacity: 0; transform: translate(-50%, 18px);
+  transition: opacity .35s ease .12s, transform .5s cubic-bezier(.2,.9,.25,1) .12s;
+}
+.gv-bar::before {
+  content: ""; position: absolute; top: 0; left: 18px; right: 18px; height: 2px; border-radius: 0 0 2px 2px;
+  background: linear-gradient(90deg, var(--arc-leader-a, var(--green-3)), var(--arc-new-a, var(--gold)));
+}
+.garden-view.show .gv-bar { opacity: 1; transform: translate(-50%, 0); }
+.gv-caption { grid-area: caption; min-width: 0; display: grid; gap: 2px; }
+.gv-kicker { overflow: hidden; color: var(--ink-soft); font-size: .6rem; font-weight: 800; letter-spacing: .13em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.gv-name { overflow: hidden; color: var(--ink); font: 700 1.2rem/1.1 "Oxanium", "Trebuchet MS", sans-serif; letter-spacing: .015em; text-overflow: ellipsis; white-space: nowrap; }
+.gv-back {
+  grid-area: back; min-width: 128px; height: 44px; padding: 0 16px; cursor: pointer;
+  border: 2px solid var(--arc-leader-edge, #d9efb5); border-radius: 14px;
+  background: linear-gradient(180deg, var(--arc-leader-a, #70ad55), var(--arc-leader-b, #3e783a));
+  box-shadow: 0 4px 0 var(--arc-leader-shadow, #254b27), inset 0 1px 0 rgba(255,255,255,.34);
+  color: #fffaf0; font: 800 .74rem/1 "Oxanium", "Trebuchet MS", sans-serif; letter-spacing: .06em; text-shadow: 0 1px 0 rgba(0,0,0,.4); text-transform: uppercase;
+  transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
+}
+.gv-back:hover { transform: translateY(-2px); filter: brightness(1.07) saturate(1.1); box-shadow: 0 6px 0 var(--arc-leader-shadow, #254b27), inset 0 1px 0 rgba(255,255,255,.34); }
+.gv-back:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--arc-leader-shadow, #254b27); }
+.gv-back:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.gv-track { grid-area: track; position: relative; height: 6px; border: 1px solid rgba(255,255,255,.6); border-radius: 999px; background: rgba(107,82,56,.2); box-shadow: inset 0 1px 2px rgba(60,44,28,.2); }
+.gv-track i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, var(--arc-leader-a, var(--green-3)), var(--arc-new-a, var(--gold))); }
+.garden-view:not(.pannable) .gv-track, .garden-view:not(.pannable) .gv-hint { display: none; }
+.setting-row[hidden] { display: none; }
+
+.gv-hint {
+  position: absolute; top: calc(18px + var(--safe-top)); left: 50%; margin: 0; padding: 9px 16px 9px 13px;
+  display: flex; align-items: center; gap: 9px; border-radius: 999px;
+  background: rgba(16,26,26,.62); color: #fffaf0; font: 700 .82rem/1 "Quicksand", system-ui, sans-serif; letter-spacing: .03em;
+  opacity: 0; transform: translate(-50%, -8px); transition: opacity .45s ease .5s, transform .45s ease .5s; pointer-events: none;
+}
+.gv-hint svg { width: 20px; height: 20px; flex: none; }
+.garden-view.show.pannable .gv-hint { opacity: 1; transform: translate(-50%, 0); }
+.garden-view.hint-done .gv-hint { opacity: 0 !important; transition-delay: 0s; }
+.garden-view.show.pannable:not(.hint-done) .gv-hint svg { animation: gvNudge 1.6s ease-in-out infinite; }
+@keyframes gvNudge { 0%, 100% { transform: translateX(-3px); } 50% { transform: translateX(3px); } }
+
+/* ----- The showcase when a world unlocks ----- */
+.world-reveal {
+  position: fixed; inset: 0; z-index: 45; display: grid; place-items: end center; cursor: pointer;
+  padding: 0 16px calc(11vh + var(--safe-bottom)); -webkit-tap-highlight-color: transparent;
+  background: linear-gradient(180deg, rgba(10,18,18,0) 45%, rgba(10,18,18,.4));
+  opacity: 0; transition: opacity .5s ease;
+}
+.world-reveal[hidden] { display: none; }
+.world-reveal.show { opacity: 1; }
+.wr-card {
+  position: relative; width: min(500px, 100%); display: grid; justify-items: center; gap: 5px; overflow: hidden;
+  padding: 18px 26px 22px; text-align: center; border: 1px solid rgba(255,255,255,.76); border-radius: 18px;
+  background: linear-gradient(145deg, rgba(255,252,240,.94), rgba(232,224,201,.9));
+  box-shadow: 0 5px 0 rgba(105,78,48,.16), 0 18px 40px rgba(12,22,18,.38), inset 0 1px 0 rgba(255,255,255,.8);
+  transform: translateY(16px) scale(.98); transition: transform .6s cubic-bezier(.2,.9,.25,1) .2s;
+}
+.world-reveal.show .wr-card { transform: translateY(0) scale(1); }
+.wr-card::before {
+  content: ""; position: absolute; top: 0; left: 22px; right: 22px; height: 2px; border-radius: 0 0 2px 2px;
+  background: linear-gradient(90deg, var(--arc-leader-a, var(--green-3)), var(--arc-new-a, var(--gold)));
+}
+.wr-kicker { color: var(--ink-soft); font-size: .64rem; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
+.wr-name { color: var(--ink); font: 700 clamp(1.5rem, 6.4vw, 1.95rem)/1.1 "Oxanium", "Trebuchet MS", sans-serif; letter-spacing: .015em; }
+.wr-line { max-width: 34ch; color: var(--ink-soft); font-size: .92rem; font-weight: 600; line-height: 1.35; }
+.wr-skip { margin-top: 5px; color: var(--ink-soft); font-size: .66rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; opacity: .75; }
+/* How long is left: a thin line that drains along the foot of the card. */
+.wr-card::after {
+  content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; transform-origin: left center;
+  background: linear-gradient(90deg, var(--arc-leader-a, var(--green-3)), var(--arc-new-a, var(--gold))); opacity: .85;
+}
+.world-reveal.show .wr-card::after { animation: wrDrain var(--wr-ms, 4s) linear forwards; }
+@keyframes wrDrain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+@media (orientation: landscape) and (max-height: 540px) {
+  .gv-bar { width: min(560px, calc(100% - 24px - var(--safe-left) - var(--safe-right))); padding: 9px 12px 11px 14px; gap: 7px 12px; }
+  .gv-back { height: 38px; }
+  .gv-name { font-size: 1.05rem; }
+  .world-reveal { padding-bottom: calc(14px + var(--safe-bottom)); }
+  .wr-card { padding: 12px 22px 16px; }
+  .wr-name { font-size: 1.35rem; }
+  .wr-line { font-size: .82rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game, body.world-focus .game { transition-duration: .01s; transform: none; }
+  .gv-bar, .wr-card { transform: translate(-50%, 0); transition: opacity .2s linear; }
+  .wr-card { transform: none; }
+  .gv-hint { transition: opacity .2s linear; }
+  .garden-view.show:not(.hint-done) .gv-hint svg { animation: none; }
+  .world-reveal.show .wr-card::after { animation: none; transform: scaleX(.5); }
+}
+
+body.no-garden-view .controls { grid-template-columns: 42px minmax(0,1fr) 116px; }
+@media (max-width: 420px) { body.no-garden-view .controls { grid-template-columns: 38px minmax(116px,1fr) minmax(94px,108px); } }
+@media (orientation: landscape) and (max-height: 540px) { body.no-garden-view .controls { grid-template-columns: 1fr 1fr; } }
