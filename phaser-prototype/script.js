@@ -172,6 +172,9 @@ import { SAVE_KEY, parseSavedGame, serializeGame } from "./src/game-save.js";
   const confirmRestart = document.getElementById("confirmNewGame");
   let worldEventTimer = null;
   let scoreSubmitted = false;
+  // True when the board shown behind the menu was restored from a saved game,
+  // so the primary menu button reads "Continue" instead of "Play".
+  let resumableGame = false;
   let reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const STAGE_META = [
@@ -324,7 +327,7 @@ import { SAVE_KEY, parseSavedGame, serializeGame } from "./src/game-save.js";
     currentLanguage=TRANSLATIONS[language]?language:"en";const text=TRANSLATIONS[currentLanguage];
     document.documentElement.lang=currentLanguage;languageSelect.value=currentLanguage;
     document.querySelectorAll("[data-i18n]").forEach(el=>{const value=text[el.dataset.i18n];if(value)el.textContent=value;});
-    startPlayBtn.textContent=PLAY_LABELS[currentLanguage]||PLAY_LABELS.en;
+    startPlayBtn.textContent=resumableGame?text.continueGame:(PLAY_LABELS[currentLanguage]||PLAY_LABELS.en);
     playerNameEl.placeholder=text.yourName;settingsBtn.setAttribute("aria-label",text.settings);musicVolumeEl.setAttribute("aria-label",text.music);
     performanceNoteEl.textContent=lowPowerDevice?text.balanced:text.fullDetail;
     localizeGameOver(text);
@@ -2733,6 +2736,8 @@ import { SAVE_KEY, parseSavedGame, serializeGame } from "./src/game-save.js";
   buildGrid();
   setEnvironmentStage(1, true);
   newGame(loadSavedGame());
+  resumableGame = completedMoves > 0;
+  if (resumableGame) applyLanguage(currentLanguage);
   // Local art direction helper: http://localhost:4173/?stage=2
   if (["localhost", "127.0.0.1"].includes(location.hostname)) {
     const previewParams = new URLSearchParams(location.search);
