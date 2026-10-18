@@ -2755,6 +2755,16 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     }
     settingsPanel.hidden = !open;
     syncInert();
+    if (open && inGame) {
+      // On a short screen (a phone held sideways) the panel would hang below the
+      // bottom edge: keep it on screen and let it scroll if it is still taller.
+      settingsPanel.style.maxHeight = `${window.innerHeight - 16}px`;
+      const panelHeight = settingsPanel.getBoundingClientRect().height;
+      const top = Math.max(8, Math.min(parseFloat(settingsPanel.style.top) || 8, window.innerHeight - panelHeight - 8));
+      settingsPanel.style.top = `${top}px`;
+    } else {
+      settingsPanel.style.removeProperty("max-height");
+    }
     settingsBackdrop.hidden = !open || inGame;
     settingsBtn.setAttribute("aria-expanded", String(open));
     startSettingsBtn.setAttribute("aria-expanded", String(open));

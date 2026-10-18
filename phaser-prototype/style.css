@@ -2089,3 +2089,136 @@ body.score-confirm-open .env-particle { animation-play-state:paused !important; 
 .load-error-card p { margin:0 0 18px; font-size:.92rem; font-weight:600; line-height:1.5; color:var(--ink-soft); }
 .load-error-card .btn { min-width:140px; }
 .noscript-note { position:fixed; inset:auto 12px 12px; z-index:300; margin:0; padding:12px 14px; border-radius:10px; background:#f7f1e3; color:#5b4a32; font:600 .9rem/1.4 system-ui,sans-serif; text-align:center; }
+
+/* ============================================================
+   PHONES: safe areas and landscape
+   Everything here is additive and sits at the end of the file so it can be
+   removed in one piece without touching the desktop or portrait design.
+   ============================================================ */
+
+/* Notches, rounded corners and home indicators. The page now extends under
+   them (viewport-fit=cover); these keep every control clear of them. They are
+   0 on screens without such features, so nothing changes there. */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+body {
+  padding-top: calc(18px + var(--safe-top));
+  padding-right: calc(14px + var(--safe-right));
+  padding-bottom: calc(28px + var(--safe-bottom));
+  padding-left: calc(14px + var(--safe-left));
+}
+@media (max-width: 420px) {
+  body {
+    padding-top: calc(10px + var(--safe-top));
+    padding-right: calc(8px + var(--safe-right));
+    padding-bottom: calc(26px + var(--safe-bottom));
+    padding-left: calc(8px + var(--safe-left));
+  }
+}
+@media (min-height: 600px) and (max-height: 780px) {
+  body {
+    padding-top: calc(10px + var(--safe-top));
+    padding-bottom: calc(10px + var(--safe-bottom));
+  }
+}
+.toast { bottom: calc(28px + var(--safe-bottom)); }
+.leaderboard-modal, .load-error {
+  padding-top: calc(18px + var(--safe-top));
+  padding-right: calc(18px + var(--safe-right));
+  padding-bottom: calc(18px + var(--safe-bottom));
+  padding-left: calc(18px + var(--safe-left));
+}
+.start-screen {
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+
+/* A phone held sideways. The board is as tall as the screen allows, with the
+   world on both sides of it as on a desktop: the title and world progress on
+   the left, the scores and buttons on the right. */
+@media (orientation: landscape) and (max-height: 540px) {
+  :root { --board-max: min(480px, calc(100dvh - 20px - var(--safe-top) - var(--safe-bottom))); }
+  body {
+    align-items: center;
+    padding-top: calc(10px + var(--safe-top));
+    padding-bottom: calc(10px + var(--safe-bottom));
+    padding-right: calc(14px + var(--safe-right));
+    padding-left: calc(14px + var(--safe-left));
+  }
+  .game {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--board-max) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "brand board scores" "world board controls";
+    column-gap: 14px;
+    row-gap: 10px;
+    align-items: start;
+  }
+  /* The top bar dissolves so its two halves can sit on either side of the board. */
+  .topbar { display: contents; }
+  .brand { grid-area: brand; align-self: start; }
+  .scores { grid-area: scores; justify-self: end; align-self: start; }
+  .evolution { grid-area: world; align-self: end; }
+  .board-wrap { grid-area: board; align-self: center; }
+  .controls {
+    grid-area: controls;
+    align-self: end;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .controls .leaderboard-btn, .controls .new-btn { grid-column: 1 / -1; }
+  .controls .btn { height: 40px; }
+  .brand .hint { min-height: 0; }
+  .brand .title { font-size: 1.22rem; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.05; }
+  /* The world card is narrow here: stack its three lines instead of squeezing them. */
+  .evolution-copy { grid-template-columns: minmax(0, 1fr); grid-template-areas: "kicker" "name" "next"; }
+  .stage-next { text-align: left; }
+  .toast { bottom: calc(10px + var(--safe-bottom)); }
+
+  /* The start menu: title on the left, buttons on the right, instead of a
+     column that is taller than the screen. */
+  .start-menu {
+    width: min(800px, calc(100vw - 36px - var(--safe-left) - var(--safe-right)));
+    grid-template-columns: minmax(0, 1.15fr) minmax(220px, 340px);
+    align-items: center;
+    gap: clamp(18px, 4vw, 44px);
+    padding: 8px 12px;
+  }
+  .start-title { font-size: clamp(2.1rem, 9vh, 3.6rem); }
+  .start-actions { width: 100%; gap: 9px; }
+  .start-btn { height: 50px; min-height: 50px; padding: 10px 24px; }
+  .start-btn-primary { height: 58px; min-height: 58px; }
+
+  /* The end-of-game card has to fit in a board that is now only ~370 px tall.
+     The essentials stay (result, scores, the form, play again); the decoration
+     goes, and anything still too tall scrolls instead of being cut off. */
+  .overlay { display: flex; overflow-y: auto; overscroll-behavior: contain; }
+  .overlay-card { margin: auto; padding: 12px 16px; gap: 7px; max-width: calc(100% - 12px); }
+  .overlay-emblem, .overlay-world { display: none; }
+  .overlay[data-mode="noMoves"] .overlay-explanation { display: none; }
+  .overlay-title { font-size: 1.2rem; }
+  .overlay-scores { gap: 6px; flex-wrap: nowrap; }
+  .overlay-scores > div { min-width: 0; flex: 1 1 0; padding: 5px 6px; }
+  .score-submit { gap: 5px; }
+  /* The hero plant on the milestone and victory cards would poke out of a short board. */
+  .milestone-art, .victory-art { transform: scale(.78); transform-origin: 50% 100%; }
+}
+
+/* Short phones sideways (about 700 px wide): the side columns are narrow, so
+   keep only what is needed to play. */
+@media (orientation: landscape) and (max-height: 540px) and (max-width: 760px) {
+  .brand .hint, .stage-next { display: none; }
+  .brand .title { font-size: 1.05rem; }
+  .brand { padding: 4px 7px 5px; }
+  .evolution { padding: 8px 10px 10px; }
+  .score-box { flex-basis: 54px; width: 54px; min-width: 54px; height: 46px; padding: 3px 6px; }
+  .score-label { font-size: .52rem; }
+  .scores { flex-basis: 118px; width: 118px; gap: 6px; }
+  .controls .btn { height: 36px; font-size: .64rem; }
+}
