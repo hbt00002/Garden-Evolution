@@ -14,3 +14,7 @@ dist/
 archive/
 design-candidates/
 backup*.sql
+
+# Browser test output
+test-results/
+playwright-report/

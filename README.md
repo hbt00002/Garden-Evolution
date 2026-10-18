@@ -56,6 +56,23 @@ npm test            # unit tests, including the Worker against a real SQLite
 npm run dev         # Vite dev server on :5174 (no API, games play unranked)
 ```
 
+### Tests
+
+| Command | What it checks |
+| --- | --- |
+| `npm test` | Unit tests: the rules, saves, leaderboard logic, the Worker against a real SQLite. Seconds. |
+| `npm run e2e` | **Browser tests** (Playwright). Builds the game, starts the real Worker on a throwaway local database with seeded leaderboard data and drives it with a real browser: the menu, a whole ranked run through the server's replay check, dialogs and focus, language, saved games, a blocked game file, slow or missing Phaser, no WebGL, security headers, the phone layout. About 3 minutes. |
+
+`npm run e2e` uses the Chrome you already have installed; in CI it installs
+Chromium. It never touches your `.dev.vars` or your normal local database
+(see `e2e/serve.mjs`). Failures leave a screenshot and a trace in
+`test-results/` (`npx playwright show-trace <trace.zip>`). Both suites run in
+CI on every pull request.
+
+Two things to know when adding browser tests: the Worker refuses runs played
+faster than a person (see `waitUntilHumanPaced` in `e2e/fixtures.js`), and it
+rate-limits by IP and user agent, so each test gets its own user agent.
+
 To run the full stack locally (Worker, D1, leaderboard):
 
 ```bash
