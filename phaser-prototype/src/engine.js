@@ -100,18 +100,27 @@ const applyEnginePreferences = ({ motionOn = true, particlesOn = true } = {}) =>
 };
 window.addEventListener("garden:preferences", event => applyEnginePreferences(event.detail));
 
-// The world was resized (looking around the garden): if the living background
-// is switched off the loops are asleep, so wake them just long enough to paint.
-window.addEventListener("garden:world-resized", () => {
-  if (motionAllowed) return;
-  game.loop.wake();
-  boardGame.loop.wake();
-  setTimeout(() => {
-    if (!motionAllowed) {
-      game.loop.sleep();
-      boardGame.loop.sleep();
-    }
-  }, 350);
+// Looking around the garden: slide the visible worlds' cameras across the
+// painting (src/world-view.js). With the living background off the loops are
+// asleep, so wake them for a moment so the new framing is painted.
+let panSleepTimer = 0;
+window.addEventListener("garden:world-pan", event => {
+  const fraction = event.detail?.fraction ?? null;
+  game.scene.getScenes(true).forEach(scene => scene.setPan?.(fraction));
+  // The last world is a flat plate behind a transparent canvas; its focus is a CSS variable.
+  if (fraction === null) mount.style.removeProperty("--s5-focus-x");
+  else mount.style.setProperty("--s5-focus-x", `${(fraction * 100).toFixed(2)}%`);
+  if (!motionAllowed) {
+    game.loop.wake();
+    boardGame.loop.wake();
+    clearTimeout(panSleepTimer);
+    panSleepTimer = setTimeout(() => {
+      if (!motionAllowed) {
+        game.loop.sleep();
+        boardGame.loop.sleep();
+      }
+    }, 300);
+  }
 });
 
 window.addEventListener("garden:score-confirm", event => {

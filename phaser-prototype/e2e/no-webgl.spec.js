@@ -20,7 +20,6 @@ test("the garden view still works, with nothing to slide", async ({ page }) => {
   await expect(page.locator("#gardenView.show")).toBeVisible();
   await expect(page.locator("main.game")).toBeHidden();
   // No Phaser world to widen or slide, so no track and no "drag to explore".
-  await expect(page.locator("#env")).not.toHaveClass(/wide/);
   await expect(page.locator(".gv-track")).toBeHidden();
   await expect(page.locator(".gv-hint")).toBeHidden();
   await page.keyboard.press("Escape");

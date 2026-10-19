@@ -3,10 +3,9 @@
 //
 // How it works. The world behind the game is a 16:9 painting drawn to fill the
 // screen. On a phone held upright only a strip of it is visible, and the board
-// covers the middle of that. To show the rest, this widens the world's canvas to
-// the painting's own proportions (the same scale, so nothing changes size) and
-// slides it sideways behind the screen. The scenes already redraw themselves
-// when their canvas changes size, so none of them needed to change. On a screen
+// covers the middle of that. To show the rest, the scenes' cameras slide across
+// the painting (the "garden:world-pan" event, handled in engine.js). The canvas
+// never changes size, so nothing is stretched and no edge can show. On a screen
 // that is already wide there is nothing to slide and the mode simply hides the
 // game so the whole world can be enjoyed.
 //
@@ -58,35 +57,18 @@ export function createWorldView({
   }
 
   function render() {
-    world.style.transform = extent.maxOffset > 0 ? `translate3d(${-offset}px,0,0)` : "";
-    if (extent.maxOffset > 0) {
-      const share = viewport.width / extent.canvasWidth;
-      thumb.style.width = `${share * 100}%`;
-      thumb.style.left = `${fractionForOffset(offset, extent.maxOffset) * (1 - share) * 100}%`;
-    }
-  }
-
-  // Let the engine redraw at the new size (and, if the living background is
-  // off, wake it for a moment so the new size is actually painted).
-  function resizeWorld() {
-    window.dispatchEvent(new Event("resize"));
-    window.dispatchEvent(new CustomEvent("garden:world-resized"));
-  }
-
-  function widen() {
     if (extent.maxOffset <= 0) return;
-    env.style.setProperty("--world-w", `${extent.canvasWidth}px`);
-    env.classList.add("wide");
-    render();
-    resizeWorld();
+    // The engine moves the scenes' cameras across the painting; the canvas
+    // itself never changes size, so nothing is stretched.
+    window.dispatchEvent(new CustomEvent("garden:world-pan", { detail: { fraction: fractionForOffset(offset, extent.maxOffset) } }));
+    const share = viewport.width / extent.canvasWidth;
+    thumb.style.width = `${share * 100}%`;
+    thumb.style.left = `${fractionForOffset(offset, extent.maxOffset) * (1 - share) * 100}%`;
   }
 
-  function narrow() {
-    if (!env.classList.contains("wide")) { world.style.transform = ""; return; }
-    env.classList.remove("wide");
-    env.style.removeProperty("--world-w");
-    world.style.transform = "";
-    resizeWorld();
+  // Back to each world's own framing.
+  function resetPan() {
+    window.dispatchEvent(new CustomEvent("garden:world-pan", { detail: { fraction: null } }));
   }
 
   // Slide to a position with an ease, then call done.
@@ -116,19 +98,15 @@ export function createWorldView({
     measure();
     returnFocus = document.activeElement;
     onChange(true);                 // input is blocked from this moment on
-    widen();
-    // Let the engine redraw at the new size before the game steps aside, but
-    // never wait long: on a slow device the frames can be a while coming.
-    await Promise.race([nextFrame().then(nextFrame), new Promise(resolve => later(resolve, 700))]);
+    await nextFrame();
     setChrome(true, kind === "view" ? "gv-active" : "wr-active");
   }
 
   function finish(kind, restoreFocusTo) {
     stopMotion();
     clearTimers();
-    // Slide (or already rest) at the normal framing, then give the world its
-    // normal size back: the two look identical, so there is no jump.
-    narrow();
+    // The world rests at its normal framing already; make that official.
+    resetPan();
     setChrome(false, kind === "view" ? "gv-active" : "wr-active");
     mode = null;
     dragState = null;
@@ -219,7 +197,6 @@ export function createWorldView({
     await begin("reveal");
     if (mode !== "reveal") return false;
     const pannable = extent.maxOffset > 0 && !reduced;
-    if (!pannable) narrow();
     reveal.querySelector("#wrKicker").textContent = copy.kicker;
     reveal.querySelector("#wrName").textContent = copy.name;
     reveal.querySelector("#wrLine").textContent = copy.line;
@@ -249,7 +226,7 @@ export function createWorldView({
     stopMotion();
     clearTimers();
     reveal.classList.remove("show");
-    // Land exactly on the normal framing before the canvas goes back to normal size.
+    // Land exactly on the normal framing.
     offset = offsetForFraction(focus, extent.maxOffset);
     render();
     later(() => {
@@ -292,11 +269,9 @@ export function createWorldView({
     if (window.innerWidth === viewport.width && window.innerHeight === viewport.height) return;
     if (mode === "reveal") { endReveal(); return; }
     const was = fractionForOffset(offset, extent.maxOffset);
-    narrow();
     measure();
     view.classList.toggle("pannable", extent.maxOffset > 0);
     offset = offsetForFraction(extent.maxOffset > 0 ? was : focus, extent.maxOffset);
-    widen();
     render();
   });
   document.addEventListener("visibilitychange", () => { if (document.hidden && mode === "reveal") endReveal(); });
