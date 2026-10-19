@@ -153,6 +153,22 @@ for (const [language, copy] of Object.entries(BOARD_COPY)) {
   Object.assign(TRANSLATIONS[language], copy);
 }
 
+const WORLD_VIEW_COPY = {
+  en: { viewGarden:"View the garden", gvBack:"Back to game", gvHint:"Drag to explore", gvAnnounce:"Garden view. Drag or use the arrow keys to look around. Press Escape to go back.", wrSkip:"Tap to continue", worldReveal:"World reveal" },
+  tr: { viewGarden:"Bahçeyi gör", gvBack:"Oyuna dön", gvHint:"Keşfetmek için sürükle", gvAnnounce:"Bahçe görünümü. Etrafa bakmak için sürükleyin veya ok tuşlarını kullanın. Dönmek için Escape'e basın.", wrSkip:"Devam etmek için dokun", worldReveal:"Dünya açılışı" },
+  zh: { viewGarden:"查看花园", gvBack:"返回游戏", gvHint:"拖动探索", gvAnnounce:"花园视图。拖动或使用方向键环顾四周。按 Esc 返回。", wrSkip:"点按继续", worldReveal:"世界揭幕" },
+  ja: { viewGarden:"庭を見る", gvBack:"ゲームに戻る", gvHint:"ドラッグして探索", gvAnnounce:"ガーデンビュー。ドラッグまたは矢印キーで見回せます。Escapeキーで戻ります。", wrSkip:"タップして続ける", worldReveal:"ワールド演出" },
+  ko: { viewGarden:"정원 보기", gvBack:"게임으로 돌아가기", gvHint:"드래그하여 탐험", gvAnnounce:"정원 보기. 드래그하거나 방향키로 둘러보세요. 돌아가려면 Esc를 누르세요.", wrSkip:"탭하여 계속", worldReveal:"월드 공개 연출" },
+  es: { viewGarden:"Ver el jardín", gvBack:"Volver al juego", gvHint:"Arrastra para explorar", gvAnnounce:"Vista del jardín. Arrastra o usa las flechas para mirar alrededor. Pulsa Escape para volver.", wrSkip:"Toca para continuar", worldReveal:"Presentación del mundo" },
+  pt: { viewGarden:"Ver o jardim", gvBack:"Voltar ao jogo", gvHint:"Arraste para explorar", gvAnnounce:"Vista do jardim. Arraste ou use as setas para olhar ao redor. Pressione Escape para voltar.", wrSkip:"Toque para continuar", worldReveal:"Apresentação do mundo" },
+  fr: { viewGarden:"Voir le jardin", gvBack:"Retour au jeu", gvHint:"Faites glisser pour explorer", gvAnnounce:"Vue du jardin. Faites glisser ou utilisez les flèches pour regarder autour. Appuyez sur Échap pour revenir.", wrSkip:"Touchez pour continuer", worldReveal:"Présentation du monde" },
+  de: { viewGarden:"Garten ansehen", gvBack:"Zurück zum Spiel", gvHint:"Zum Erkunden ziehen", gvAnnounce:"Gartenansicht. Ziehe oder nutze die Pfeiltasten, um dich umzusehen. Drücke Escape, um zurückzukehren.", wrSkip:"Zum Fortfahren tippen", worldReveal:"Welt-Enthüllung" },
+  ru: { viewGarden:"Осмотреть сад", gvBack:"Вернуться в игру", gvHint:"Перетащите, чтобы осмотреться", gvAnnounce:"Вид сада. Перетаскивайте или используйте стрелки, чтобы осмотреться. Нажмите Escape, чтобы вернуться.", wrSkip:"Нажмите, чтобы продолжить", worldReveal:"Показ нового мира" }
+};
+for (const [language, copy] of Object.entries(WORLD_VIEW_COPY)) {
+  Object.assign(TRANSLATIONS[language], copy);
+}
+
 // Plant names in tile order (2, 4, 8 ... 8192), used for screen-reader labels.
 export const TILE_NAMES = {
   en: ["Seed", "Sprout", "Young Plant", "Flower", "Bush", "Sapling", "Young Tree", "Mature Tree", "Mini Forest", "Ancient Tree", "Sakura Crown", "Tree of Life", "Celestial Tree"],

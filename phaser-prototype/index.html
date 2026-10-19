@@ -7,7 +7,7 @@
       type="image/svg+xml"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 30c-1 0-1.6-.7-1.6-1.6V18.4' fill='none' stroke='%238b5e3c' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M16 18c0-4 3-7 7-8-1 4-3 7-7 8zm0 0c0-3-2.2-5.4-5.4-6 .6 3 2.4 5 5.4 6z' fill='%237ab648'/%3E%3C/svg%3E"
     />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#eaf3df" />
     <meta name="description" content="Garden Evolution — a relaxing 2048-inspired garden game in an evolving Japanese countryside." />
     <meta property="og:type" content="website" />
@@ -74,6 +74,13 @@
       <div class="controls">
         <button class="btn settings-btn" id="settingsBtn" type="button" aria-label="Settings" aria-haspopup="true">
           <span class="gear-ico" aria-hidden="true">⚙</span>
+        </button>
+        <button class="btn settings-btn view-btn" id="viewBtn" type="button" aria-label="View the garden" title="View the garden">
+          <svg class="view-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="2.5" y="4.5" width="19" height="15" rx="3"/>
+            <path d="M4.5 17 9.5 10.5 13 14.5 15.5 11.5 19.5 17"/>
+            <circle cx="16.5" cy="8.6" r="1.3" fill="currentColor" stroke="none"/>
+          </svg>
         </button>
         <button class="btn leaderboard-btn" id="leaderboardBtn" type="button" data-i18n="leaderboard">Leaderboard</button>
         <button class="btn new-btn" id="newBtn" type="button" data-i18n="newGame">New Game</button>
@@ -149,6 +156,29 @@
 
     <div class="world-event-layer" id="worldEventLayer" aria-hidden="true"></div>
 
+    <div class="world-ui">
+      <div class="garden-view" id="gardenView" hidden>
+        <div class="gv-drag" id="gvDrag" aria-hidden="true"></div>
+        <p class="gv-hint" id="gvHint" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7 3 12l5 5M16 7l5 5-5 5"/></svg>
+          <span data-i18n="gvHint">Drag to explore</span>
+        </p>
+        <section class="gv-bar" role="region" aria-labelledby="gvName">
+          <div class="gv-caption"><span class="gv-kicker" id="gvKicker"></span><strong class="gv-name" id="gvName"></strong></div>
+          <button class="gv-back" id="gvBack" type="button" data-i18n="gvBack">Back to game</button>
+          <div class="gv-track" id="gvTrack" aria-hidden="true"><i id="gvThumb"></i></div>
+        </section>
+      </div>
+      <div class="world-reveal" id="worldReveal" hidden role="status" aria-live="polite">
+        <div class="wr-card">
+          <span class="wr-kicker" id="wrKicker"></span>
+          <strong class="wr-name" id="wrName"></strong>
+          <span class="wr-line" id="wrLine"></span>
+          <span class="wr-skip" data-i18n="wrSkip">Tap to continue</span>
+        </div>
+      </div>
+    </div>
+
     <div class="settings-backdrop" id="settingsBackdrop" hidden></div>
     <section class="settings-panel" id="settingsPanel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
       <button class="settings-close" id="settingsClose" type="button" aria-label="Close settings">×</button>
@@ -173,6 +203,7 @@
       <label class="setting-row"><span class="setting-label" data-i18n="livingBackground">Living Background</span><button class="toggle" id="motionToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
       <label class="setting-row"><span class="setting-label" data-i18n="extraParticles">Extra Particles</span><button class="toggle" id="particlesToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
       <label class="setting-row"><span class="setting-label" data-i18n="highContrast">High Contrast</span><button class="toggle" id="contrastToggle" type="button" role="switch" aria-checked="false"><span class="toggle-knob"></span></button></label>
+      <label class="setting-row" id="revealRow"><span class="setting-label" data-i18n="worldReveal">World reveal</span><button class="toggle" id="revealToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
       <p class="performance-note" id="performanceNote" data-i18n="performance">Performance adapts automatically.</p>
     </section>
 
