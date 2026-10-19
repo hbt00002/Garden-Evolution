@@ -112,3 +112,21 @@ test("the page extends under notches and stays clear of them", async ({ page }) 
   await page.setViewportSize({ width: 1280, height: 900 });
   expect(await page.evaluate(() => getComputedStyle(document.body).paddingTop)).toBe("18px");
 });
+
+test("tiles stay on their cells when the board changes size without a window resize", async ({ page }) => {
+  // A phone browser's toolbar sliding in or out changes the board (it is sized
+  // from the dynamic viewport height) without always firing a resize event.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await startGame(page);
+  const misalignment = () => page.evaluate(() => {
+    const cells = [...document.querySelectorAll("#grid .cell")].map(c => c.getBoundingClientRect());
+    return [...document.querySelectorAll("#tiles .tile")].map(tile => {
+      const t = tile.getBoundingClientRect();
+      return Math.min(...cells.map(c => Math.hypot(c.x - t.x, c.y - t.y) + Math.abs(c.width - t.width)));
+    });
+  });
+  for (const d of await misalignment()) expect(d).toBeLessThan(1.5);
+  await page.addStyleTag({ content: ":root { --board-max: 270px !important; }" });
+  await expect.poll(async () => Math.max(...await misalignment()), { timeout: 3000 }).toBeLessThan(1.5);
+  expect(await page.locator("#board").evaluate(el => el.clientWidth)).toBeLessThanOrEqual(270);
+});
