@@ -2858,6 +2858,19 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(applyLayout, 80);
   });
+  // The board can change size without a window resize (a phone browser's toolbar
+  // sliding away, the safe areas, fonts settling, a dialog closing): measure the
+  // board itself so the tiles always sit on the cells.
+  if (typeof ResizeObserver === "function") {
+    let layoutFrame = 0;
+    let lastBoardWidth = boardEl.clientWidth;
+    new ResizeObserver(() => {
+      if (boardEl.clientWidth === lastBoardWidth) return;
+      lastBoardWidth = boardEl.clientWidth;
+      cancelAnimationFrame(layoutFrame);
+      layoutFrame = requestAnimationFrame(applyLayout);
+    }).observe(boardEl);
+  }
 
   // Conserve battery/GPU time on modest devices and whenever the page is not visible.
   const lowPowerDevice = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
