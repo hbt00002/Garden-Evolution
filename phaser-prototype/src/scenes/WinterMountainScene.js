@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { cameraScroll } from "./pan-focus.js";
 
 const DESIGN_W = 1672;
 const DESIGN_H = 936;
@@ -101,12 +102,12 @@ export class WinterMountainScene extends Phaser.Scene {
   buildWorldLayers() {
     // Every part below is an independent Phaser object; there is no full-screen scene image.
     const sky = this.add.graphics().setDepth(-100);
-    sky.fillStyle(0x8299b6).fillRect(-200, 0, DESIGN_W + 400, 240);
-    sky.fillStyle(0x91a7c0).fillRect(-200, 180, DESIGN_W + 400, 170);
-    sky.fillStyle(0xa8b7c9, .85).fillRect(-200, 300, DESIGN_W + 400, 145);
+    // A smooth gradient (not stacked bands), so no hard line shows when the camera pans.
+    sky.fillGradientStyle(0x8299b6, 0x8299b6, 0x91a7c0, 0x91a7c0, 1).fillRect(-200, -100, DESIGN_W + 400, 400);
+    sky.fillGradientStyle(0x91a7c0, 0x91a7c0, 0xa8b7c9, 0xa8b7c9, 1).fillRect(-200, 300, DESIGN_W + 400, 160);
 
-    this.ridgeFar = this.add.image(DESIGN_W / 2 - 180, 230, "mountain-ridge-v2")
-      .setOrigin(.5, .5).setDisplaySize(1780, 334).setAlpha(.3).setTint(0xa8b8ca).setDepth(-85);
+    this.ridgeFar = this.add.image(DESIGN_W / 2, 230, "mountain-ridge-v2")
+      .setOrigin(.5, .5).setDisplaySize(1900, 357).setAlpha(.3).setTint(0xa8b8ca).setDepth(-85);
     this.ridge = this.add.image(DESIGN_W / 2 + 30, 340, "mountain-ridge-v2")
       .setOrigin(.5, .5).setDisplaySize(1840, 345).setAlpha(.94).setDepth(-80);
 
@@ -150,11 +151,16 @@ export class WinterMountainScene extends Phaser.Scene {
     const zoom = Math.max(width / DESIGN_W, height / DESIGN_H);
     this.cameras.main.setViewport(0, 0, width, height);
     this.cameras.main.setZoom(zoom);
-    this.cameras.main.setScroll(
-      DESIGN_W / 2 - width / (2 * zoom),
-      DESIGN_H / 2 - height / (2 * zoom)
-    );
+    const scroll = cameraScroll(DESIGN_W, DESIGN_H, width, height, zoom, this.panFocus);
+    this.cameras.main.setScroll(scroll.x, scroll.y);
     this.lastViewport = `${width}x${height}`;
+  }
+
+  // Looking around the garden: rest the camera at this fraction across the
+  // painting (null = the default). See src/world-view.js.
+  setPan(fraction) {
+    this.panFocus = fraction;
+    this.fitWorld();
   }
 
   update(time, delta) {

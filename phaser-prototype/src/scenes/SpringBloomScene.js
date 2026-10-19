@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { cameraScroll } from "./pan-focus.js";
 
 const W = 1672;
 const H = 936;
@@ -162,7 +163,15 @@ export class SpringBloomScene extends Phaser.Scene {
     const height = this.game.canvas.clientHeight || this.scale.height;
     const zoom = Math.max(width / W, height / H);
     this.cameras.main.setViewport(0, 0, width, height).setZoom(zoom);
-    this.cameras.main.setScroll(W / 2 - width / (2 * zoom), H / 2 - height / (2 * zoom));
+    const scroll = cameraScroll(W, H, width, height, zoom, this.panFocus);
+    this.cameras.main.setScroll(scroll.x, scroll.y);
+  }
+
+  // Looking around the garden: rest the camera at this fraction across the
+  // painting (null = the default). See src/world-view.js.
+  setPan(fraction) {
+    this.panFocus = fraction;
+    this.fitWorld();
   }
 
   update(time, delta) {

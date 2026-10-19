@@ -117,7 +117,7 @@ strip of one is visible, and the board covers the middle of that, so there are
 two ways to see the rest:
 
 - **View garden** (the picture button next to the gear): the game steps aside
-  and the painting can be dragged (or moved with the arrow keys) from edge to
+  and the camera slides across the painting (drag, or the arrow keys) from edge to
   edge. Escape or "Back to game" returns.
 - **World reveal**: when a new world unlocks, the game steps aside for a few
   seconds and shows the world with its name and a line of story; a tap skips it.

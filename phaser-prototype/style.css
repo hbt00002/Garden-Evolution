@@ -2234,10 +2234,6 @@ body {
    take the feature out without touching the rest of the design.
    ============================================================ */
 
-/* The world widened to the painting's own proportions so it can slide (see
-   src/world-view.js). Same scale as before, so nothing changes size. */
-.env.wide .phaser-world { right: auto; width: var(--world-w); will-change: transform; }
-
 /* While looking at the world the game steps aside. */
 .game { transition: opacity .38s ease, transform .38s ease; }
 body.world-focus .game {

@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { cameraScroll } from "./pan-focus.js";
 
 const W = 1672;
 const H = 936;
@@ -214,7 +215,17 @@ export class MoonlitFinaleScene extends Phaser.Scene {
     this.cameras.main.setViewport(0, 0, width, height).setZoom(zoom);
     // Match CSS background-position exactly: horizontal focal crop + top edge.
     // This keeps Phaser's lantern/water overlays registered with the artwork.
-    this.cameras.main.setScroll(overflowX * focusX, 0);
+    // cameraScroll accounts for Phaser zooming about the viewport's centre; the
+    // top of the painting is pinned to the top of the screen (as the CSS plate is).
+    const scroll = cameraScroll(W, H, width, height, zoom, this.panFocus, focusX);
+    this.cameras.main.setScroll(scroll.x, -(height - height / zoom) / 2);
+  }
+
+  // Looking around the garden: rest the camera at this fraction across the
+  // painting (null = the default). See src/world-view.js.
+  setPan(fraction) {
+    this.panFocus = fraction;
+    this.fitWorld();
   }
 
   update(time, delta) {

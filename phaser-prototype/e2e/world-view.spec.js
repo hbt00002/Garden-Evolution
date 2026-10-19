@@ -3,16 +3,33 @@ import { test, expect, openGame, startGame, boardSnapshot } from "./fixtures.js"
 // "View garden" and the showcase when a world unlocks. A phone held upright
 // sees only a strip of each 16:9 painting; these keep the rest of it reachable.
 
-const worldShift = page =>
-  page.evaluate(() => new DOMMatrix(getComputedStyle(document.getElementById("phaserWorld")).transform).m41);
-const worldWidth = page => page.evaluate(() => document.getElementById("phaserWorld").getBoundingClientRect().width);
+// Looking around moves the scenes' cameras across the painting; the canvas keeps
+// its size. worldShift is where the left edge of the painting sits relative to
+// the left of the screen, in screen pixels (0 = at the left edge, more negative
+// = the view has moved further right across the painting).
+const sceneView = page => page.evaluate(() => {
+  // During a crossfade two scenes are awake; the one for the current world is the one on screen.
+  const keys = ["WinterMountainScene", "SnowmeltValleyScene", "SpringBloomScene", "SakuraGardenScene", "MoonlitFinaleScene"];
+  const stage = Number(document.getElementById("env").dataset.stage) || 1;
+  const scene = window.gardenEngine.scene.getScene(keys[stage - 1]);
+  const { worldView, zoom } = scene.cameras.main;
+  return { left: worldView.x, top: worldView.y, width: worldView.width, height: worldView.height, zoom, focus: scene.panFocus ?? null };
+});
+const worldShift = async page => { const v = await sceneView(page); return -(v.left * v.zoom); };
+const canvasSize = page => page.evaluate(() => {
+  const c = document.querySelector("#phaserWorld canvas");
+  return c ? [c.width, c.height] : null;
+});
+// The whole sideways range, in screen pixels: the painting is 1672 wide.
+const panRange = async page => { const v = await sceneView(page); return Math.max(0, (1672 - v.width) * v.zoom); };
+// Where the camera rests when the garden view is not in use.
+const restingShift = async page => { const v = await sceneView(page); return -((1672 - v.width) * 0.5 * v.zoom); };
 const unlock = (page, stage) => page.evaluate(next => window.debugSetEnvironmentStage(next), stage);
 
 async function expectBackInGame(page) {
   await expect(page.locator("body")).not.toHaveClass(/world-focus/);
   await expect(page.locator("main.game")).toBeVisible();
   await expect(page.locator("main.game")).toHaveJSProperty("inert", false);
-  await expect(page.locator("#env")).not.toHaveClass(/\bwide\b/);
   expect(await page.evaluate(() => document.getElementById("phaserWorld").style.transform)).toBe("");
 }
 
@@ -35,8 +52,6 @@ test.describe("on a phone held upright", () => {
     await expect(page.locator("#gvKicker")).toHaveText(/World 1 of 5/);
 
     // The world is drawn at the painting's own width (about 1.79 x the height).
-    await expect.poll(() => worldWidth(page)).toBeGreaterThan(1400);
-    await expect(page.locator("#env")).toHaveClass(/\bwide\b/);
     await expect(page.locator(".gv-track")).toBeVisible();
     await expect(page.locator(".gv-hint")).toBeVisible();
 
@@ -49,16 +64,15 @@ test.describe("on a phone held upright", () => {
     await page.mouse.up();
     await expect.poll(() => worldShift(page)).toBeLessThan(start - 150);
 
-    // It cannot be dragged past either edge.
-    const width = await worldWidth(page);
+    // It cannot be dragged past either edge: the camera stops at the painting's edge.
     await page.mouse.move(380, 300);
     await page.mouse.down();
     await page.mouse.move(5, 300, { steps: 8 });
     await page.mouse.move(5, 300);
     await page.mouse.up();
     await page.waitForTimeout(900);
-    const farLeft = await worldShift(page);
-    expect(farLeft).toBeGreaterThanOrEqual(-(width - 390) - 1);
+    const range = await panRange(page);
+    expect(await worldShift(page)).toBeGreaterThanOrEqual(-range - 1);
     await page.mouse.move(5, 300);
     await page.mouse.down();
     await page.mouse.move(385, 300, { steps: 8 });
@@ -80,15 +94,45 @@ test.describe("on a phone held upright", () => {
     await expect(page.locator("#gardenView.show")).toBeVisible();
     await page.keyboard.press("Home");
     await expect.poll(() => worldShift(page)).toBeGreaterThanOrEqual(-1);
-    const width = await worldWidth(page);
+    const range = await panRange(page);
+    expect(range).toBeGreaterThan(300);
     await page.keyboard.press("End");
-    await expect.poll(() => worldShift(page)).toBeLessThanOrEqual(-(width - 390) + 2);
+    await expect.poll(() => worldShift(page)).toBeLessThanOrEqual(-range + 2);
     await page.keyboard.press("ArrowLeft");
-    await expect.poll(() => worldShift(page)).toBeGreaterThan(-(width - 390) + 20);
+    await expect.poll(() => worldShift(page)).toBeGreaterThan(-range + 20);
 
     await page.keyboard.press("Escape");
     await expect(page.locator("#gardenView")).toBeHidden();
     await expectBackInGame(page);
+  });
+
+  test("in every world the camera stays on the painting at both ends and at rest", async ({ page }) => {
+    test.setTimeout(150_000);
+    await page.goto("/?features=-worldReveal");
+    await page.locator("#startPlayBtn").click();
+    await expect(page.locator("#tiles .tile")).toHaveCount(2);
+    const inside = async label => {
+      const v = await sceneView(page);
+      expect(v.left, `${label}: left edge`).toBeGreaterThanOrEqual(-0.5);
+      expect(v.top, `${label}: top edge`).toBeGreaterThanOrEqual(-0.5);
+      expect(v.left + v.width, `${label}: right edge`).toBeLessThanOrEqual(1672.5);
+      expect(v.top + v.height, `${label}: bottom edge`).toBeLessThanOrEqual(936.5);
+    };
+    for (let stage = 1; stage <= 5; stage++) {
+      await unlock(page, stage);
+      await page.waitForTimeout(1800);
+      await inside(`world ${stage} at rest`);
+      await page.locator("#viewBtn").click();
+      await expect(page.locator("#gardenView.show")).toBeVisible();
+      for (const key of ["Home", "End"]) {
+        await page.keyboard.press(key);
+        await page.waitForTimeout(900);
+        await inside(`world ${stage} ${key}`);
+      }
+      await page.keyboard.press("Escape");
+      await expect(page.locator("#gardenView")).toBeHidden();
+    }
+    expect(page.problems).toEqual([]);
   });
 
   test("the board cannot be played while the garden is shown", async ({ page }) => {
@@ -113,7 +157,7 @@ test.describe("on a phone held upright", () => {
     expect(moved).toBe(true);
   });
 
-  test("the world returns to its normal size, with no gap, after the garden view", async ({ page }) => {
+  test("the world returns to its normal framing, with no gap, after the garden view", async ({ page }) => {
     await startGame(page);
     await page.locator("#viewBtn").click();
     await expect(page.locator("#gardenView.show")).toBeVisible();
@@ -126,7 +170,7 @@ test.describe("on a phone held upright", () => {
       const canvas = document.querySelector("#phaserWorld canvas");
       return canvas ? [canvas.width, canvas.height] : null;
     })).toEqual([390, 844]);
-    expect(await worldWidth(page)).toBe(390);
+    expect(Math.abs(await worldShift(page) - await restingShift(page))).toBeLessThan(3);
   });
 
   test("the garden view is announced and described for screen readers", async ({ page }) => {
@@ -146,7 +190,6 @@ test.describe("on a screen as wide as the painting", () => {
       await page.locator("#viewBtn").click();
       await expect(page.locator("#gardenView.show")).toBeVisible();
       await expect(page.locator("main.game")).toBeHidden();
-      await expect(page.locator("#env")).not.toHaveClass(/\bwide\b/);
       await expect(page.locator(".gv-track")).toBeHidden();
       await expect(page.locator(".gv-hint")).toBeHidden();
       const bar = await page.locator(".gv-bar").boundingBox();
@@ -227,7 +270,6 @@ test.describe("the showcase when a world unlocks", () => {
     await startGame(page);
     await unlock(page, 2);
     await expect(page.locator("#worldReveal.show")).toBeVisible({ timeout: 8000 });
-    await expect(page.locator("#env")).toHaveClass(/\bwide\b/);
     const shifts = [];
     for (let i = 0; i < 9; i++) {
       shifts.push(await worldShift(page));
@@ -288,8 +330,7 @@ test.describe("with reduced motion", () => {
     await startGame(page);
     await unlock(page, 2);
     await expect(page.locator("#worldReveal.show")).toBeVisible({ timeout: 8000 });
-    await expect(page.locator("#env")).not.toHaveClass(/\bwide\b/);
-    expect(await worldShift(page)).toBe(0);
+    expect(Math.abs(await worldShift(page) - await restingShift(page))).toBeLessThan(3);
     await expect(page.locator("#worldReveal")).toBeHidden({ timeout: 8000 });
     await expectBackInGame(page);
   });
