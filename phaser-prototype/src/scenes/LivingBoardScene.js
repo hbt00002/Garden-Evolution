@@ -57,10 +57,14 @@ export class LivingBoardScene extends Phaser.Scene{
     this.lowPower=Boolean(this.game?.registry?.get("lowPower"));
     this.ensureTulipFrames();this.resetMotes();
     this.scale.on("resize",this.redraw,this);
+    // A phone can take the GL context away (backgrounding, memory pressure) and
+    // give it back with every texture emptied, including the baked frame.
+    this.game.renderer.on(Phaser.Renderer.Events.RESTORE_WEBGL,this.redraw,this);
     this.comboHandler=event=>this.setHype(event.detail?.combo||0);
     window.addEventListener("garden:combo",this.comboHandler);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
       this.scale.off("resize",this.redraw,this);
+      this.game.renderer?.off(Phaser.Renderer.Events.RESTORE_WEBGL,this.redraw,this);
       window.removeEventListener("garden:combo",this.comboHandler);
     });
     this.redraw();
@@ -212,10 +216,15 @@ export class LivingBoardScene extends Phaser.Scene{
   bakeFrame(w,h){
     // The canvas is whole pixels; the board's size may not be.
     const width=Math.max(1,Math.floor(w)),height=Math.max(1,Math.floor(h));
+    // A RenderTexture that is resized keeps drawing into its old area (its camera
+    // and framebuffer stay the old size), which left a small frame in the corner
+    // of the board after the phone was turned. A fresh one is always right.
+    if(this.frameTexture&&(this.frameTexture.width!==width||this.frameTexture.height!==height)){
+      this.frameTexture.destroy();
+      this.frameTexture=null;
+    }
     if(!this.frameTexture){
       this.frameTexture=this.add.renderTexture(0,0,width,height).setOrigin(0,0).setDepth(-1);
-    }else if(this.frameTexture.width!==width||this.frameTexture.height!==height){
-      this.frameTexture.resize(width,height);
     }
     this.frameTexture.clear().draw(this.base,0,0);
     this.base.clear();
