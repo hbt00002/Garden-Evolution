@@ -20,6 +20,7 @@ const FADE_MS = 380;
 const REVEAL_GRACE_MS = 600;   // a showcase cannot be skipped by the very tap that caused it
 const REDUCED_REVEAL_MS = 2400;
 const KEY_STEP = 140;
+const IDLE_MS = 2800;          // how long the name and the track stay after the last touch
 
 export function createWorldView({
   env, world, view, reveal, getStage, getMotion, announce, onChange = () => {}, text, canPan = () => true
@@ -37,12 +38,25 @@ export function createWorldView({
   let dragState = null;
   let inertia = 0;
   let timers = [];
+  let idleTimer = 0;
   let returnFocus = null;
   let revealStartedAt = 0;
   let viewport = { width: 0, height: 0 };
 
   const later = (fn, ms) => { const id = setTimeout(fn, ms); timers.push(id); return id; };
   const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
+
+  // The name and the position track show while the player is touching or
+  // moving, then fade so the painting has the whole screen.
+  function awaken() {
+    view.classList.add("awake");
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => view.classList.remove("awake"), IDLE_MS);
+  }
+  function fadeChrome() {
+    clearTimeout(idleTimer);
+    view.classList.remove("awake");
+  }
   const stopMotion = () => { cancelAnimationFrame(animation); animation = 0; inertia = 0; };
   const nextFrame = () => new Promise(resolve => requestAnimationFrame(() => resolve()));
 
@@ -90,6 +104,7 @@ export function createWorldView({
 
   function setChrome(on, kind) {
     document.body.classList.toggle("world-focus", on);
+    window.dispatchEvent(new CustomEvent("garden:world-focus", { detail: { active: on } }));
     document.body.classList.toggle(kind, on);
   }
 
@@ -128,6 +143,7 @@ export function createWorldView({
     view.classList.remove("hint-done");
     await nextFrame();
     view.classList.add("show");
+    awaken();
     render();
     announce?.(text("gvAnnounce"));
     back.focus({ preventScroll: true });
@@ -139,6 +155,7 @@ export function createWorldView({
     if (mode !== "view") return;
     stopMotion();
     clearTimers();
+    fadeChrome();
     view.classList.remove("show");
     const rest = () => later(() => {
       view.hidden = true;
@@ -150,7 +167,9 @@ export function createWorldView({
   }
 
   const pointerDown = event => {
-    if (mode !== "view" || extent.maxOffset <= 0) return;
+    if (mode !== "view") return;
+    awaken();
+    if (extent.maxOffset <= 0) return;
     stopMotion();
     dragState = { startX: event.clientX, startOffset: offset, lastX: event.clientX, lastT: event.timeStamp, velocity: 0 };
     drag.setPointerCapture?.(event.pointerId);
@@ -158,6 +177,7 @@ export function createWorldView({
   };
   const pointerMove = event => {
     if (!dragState) return;
+    awaken();
     offset = dragOffset(dragState.startOffset, dragState.startX, event.clientX, extent.maxOffset);
     const dt = Math.max(1, event.timeStamp - dragState.lastT);
     dragState.velocity = 0.8 * dragState.velocity + 0.2 * ((dragState.lastX - event.clientX) / dt);
@@ -188,6 +208,7 @@ export function createWorldView({
   drag.addEventListener("pointerup", pointerUp);
   drag.addEventListener("pointercancel", pointerUp);
   back.addEventListener("click", () => exitView());
+  view.addEventListener("focusin", () => { if (mode === "view") awaken(); });
 
   /* ---------- The showcase when a world unlocks ---------- */
 
@@ -245,6 +266,7 @@ export function createWorldView({
   document.addEventListener("keydown", event => {
     if (mode === "view") {
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); exitView(); return; }
+      if (event.key.startsWith("Arrow") || event.key === "Home" || event.key === "End") awaken();
       const step = { ArrowLeft: -KEY_STEP, ArrowRight: KEY_STEP }[event.key];
       if (step && extent.maxOffset > 0) {
         event.preventDefault();

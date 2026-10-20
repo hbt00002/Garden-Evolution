@@ -142,7 +142,10 @@ two ways to see the rest:
 
 - **View garden** (the picture button next to the gear): the game steps aside
   and the camera slides across the painting (drag, or the arrow keys) from edge to
-  edge. Escape or "Back to game" returns.
+  edge. Only a small "Back to game" button stays on screen; the world's name and
+  the position track show while the player touches or moves and fade after a few
+  seconds. Escape or "Back to game" returns. While it is open the world runs at
+  the screen's full rate and the hidden board's frame rests.
 - **World reveal**: when a new world unlocks, the game steps aside for a few
   seconds and shows the world with its name and a line of story; a tap skips it.
   It is **off by default** (it interrupts play) and players can turn it on in

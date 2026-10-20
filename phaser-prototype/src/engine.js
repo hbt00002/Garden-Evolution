@@ -8,6 +8,7 @@ import { SpringBloomScene } from "./scenes/SpringBloomScene.js";
 import { SakuraGardenScene } from "./scenes/SakuraGardenScene.js";
 import { MoonlitFinaleScene } from "./scenes/MoonlitFinaleScene.js";
 import { LivingBoardScene } from "./scenes/LivingBoardScene.js";
+import { setFrameLimit } from "./frame-rate.js";
 
 const mount = document.getElementById("phaserWorld");
 const env = document.getElementById("env");
@@ -109,15 +110,28 @@ const applyEnginePreferences = ({ motionOn = true, particlesOn = true } = {}) =>
 window.addEventListener("garden:preferences", event => applyEnginePreferences(event.detail));
 
 // Looking around the garden: slide the visible worlds' cameras across the
-// painting (src/world-view.js). With the living background off the loops are
-// asleep, so wake them for a moment so the new framing is painted.
+// painting (src/world-view.js). Drags arrive faster than frames, so only the
+// newest position is applied, once per frame. With the living background off
+// the loops are asleep, so wake them for a moment so the new framing is painted.
 let panSleepTimer = 0;
-window.addEventListener("garden:world-pan", event => {
-  const fraction = event.detail?.fraction ?? null;
+let panFrame = 0;
+let pendingPan;
+const applyPan = () => {
+  panFrame = 0;
+  const fraction = pendingPan;
   game.scene.getScenes(true).forEach(scene => scene.setPan?.(fraction));
   // The last world is a flat plate behind a transparent canvas; its focus is a CSS variable.
   if (fraction === null) mount.style.removeProperty("--s5-focus-x");
   else mount.style.setProperty("--s5-focus-x", `${(fraction * 100).toFixed(2)}%`);
+};
+window.addEventListener("garden:world-pan", event => {
+  pendingPan = event.detail?.fraction ?? null;
+  if (pendingPan === null) {      // going back to the normal framing: no waiting
+    cancelAnimationFrame(panFrame);
+    applyPan();
+  } else if (!panFrame) {
+    panFrame = requestAnimationFrame(applyPan);
+  }
   if (!motionAllowed) {
     game.loop.wake();
     boardGame.loop.wake();
@@ -129,6 +143,16 @@ window.addEventListener("garden:world-pan", event => {
       }
     }, 300);
   }
+});
+
+// While the garden view or a world showcase has the screen, the world follows
+// the player's finger at the screen's full rate and the board's frame, which is
+// hidden behind the view, rests.
+window.addEventListener("garden:world-focus", event => {
+  const looking = Boolean(event.detail?.active);
+  setFrameLimit(game.loop, looking ? 0 : ambientFpsConfig.limit);
+  if (looking) boardGame.loop.sleep();
+  else if (motionAllowed && !document.hidden) boardGame.loop.wake();
 });
 
 window.addEventListener("garden:score-confirm", event => {
