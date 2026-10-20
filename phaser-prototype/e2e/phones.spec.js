@@ -220,3 +220,18 @@ test("the frame comes back when the browser takes the graphics context away and 
   });
   expect(await alphaNearCorner(), "the baked frame was drawn again").toBeGreaterThan(150);
 });
+
+test("the frame follows its box in every world, including the last, whose board has a border", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?features=-worldReveal");
+  await page.locator("#startPlayBtn").click();
+  await expect(page.locator("#tiles .tile")).toHaveCount(2);
+  const sizes = () => page.evaluate(() => ({
+    canvas: window.gardenBoardEngine.scale.width,
+    box: document.getElementById("boardEngine").getBoundingClientRect().width
+  }));
+  for (const stage of [1, 5, 3, 5, 2, 4, 5]) {
+    await page.evaluate(n => window.debugSetEnvironmentStage(n), stage);
+    await expect.poll(async () => { const s = await sizes(); return Math.abs(s.canvas - s.box) < 1; }, { message: `world ${stage}: the canvas matches its box` }).toBe(true);
+  }
+});
