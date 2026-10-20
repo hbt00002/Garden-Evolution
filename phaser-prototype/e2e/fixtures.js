@@ -9,6 +9,22 @@ export const ME_DEVICE = "11111111-1111-4111-8111-111111111111";
 const BENIGN = [/Framebuffer status: Incomplete Attachment/];
 
 export const test = base.extend({
+  // The test server restarts itself if it ever stops (see serve.mjs). Make each
+  // test wait for it rather than fail with "connection refused" in the moment
+  // it is coming back.
+  serverUp: [async ({ baseURL }, use) => {
+    const deadline = Date.now() + 90_000;
+    for (;;) {
+      try {
+        const response = await fetch(`${baseURL}/api/leaderboard`, { signal: AbortSignal.timeout(3000) });
+        if (response.ok) break;
+      } catch (error) { /* not up yet */ }
+      if (Date.now() > deadline) throw new Error("The test server did not come back within 90 seconds.");
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    await use();
+  }, { auto: true }],
+
   // Every test gets its own browser fingerprint (the Worker rate-limits by IP
   // and user agent), so one test's games cannot use up another's allowance.
   userAgent: async ({}, use, testInfo) => {
