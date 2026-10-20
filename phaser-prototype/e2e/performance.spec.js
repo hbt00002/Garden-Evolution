@@ -37,13 +37,31 @@ test("the frame is baked again when the world changes and when the board is resi
   expect((await scenes(page)).frameCommands).toBe(0);
 });
 
+// The frame-rate rule looks at the machine (cores, memory), so the tests say
+// what machine they are on instead of trusting whatever runs them: a CI server
+// has two or four cores and would be taken for a weak device.
+const machine = (page, { cores, memory }) => page.addInitScript(({ cores, memory }) => {
+  Object.defineProperty(navigator, "hardwareConcurrency", { get: () => cores });
+  Object.defineProperty(navigator, "deviceMemory", { get: () => memory });
+}, { cores, memory });
+
 test.describe("on a desktop", () => {
   test("the backdrop runs at the screen's own rate", async ({ page }) => {
+    await machine(page, { cores: 8, memory: 8 });
     await startGame(page);
     await expect.poll(async () => (await scenes(page)).worldLimit).toBeDefined();
     const info = await scenes(page);
     expect(info.worldLimit).toBe(0);
     expect(info.boardLimit).toBe(0);
+  });
+
+  test("a weak machine gets 30 frames a second even with a mouse", async ({ page }) => {
+    await machine(page, { cores: 2, memory: 2 });
+    await startGame(page);
+    await expect.poll(async () => (await scenes(page)).worldLimit).toBeDefined();
+    const info = await scenes(page);
+    expect(info.worldLimit).toBe(30);
+    expect(info.boardLimit).toBe(30);
   });
 });
 
