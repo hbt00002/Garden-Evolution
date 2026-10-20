@@ -38,7 +38,9 @@ export default defineConfig({
     url: `${baseURL}/api/leaderboard`,
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,
-    stdout: "pipe",
+    // The server prints a line for every file it serves (thousands per run);
+    // errors still show.
+    stdout: "ignore",
     stderr: "pipe"
   }
 });
