@@ -1,7 +1,7 @@
 "use strict";
 import { createBloomFlow } from "./src/bloom-flow.js";
 import { endingForMergedValue } from "./src/game-rules.js";
-import { isSessionUsable } from "./src/game-save.js";
+import { createGameSession, randomSeed, withTimeout } from "./src/game-session.js";
 import { installControls } from "./src/controls.js";
 import { nextFocus } from "./src/focus-trap.js";
 import { BOARD_SIZE, hasMoves, planMove } from "./src/board.js";
@@ -170,7 +170,7 @@ import {
   /* ---------- Saving ---------- */
   function saveGame() {
     if (!completedMoves || !grid || victoryAchieved || runSeed === null) return;
-    writeSavedGame({ seed: runSeed, moves: moveLog, session: gameSession });
+    writeSavedGame({ seed: runSeed, moves: moveLog, session: gameSession.current });
   }
 
   let menuMode = !startScreenEl.hidden;
@@ -554,57 +554,12 @@ import {
   }
 
 
-  // Signed play session used for leaderboard anti-cheat. Requested when a
-  // new game starts (see newGame()) so its issue time reflects actual play
-  // duration, not "however long it took to open the submit form".
-  let gameSession = null;
-  let gameSessionPromise = null;
-  async function ensureGameSession() {
-    if (gameSessionPromise) return gameSessionPromise;
-    const generation = gameGeneration;
-    gameSessionPromise = (async () => {
-      try {
-        const response = await fetch("/api/session", {
-          method: "POST",
-          headers: { accept: "application/json" }
-        });
-        if (!response.ok) throw new Error("session_failed");
-        const session = await response.json();
-        if (!Number.isSafeInteger(session?.seed)) throw new Error("session_failed");
-        // A slow reply must not attach itself to a newer game.
-        if (generation === gameGeneration) {
-          gameSession = session;
-          saveGame();
-        }
-        return session;
-      } catch (error) {
-        if (generation === gameGeneration) {
-          gameSession = null;
-          gameSessionPromise = null;
-        }
-        throw new Error(TRANSLATIONS[currentLanguage].sessionError);
-      }
-    })();
-    return gameSessionPromise;
-  }
-
-  // Only a run played from the seed of its own server session can be verified
-  // and join the leaderboard; offline or failed starts are played unranked.
-  function isRankedRun() {
-    return Boolean(gameSession && runSeed !== null && gameSession.seed === runSeed && isSessionUsable(gameSession));
-  }
-
-  function withTimeout(promise, ms) {
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("timeout")), ms);
-      promise.then(value => { clearTimeout(timer); resolve(value); }, error => { clearTimeout(timer); reject(error); });
-    });
-  }
-
-  function randomSeed() {
-    try { return crypto.getRandomValues(new Uint32Array(1))[0]; }
-    catch (e) { return Math.floor(Math.random() * 4294967296) >>> 0; }
-  }
+  const gameSession = createGameSession({
+    getGeneration: () => gameGeneration,
+    errorMessage: () => TRANSLATIONS[currentLanguage].sessionError,
+    onIssued: () => saveGame()
+  });
+  const isRankedRun = () => gameSession.isRanked(runSeed);
 
   // Starts a fresh run: wait briefly for the server to hand out a session (and
   // with it the seed), then deal the first two tiles from that seed. If the
@@ -612,7 +567,7 @@ import {
   async function beginRun() {
     const generation = gameGeneration;
     let session = null;
-    try { session = await withTimeout(ensureGameSession(), 3000); } catch (e) {}
+    try { session = await withTimeout(gameSession.ensure(), 3000); } catch (e) {}
     if (generation !== gameGeneration || !runPending) return;
     runSeed = session ? session.seed >>> 0 : randomSeed();
     runRng = createRng(runSeed);
@@ -656,7 +611,7 @@ import {
     language: () => currentLanguage,
     getRun: () => ({
       ranked: isRankedRun(),
-      session: gameSession,
+      session: gameSession.current,
       score,
       maxValueReached,
       bestCombo,
@@ -799,8 +754,7 @@ import {
     closeRestart(false);
     // A restored game keeps its leaderboard session (and so its seed) across
     // a reload; a new one asks the server for a session once play starts.
-    gameSession = saved?.session || null;
-    gameSessionPromise = gameSession ? Promise.resolve(gameSession) : null;
+    gameSession.adopt(saved?.session);
     grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
     tiles = {};
     nextId = 1;
