@@ -11,6 +11,8 @@ import { createLeaderboardUi } from "./src/leaderboard-ui.js";
 import { createScoreSubmit } from "./src/score-submit.js";
 import { currentFeatures } from "./src/features.js";
 import { createAudio } from "./src/audio.js";
+import { createBoardView } from "./src/board-view.js";
+import { createToast } from "./src/toast.js";
 import { createEndCard } from "./src/end-card.js";
 import { createWorldEffects } from "./src/world-effects.js";
 import { createPreferences } from "./src/preferences.js";
@@ -19,7 +21,7 @@ import { createTileArt } from "./src/tile-art.js";
 import { createFallbackScenery } from "./src/scenery-fallback.js";
 import { createWorldView } from "./src/world-view.js";
 import { PLAY_LABELS, TRANSLATIONS } from "./src/i18n.js";
-import { artValueFor, levelFor, stageFor, stageMeta as stageMetaFor, tileLabel as tileLabelFor } from "./src/levels.js";
+import { stageFor, stageMeta as stageMetaFor } from "./src/levels.js";
 import {
   clearSavedGame, loadBest, loadLanguage, loadSavedGame, saveBest, saveLanguage, writeSavedGame
 } from "./src/storage.js";
@@ -32,7 +34,6 @@ import {
 (() => {
   const SIZE = BOARD_SIZE;
   const SLIDE_MS = 115;
-  const MERGE_MS = 210;
 
   /* ---------- DOM refs ---------- */
   const boardEl = document.getElementById("board");
@@ -83,16 +84,12 @@ import {
 
   /* ---------- State ---------- */
   let grid;
-  let tiles;
-  let nextId;
   let score;
   let best;
   let goldenAchieved;
   let victoryAchieved;
   let busy;
   let queuedDirection = null;
-  let cellSize;
-  let gap;
   let currentStage = 0;
   let maxValueReached = 0;
   let combo = 0;
@@ -124,7 +121,7 @@ import {
     performanceNoteEl.textContent=lowPowerDevice?text.balanced:text.fullDetail;
     endCard.localize();
     settingsCloseBtn.setAttribute("aria-label",text.closeSettings);leaderboardCloseBtn.setAttribute("aria-label",text.closeLeaderboard);
-    if(tiles)Object.values(tiles).forEach(t=>{if(t&&t.el)t.el.setAttribute("aria-label",tileLabel(t.value));});
+    boardView.relabel();
     if(currentStage)updateEvolutionUI(currentStage);
     if(leaderboard.isOpen())leaderboard.refresh();
     saveLanguage(currentLanguage);
@@ -147,6 +144,16 @@ import {
 
   let menuMode = !startScreenEl.hidden;
   const tileArt = createTileArt();
+  const boardView = createBoardView({
+    board: boardEl,
+    grid: gridEl,
+    tiles: tilesEl,
+    prefs,
+    tileArt,
+    language: () => currentLanguage,
+    getStage: () => currentStage
+  });
+  const toast = createToast(toastEl);
   const worldEffects = createWorldEffects({ env: envEl, layer: worldEventLayerEl, prefs, getStage: () => currentStage });
   const audio = createAudio({ getStage: () => currentStage, isMenu: () => menuMode });
   // Newer, self-contained features can be switched off (src/features.js).
@@ -154,104 +161,11 @@ import {
   let worldView = null;
   let pendingReveal = 0;
 
-  /* ---------- Layout ----------
-     Single source of truth: CSS provides --gap and the board is square with
-     padding = --gap. The inner play area (tiles container) is inset by --gap,
-     so its width = boardWidth - 2*gap. Each cell = (inner - 3*gap)/4.
-     Tiles are absolutely positioned with width/height = cellSize and
-     translate by gap + c*(cellSize+gap). This guarantees exact alignment.
-  */
-  function readGap() {
-    gap = parseFloat(getComputedStyle(boardEl).getPropertyValue("--gap")) || 10;
-  }
-  function measure() {
-    readGap();
-    const inner = boardEl.clientWidth - 2 * gap;
-    cellSize = (inner - 3 * gap) / 4;
-  }
-  function cellPos(r, c) {
-    // Keep settled tiles on the physical pixel grid. Fractional CSS transforms
-    // can leave a pixel-art PNG on a bilinear compositing layer, which made an
-    // occasional seed look softer depending on the cell and viewport width.
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
-    const snap = value => Math.round(value * dpr) / dpr;
-    return {
-      x: snap(c * (cellSize + gap)),
-      y: snap(r * (cellSize + gap))
-    };
-  }
-  function applyLayout() {
-    measure();
-    Object.keys(tiles).forEach(id => {
-      const t = tiles[id];
-      if (!t) return;
-      const p = cellPos(t.r, t.c);
-      t.el.style.transition = "none";
-      t.el.style.width = cellSize + "px";
-      t.el.style.height = cellSize + "px";
-      t.el.style.transform = `translate(${p.x}px, ${p.y}px)`;
-      const num = t.el.querySelector(".t-num");
-      if (num) num.style.fontSize = Math.max(9, cellSize * 0.13) + "px";
-    });
-    void tilesEl.offsetWidth;
-    Object.keys(tiles).forEach(id => { if (tiles[id] && tiles[id].el) tiles[id].el.style.transition = ""; });
-  }
-
-  /* ---------- Rendering ---------- */
-  const tileLabel = value => tileLabelFor(value, currentLanguage);
-
-  function renderTileContent(el, value) {
-    const lvl = levelFor(value);
-    const { sprite, assetValue } = artValueFor(value);
-    el.dataset.value = value;
-    el.dataset.tier = sprite + 1;
-    el.style.background = lvl.bg;
-    el.style.setProperty("--fg", lvl.fg);
-    el.setAttribute("aria-label", tileLabel(value));
-    el.classList.toggle("glow", value >= 512);
-    el.classList.toggle("golden", value >= 2048);
-    let num = el.querySelector(".t-num");
-    if (!num) {
-      num = document.createElement("span");
-      num.className = "t-num";
-      el.appendChild(num);
-    }
-    num.textContent = value;
-    el.style.overflow = "hidden";
-    tileArt.attach(el, assetValue);
-  }
-
-  function createTile(r, c, value, isNew) {
-    const id = nextId++;
-    const el = document.createElement("div");
-    el.className = "tile";
-    if (isNew) el.classList.add("spawn");
-    renderTileContent(el, value);
-    const p = cellPos(r, c);
-    const tx = `translate(${p.x}px, ${p.y}px)`;
-    el.style.setProperty("--tx", tx);
-    el.style.width = cellSize + "px";
-    el.style.height = cellSize + "px";
-    el.style.transform = tx;
-    tilesEl.appendChild(el);
-    if (isNew && !prefs.reduceMotion) {
-      el.addEventListener("animationend", () => el.classList.remove("spawn"), { once: true });
-    } else {
-      el.classList.remove("spawn");
-    }
-    tiles[id] = { value, r, c, el };
+  // A tile on the board: the view draws it, the grid below remembers where it is.
+  function addTile(r, c, value, isNew) {
+    const id = boardView.create(r, c, value, isNew);
     grid[r][c] = id;
     return id;
-  }
-
-  function positionTile(id, r, c) {
-    const t = tiles[id];
-    if (!t) return;
-    t.r = r; t.c = c;
-    const p = cellPos(r, c);
-    const tx = `translate(${p.x}px, ${p.y}px)`;
-    t.el.style.setProperty("--tx", tx);
-    t.el.style.transform = tx;
   }
 
   /* ---------- Game logic (unchanged 2048 rules) ---------- */
@@ -261,7 +175,7 @@ import {
     const next = drawSpawn(valueGrid().flat(), runRng);
     if (!next) return null;
     maxValueReached = Math.max(maxValueReached, next.value);
-    return createTile(Math.floor(next.index / SIZE), next.index % SIZE, next.value, true);
+    return addTile(Math.floor(next.index / SIZE), next.index % SIZE, next.value, true);
   }
 
   function inputBlocked() {
@@ -322,7 +236,7 @@ import {
     busy = true;
     grid = newGrid;
 
-    slides.forEach(s => positionTile(s.id, s.r, s.c));
+    slides.forEach(s => boardView.place(s.id, s.r, s.c));
 
     const generation = gameGeneration;
     const finalize = () => {
@@ -335,14 +249,9 @@ import {
       let endingPending = null;
       updateCombo(merges.length);
       merges.forEach(m => {
-        if (tiles[m.absorbed]) { tiles[m.absorbed].el.remove(); delete tiles[m.absorbed]; }
-        const t = tiles[m.survivor];
-        if (!t) return;
-        t.value = m.value;
-        renderTileContent(t.el, m.value);
-        t.el.classList.add("merge");
-        setTimeout(() => t.el && t.el.classList.remove("merge"), MERGE_MS);
-        emitParticles(m.r, m.c, m.value);
+        boardView.remove(m.absorbed);
+        if (!boardView.merge(m.survivor, m.value)) return;
+        boardView.puff(m.r, m.c, m.value);
         score += m.value;
         audio.playMerge(m.value);
         if (m.value > maxValueReached) {
@@ -386,7 +295,7 @@ import {
   }
 
   function valueGrid() {
-    return grid.map(row => row.map(id => (id == null ? 0 : tiles[id].value)));
+    return grid.map(row => row.map(id => (id == null ? 0 : boardView.valueOf(id))));
   }
 
   function isGameOver() {
@@ -556,62 +465,13 @@ import {
     }
   });
 
-  /* ---------- Particles (board-local, transient) ---------- */
-  function emitParticles(r, c, value) {
-    if (prefs.reduceMotion || !prefs.particlesOn) return;
-    const p = cellPos(r, c);
-    const cx = p.x + cellSize / 2;
-    const cy = p.y + cellSize / 2;
-    const count = value >= 1024 ? 10 : value >= 256 ? 7 : 5;
-    const golden = value >= 2048;
-    for (let i = 0; i < count; i++) {
-      const dot = document.createElement("div");
-      const stageParticle = ["stage-snow", "stage-leaf", "stage-pollen", "stage-petal", "stage-star"][Math.max(0, currentStage - 1)];
-      dot.className = `particle ${stageParticle}` + (golden ? " gold" : "");
-      const ang = (Math.PI * 2 * i) / count + Math.random() * 0.6;
-      const dist = cellSize * (0.35 + Math.random() * 0.35);
-      dot.style.setProperty("--dx", Math.cos(ang) * dist + "px");
-      dot.style.setProperty("--dy", Math.sin(ang) * dist - cellSize * 0.15 + "px");
-      dot.style.left = cx + "px";
-      dot.style.top = cy + "px";
-      tilesEl.appendChild(dot);
-      dot.addEventListener("animationend", () => dot.remove(), { once: true });
-    }
-  }
-
-  /* ---------- Golden Tree celebration ---------- */
+  // The Golden Tree: a message, a chime, and (unless motion is reduced) a burst.
   function celebrate() {
-    showToast(TRANSLATIONS[currentLanguage].crownBloomed);
+    toast.show(TRANSLATIONS[currentLanguage].crownBloomed);
     audio.playGolden();
     if (prefs.reduceMotion) return;
-    boardEl.classList.add("celebrate");
-    setTimeout(() => boardEl.classList.remove("celebrate"), 1600);
-    const cx = tilesEl.clientWidth / 2;
-    const cy = tilesEl.clientHeight / 2;
-    for (let i = 0; i < 22; i++) {
-      const dot = document.createElement("div");
-      dot.className = "particle gold big";
-      const ang = Math.random() * Math.PI * 2;
-      const dist = boardEl.clientWidth * (0.25 + Math.random() * 0.3);
-      dot.style.setProperty("--dx", Math.cos(ang) * dist + "px");
-      dot.style.setProperty("--dy", Math.sin(ang) * dist + "px");
-      dot.style.left = cx + "px";
-      dot.style.top = cy + "px";
-      tilesEl.appendChild(dot);
-      dot.addEventListener("animationend", () => dot.remove(), { once: true });
-    }
+    boardView.celebrate();
     worldEffects.gust(true);
-  }
-
-  function showToast(msg) {
-    toastEl.textContent = msg;
-    toastEl.hidden = false;
-    requestAnimationFrame(() => toastEl.classList.add("show"));
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => {
-      toastEl.classList.remove("show");
-      setTimeout(() => (toastEl.hidden = true), 300);
-    }, 2400);
   }
 
   const scenery = createFallbackScenery({
@@ -687,8 +547,6 @@ import {
     // a reload; a new one asks the server for a session once play starts.
     gameSession.adopt(saved?.session);
     grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
-    tiles = {};
-    nextId = 1;
     score = saved ? saved.score : 0;
     goldenAchieved = saved ? saved.goldenAchieved : false;
     victoryAchieved = false;
@@ -704,15 +562,13 @@ import {
     runRng = saved ? { s: saved.rngState } : null;
     moveLog = saved ? saved.moves : "";
     runPending = !saved;
-    tilesEl.innerHTML = "";
-    boardEl.querySelectorAll(".particle").forEach(p => p.remove());
-    tilesEl.querySelectorAll(".particle").forEach(p => p.remove());
+    boardView.reset();
     endCard.hide();
     setEnvironmentStage(saved ? stageFor(saved.maxValueReached) : 1, true);
-    measure();
+    boardView.measure();
     if (saved) {
       saved.board.forEach((row, r) => row.forEach((value, c) => {
-        if (value) createTile(r, c, value, false);
+        if (value) addTile(r, c, value, false);
       }));
     } else {
       clearSavedGame();
@@ -721,15 +577,6 @@ import {
       if (!menuMode) beginRun();
     }
     updateScore();
-  }
-
-  function buildGrid() {
-    gridEl.innerHTML = "";
-    for (let i = 0; i < SIZE * SIZE; i++) {
-      const cell = document.createElement("div");
-      cell.className = "cell";
-      gridEl.appendChild(cell);
-    }
   }
 
   /* ---------- Controls ---------- */
@@ -843,25 +690,8 @@ import {
   // Start fetching the tile pictures while the player is still on the menu.
   tileArt.preloadAll();
 
-  // Resize handling
-  let resizeTimer;
-  window.addEventListener("resize", () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(applyLayout, 80);
-  });
-  // The board can change size without a window resize (a phone browser's toolbar
-  // sliding away, the safe areas, fonts settling, a dialog closing): measure the
-  // board itself so the tiles always sit on the cells.
-  if (typeof ResizeObserver === "function") {
-    let layoutFrame = 0;
-    let lastBoardWidth = boardEl.clientWidth;
-    new ResizeObserver(() => {
-      if (boardEl.clientWidth === lastBoardWidth) return;
-      lastBoardWidth = boardEl.clientWidth;
-      cancelAnimationFrame(layoutFrame);
-      layoutFrame = requestAnimationFrame(applyLayout);
-    }).observe(boardEl);
-  }
+  // Keep the tiles on their cells as the board changes size.
+  boardView.watchSize();
 
   // Conserve battery/GPU time on modest devices and whenever the page is not visible.
   const lowPowerDevice = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
@@ -877,7 +707,7 @@ import {
   applyLanguage(loadLanguage());
   applyVisualPrefs();
   settings.sync();
-  buildGrid();
+  boardView.buildGrid();
   // Look around the world instead of playing.
   viewBtn.hidden = !features.gardenView;
   revealRow.hidden = !features.worldReveal;
@@ -915,9 +745,9 @@ import {
     // without altering normal starts, saved data, scoring or production play.
     if (previewParams.get("tiles") === "preview") {
       grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
-      tiles = {};nextId = 1;tilesEl.innerHTML = "";
+      boardView.reset();
       const previewValues=[2,4,8,16,32,64,128,256,512,1024,2048,2];
-      previewValues.forEach((value,index)=>createTile(Math.floor(index/SIZE),index%SIZE,value,false));
+      previewValues.forEach((value,index)=>addTile(Math.floor(index/SIZE),index%SIZE,value,false));
     }
     const previewEnding = previewParams.get("ending");
     if (previewEnding === "milestone" || previewEnding === "victory") {
