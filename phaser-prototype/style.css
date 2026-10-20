@@ -2395,8 +2395,8 @@ body.no-garden-view .controls { grid-template-columns: 42px minmax(0,1fr) 116px;
   .brand .title { font-size: clamp(1.1rem, 5.4vh, 1.4rem); }
 }
 /* The streak badge hangs below the world card; sideways that card sits on the
-   bottom edge of the screen, so it hangs from the top instead and the
-   progress dots stay visible. */
+   bottom edge of the screen, so it hangs from the top instead (towards the
+   right, clear of the "World n of 5" line) and the progress dots stay visible. */
 @media (orientation: landscape) and (max-height: 540px) {
-  .combo-hud { bottom: auto; top: -15px; }
+  .combo-hud { bottom: auto; top: -15px; left: 76%; }
 }

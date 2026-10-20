@@ -177,3 +177,46 @@ test("turning the phone: the board's frame follows the board even while its loop
   // It was given a moment to repaint, and then went back to sleep.
   await expect.poll(() => page.evaluate(() => window.gardenBoardEngine.loop.running)).toBe(false);
 });
+
+test("turning the phone: the whole frame is drawn at the new size, not a small one in the corner", async ({ page }) => {
+  // Looks at the pixels Phaser really drew (the earlier bug had the right sizes
+  // on paper but a frame covering only the top-left part of the board).
+  await page.setViewportSize({ width: 390, height: 844 });
+  await startGame(page);
+  const alphaNearCorner = () => page.evaluate(() => new Promise(resolve => {
+    const game = window.gardenBoardEngine;
+    // wait for a frame drawn after the resize, then read a pixel inside the bottom-right cell
+    setTimeout(() => {
+      const w = Math.floor(game.scale.width), h = Math.floor(game.scale.height);
+      game.renderer.snapshotPixel(w - Math.round(w * 0.12), h - Math.round(h * 0.12), color => resolve(color.alpha));
+    }, 400);
+  }));
+  for (const [width, height] of [[390, 844], [667, 223], [844, 283], [390, 844], [844, 390]]) {
+    await page.setViewportSize({ width, height });
+    await page.waitForTimeout(500);
+    expect(await alphaNearCorner(), `frame covers the bottom-right of the board at ${width}x${height}`).toBeGreaterThan(150);
+  }
+});
+
+test("the frame comes back when the browser takes the graphics context away and gives it back", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await startGame(page);
+  await page.waitForTimeout(800);
+  const alphaNearCorner = () => page.evaluate(() => new Promise(resolve => {
+    const game = window.gardenBoardEngine;
+    setTimeout(() => {
+      const w = Math.floor(game.scale.width), h = Math.floor(game.scale.height);
+      game.renderer.snapshotPixel(w - Math.round(w * 0.12), h - Math.round(h * 0.12), color => resolve(color.alpha));
+    }, 400);
+  }));
+  expect(await alphaNearCorner()).toBeGreaterThan(150);
+  await page.evaluate(async () => {
+    const gl = window.gardenBoardEngine.renderer.gl;
+    const lose = gl.getExtension("WEBGL_lose_context");
+    lose.loseContext();
+    await new Promise(resolve => setTimeout(resolve, 300));
+    lose.restoreContext();
+    await new Promise(resolve => setTimeout(resolve, 500));
+  });
+  expect(await alphaNearCorner(), "the baked frame was drawn again").toBeGreaterThan(150);
+});

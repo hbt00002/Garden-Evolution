@@ -157,7 +157,12 @@ sideways is only about 220-390 px tall, so the buttons and cards there are sized
 from the height (`LANDSCAPE COMFORT` in `style.css`). The board's frame is drawn by
 Phaser, which can miss a rotation (it measures before the new layout settles, and
 a sleeping loop does not measure at all), so `engine.js` checks it against the real
-box whenever that changes.
+box whenever that changes. The frame is baked into a `RenderTexture`; a resized
+`RenderTexture` keeps drawing into its old area (a small frame in the corner of the
+board after turning the phone), so `LivingBoardScene.bakeFrame` makes a new one for
+a new size, and `redraw` runs again when the browser gives the graphics context
+back. `e2e/phones.spec.js` reads the pixels Phaser really drew, because checking
+sizes alone had missed this.
 
 Both features are self-contained: `src/world-view.js` (state and motion),
 `src/pan.js` (the maths), one clearly marked block at the end of `style.css`, and
