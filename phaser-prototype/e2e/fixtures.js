@@ -11,6 +11,8 @@ const BENIGN = [/Framebuffer status: Incomplete Attachment/];
 export const test = base.extend({
   // Every test gets its own browser fingerprint (the Worker rate-limits by IP
   // and user agent), so one test's games cannot use up another's allowance.
+  // Playwright requires the first argument to be a destructuring pattern.
+  // eslint-disable-next-line no-empty-pattern
   userAgent: async ({}, use, testInfo) => {
     await use(`GardenEvolution-E2E/${testInfo.workerIndex}.${testInfo.testId}.${testInfo.retry}`);
   },

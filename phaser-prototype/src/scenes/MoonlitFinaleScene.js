@@ -210,8 +210,6 @@ export class MoonlitFinaleScene extends Phaser.Scene {
     const zoom = Math.max(width / W, height / H);
     const aspect = width / Math.max(height, 1);
     const focusX = aspect <= (10 / 18) ? .72 : aspect <= .75 ? .68 : aspect <= 1 ? .62 : .5;
-    const visibleWorldWidth = width / zoom;
-    const overflowX = Math.max(0, W - visibleWorldWidth);
     this.cameras.main.setViewport(0, 0, width, height).setZoom(zoom);
     // Match CSS background-position exactly: horizontal focal crop + top edge.
     // This keeps Phaser's lantern/water overlays registered with the artwork.

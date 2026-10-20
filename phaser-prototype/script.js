@@ -663,8 +663,6 @@ viewBtn.hidden = !features.gardenView;
 revealRow.hidden = !features.worldReveal;
 document.body.classList.toggle("no-garden-view", !features.gardenView);
 worldView = createWorldView({
-  env: envEl,
-  world: document.getElementById("phaserWorld"),
   view: gardenViewEl,
   reveal: worldRevealEl,
   getStage: () => currentStage || 1,

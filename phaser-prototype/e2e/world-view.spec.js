@@ -1,4 +1,4 @@
-import { test, expect, openGame, startGame, boardSnapshot } from "./fixtures.js";
+import { test, expect, startGame, boardSnapshot } from "./fixtures.js";
 
 // "View garden" and the showcase when a world unlocks. A phone held upright
 // sees only a strip of each 16:9 painting; these keep the rest of it reachable.
@@ -16,10 +16,6 @@ const sceneView = page => page.evaluate(() => {
   return { left: worldView.x, top: worldView.y, width: worldView.width, height: worldView.height, zoom, focus: scene.panFocus ?? null };
 });
 const worldShift = async page => { const v = await sceneView(page); return -(v.left * v.zoom); };
-const canvasSize = page => page.evaluate(() => {
-  const c = document.querySelector("#phaserWorld canvas");
-  return c ? [c.width, c.height] : null;
-});
 // The whole sideways range, in screen pixels: the painting is 1672 wide.
 const panRange = async page => { const v = await sceneView(page); return Math.max(0, (1672 - v.width) * v.zoom); };
 // Where the camera rests when the garden view is not in use.

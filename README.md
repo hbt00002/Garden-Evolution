@@ -84,14 +84,24 @@ npm run dev         # Vite dev server on :5174 (no API, games play unranked)
 
 | Command | What it checks |
 | --- | --- |
+| `npm run lint` | ESLint over the game, the Worker, the tests and the tools: undefined or unused names, shadowed variables, use before definition. It is what would have caught several slips made while splitting `script.js`. Seconds. |
 | `npm test` | Unit tests: the rules, saves, leaderboard logic, the Worker against a real SQLite. Seconds. |
-| `npm run e2e` | **Browser tests** (Playwright). Builds the game, starts the real Worker on a throwaway local database with seeded leaderboard data and drives it with a real browser: the menu, a whole ranked run through the server's replay check, dialogs and focus, language, saved games, a blocked game file, slow or missing Phaser, no WebGL, security headers, the phone layout. About 3 minutes. |
+| `npm run e2e` | **Browser tests** (Playwright). Builds the game, starts the real Worker on a throwaway local database with seeded leaderboard data and drives it with a real browser: the menu, a whole ranked run through the server's replay check, dialogs and focus, language, saved games, a blocked game file, slow or missing Phaser, no WebGL, security headers, the phone layout, and **visual integrity** (`e2e/visual-integrity.spec.js`). About 5 minutes. |
 
 `npm run e2e` uses the Chrome you already have installed; in CI it installs
 Chromium. It never touches your `.dev.vars` or your normal local database
 (see `e2e/serve.mjs`). Failures leave a screenshot and a trace in
 `test-results/` (`npx playwright show-trace <trace.zip>`). Both suites run in
 CI on every pull request.
+
+Visual integrity looks at what was really drawn rather than comparing screenshots
+(which would break on every machine with different fonts or graphics). For five phone
+and tablet sizes and each of the five worlds it checks that the backdrop covers the whole
+screen, that the board's frame covers the whole board (read from Phaser's own pixels),
+that every tile sits on a cell, that no text is cut off and nothing overlaps or leaves the
+screen, and that none of this breaks when the phone is turned or the garden view is
+dragged to either end. A bug that only shows on screen (a frame drawn in one corner)
+fails it; add a check here when you find a new kind.
 
 Two things to know when adding browser tests: the Worker refuses runs played
 faster than a person (see `waitUntilHumanPaced` in `e2e/fixtures.js`), and it
