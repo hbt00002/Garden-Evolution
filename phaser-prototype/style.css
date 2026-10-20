@@ -2255,51 +2255,48 @@ body.world-focus .game {
 .garden-view.pannable .gv-drag { cursor: grab; }
 .garden-view.pannable.dragging .gv-drag { cursor: grabbing; }
 
-/* A soft shade at the foot of the screen so the bar reads over any world. */
-.garden-view::after {
-  content: ""; position: absolute; inset: auto 0 0 0; height: 34%; pointer-events: none;
-  background: linear-gradient(180deg, rgba(10,18,18,0), rgba(10,18,18,.34));
-  opacity: 0; transition: opacity .45s ease;
-}
-.garden-view.show::after { opacity: 1; }
+/* The view is mostly the world: only a small "Back to game" button stays on
+   screen. The world's name and the position track appear when the player
+   touches the screen or moves (class "awake") and fade away again, so they
+   never sit on top of the painting. */
+.gv-bar { position: absolute; inset: 0; pointer-events: none; }
+.gv-bar > * { pointer-events: auto; }
 
-.gv-bar {
-  position: absolute; left: 50%; bottom: calc(14px + var(--safe-bottom));
-  width: min(560px, calc(100% - 24px - var(--safe-left) - var(--safe-right)));
-  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "caption back" "track track";
-  align-items: center; gap: 10px 14px; padding: 12px 14px 14px 16px;
-  border: 1px solid rgba(255,255,255,.72); border-radius: 17px;
-  background: linear-gradient(145deg, rgba(255,252,240,.97), rgba(236,228,205,.95));
-  box-shadow: 0 5px 0 rgba(105,78,48,.16), 0 16px 34px rgba(12,22,18,.34), inset 0 1px 0 rgba(255,255,255,.78);
-  opacity: 0; transform: translate(-50%, 18px);
-  transition: opacity .35s ease .12s, transform .5s cubic-bezier(.2,.9,.25,1) .12s;
+.gv-caption {
+  position: absolute; top: calc(14px + var(--safe-top)); left: 50%; min-width: 0; max-width: calc(100% - 32px);
+  display: grid; justify-items: center; gap: 2px; padding: 8px 20px 9px; border-radius: 16px; pointer-events: none;
+  background: rgba(16,26,26,.62); color: #fffaf0; text-align: center;
+  opacity: 0; transform: translate(-50%, -8px); transition: opacity .4s ease, transform .4s ease;
 }
-.gv-bar::before {
-  content: ""; position: absolute; top: 0; left: 18px; right: 18px; height: 2px; border-radius: 0 0 2px 2px;
-  background: linear-gradient(90deg, var(--arc-leader-a, var(--green-3)), var(--arc-new-a, var(--gold)));
-}
-.garden-view.show .gv-bar { opacity: 1; transform: translate(-50%, 0); }
-.gv-caption { grid-area: caption; min-width: 0; display: grid; gap: 2px; }
-.gv-kicker { overflow: hidden; color: var(--ink-soft); font-size: .6rem; font-weight: 800; letter-spacing: .13em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
-.gv-name { overflow: hidden; color: var(--ink); font: 700 1.2rem/1.1 "Oxanium", "Trebuchet MS", sans-serif; letter-spacing: .015em; text-overflow: ellipsis; white-space: nowrap; }
+.garden-view.show.awake .gv-caption { opacity: 1; transform: translate(-50%, 0); }
+.gv-kicker { overflow: hidden; color: rgba(255,250,240,.78); font-size: .58rem; font-weight: 800; letter-spacing: .15em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; max-width: 100%; }
+.gv-name { overflow: hidden; color: #fffaf0; font: 700 1.05rem/1.15 "Oxanium", "Trebuchet MS", sans-serif; letter-spacing: .015em; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
 .gv-back {
-  grid-area: back; min-width: 128px; height: 44px; padding: 0 16px; cursor: pointer;
-  border: 2px solid var(--arc-leader-edge, #d9efb5); border-radius: 14px;
+  position: absolute; left: 50%; bottom: calc(16px + var(--safe-bottom)); height: 46px; padding: 0 24px; cursor: pointer; white-space: nowrap;
+  border: 2px solid var(--arc-leader-edge, #d9efb5); border-radius: 15px;
   background: linear-gradient(180deg, var(--arc-leader-a, #70ad55), var(--arc-leader-b, #3e783a));
-  box-shadow: 0 4px 0 var(--arc-leader-shadow, #254b27), inset 0 1px 0 rgba(255,255,255,.34);
+  box-shadow: 0 4px 0 var(--arc-leader-shadow, #254b27), 0 8px 18px rgba(12,22,18,.3), inset 0 1px 0 rgba(255,255,255,.34);
   color: #fffaf0; font: 800 .74rem/1 "Oxanium", "Trebuchet MS", sans-serif; letter-spacing: .06em; text-shadow: 0 1px 0 rgba(0,0,0,.4); text-transform: uppercase;
-  transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
+  opacity: 0; transform: translate(-50%, 14px); transition: opacity .35s ease .12s, transform .5s cubic-bezier(.2,.9,.25,1) .12s, filter .16s ease, box-shadow .16s ease;
 }
-.gv-back:hover { transform: translateY(-2px); filter: brightness(1.07) saturate(1.1); box-shadow: 0 6px 0 var(--arc-leader-shadow, #254b27), inset 0 1px 0 rgba(255,255,255,.34); }
-.gv-back:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--arc-leader-shadow, #254b27); }
+.garden-view.show .gv-back { opacity: 1; transform: translate(-50%, 0); }
+.gv-back:hover { filter: brightness(1.07) saturate(1.1); }
+.gv-back:active { transform: translate(-50%, 3px); box-shadow: 0 1px 0 var(--arc-leader-shadow, #254b27); transition-delay: 0s; }
 .gv-back:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
-.gv-track { grid-area: track; position: relative; height: 6px; border: 1px solid rgba(255,255,255,.6); border-radius: 999px; background: rgba(107,82,56,.2); box-shadow: inset 0 1px 2px rgba(60,44,28,.2); }
+
+.gv-track {
+  position: absolute; left: 50%; bottom: calc(76px + var(--safe-bottom)); width: min(240px, 56%); height: 5px; pointer-events: none;
+  border: 1px solid rgba(255,255,255,.6); border-radius: 999px; background: rgba(16,26,26,.45);
+  opacity: 0; transform: translateX(-50%); transition: opacity .4s ease;
+}
+.garden-view.show.awake .gv-track { opacity: 1; }
 .gv-track i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, var(--arc-leader-a, var(--green-3)), var(--arc-new-a, var(--gold))); }
 .garden-view:not(.pannable) .gv-track, .garden-view:not(.pannable) .gv-hint { display: none; }
 .setting-row[hidden] { display: none; }
 
 .gv-hint {
-  position: absolute; top: calc(18px + var(--safe-top)); left: 50%; margin: 0; padding: 9px 16px 9px 13px;
+  position: absolute; top: calc(78px + var(--safe-top)); left: 50%; margin: 0; padding: 9px 16px 9px 13px;
   display: flex; align-items: center; gap: 9px; border-radius: 999px;
   background: rgba(16,26,26,.62); color: #fffaf0; font: 700 .82rem/1 "Quicksand", system-ui, sans-serif; letter-spacing: .03em;
   opacity: 0; transform: translate(-50%, -8px); transition: opacity .45s ease .5s, transform .45s ease .5s; pointer-events: none;
@@ -2344,9 +2341,10 @@ body.world-focus .game {
 @keyframes wrDrain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
 @media (orientation: landscape) and (max-height: 540px) {
-  .gv-bar { width: min(560px, calc(100% - 24px - var(--safe-left) - var(--safe-right))); padding: 9px 12px 11px 14px; gap: 7px 12px; }
-  .gv-back { height: 38px; }
-  .gv-name { font-size: 1.05rem; }
+  .gv-back { height: 40px; bottom: calc(12px + var(--safe-bottom)); }
+  .gv-track { bottom: calc(60px + var(--safe-bottom)); }
+  .gv-caption { top: calc(10px + var(--safe-top)); padding: 6px 16px 7px; }
+  .gv-hint { top: calc(60px + var(--safe-top)); }
   .world-reveal { padding-bottom: calc(14px + var(--safe-bottom)); }
   .wr-card { padding: 12px 22px 16px; }
   .wr-name { font-size: 1.35rem; }
@@ -2354,8 +2352,9 @@ body.world-focus .game {
 }
 @media (prefers-reduced-motion: reduce) {
   .game, body.world-focus .game { transition-duration: .01s; transform: none; }
-  .gv-bar, .wr-card { transform: translate(-50%, 0); transition: opacity .2s linear; }
-  .wr-card { transform: none; }
+  .gv-caption, .gv-back, .gv-track { transition: opacity .2s linear; }
+  .gv-caption, .gv-back { transform: translate(-50%, 0); }
+  .wr-card { transform: none; transition: opacity .2s linear; }
   .gv-hint { transition: opacity .2s linear; }
   .garden-view.show:not(.hint-done) .gv-hint svg { animation: none; }
   .world-reveal.show .wr-card::after { animation: none; transform: scaleX(.5); }

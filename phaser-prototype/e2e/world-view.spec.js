@@ -135,6 +135,41 @@ test.describe("on a phone held upright", () => {
     expect(page.problems).toEqual([]);
   });
 
+  test("the view is mostly the painting: a small back button stays, the name and track come and go", async ({ page }) => {
+    await startGame(page);
+    await page.locator("#viewBtn").click();
+    await expect(page.locator("#gardenView.show")).toBeVisible();
+    const opacity = selector => page.locator(selector).evaluate(el => Number(getComputedStyle(el).opacity));
+
+    // Just opened: the name and the position track are showing...
+    await expect.poll(() => opacity(".gv-caption")).toBeGreaterThan(0.9);
+    await expect.poll(() => opacity(".gv-track")).toBeGreaterThan(0.9);
+    // ...and everything on screen together covers only a sliver of it.
+    const back = await page.locator("#gvBack").boundingBox();
+    expect(back.height).toBeLessThanOrEqual(48);
+    expect(back.width).toBeLessThanOrEqual(230);
+    const caption = await page.locator(".gv-caption").boundingBox();
+    const covered = back.width * back.height + caption.width * caption.height;
+    expect(covered / (390 * 844), "share of the screen the controls cover").toBeLessThan(0.06);
+
+    // After a few quiet seconds only the back button is left.
+    await expect.poll(() => opacity(".gv-caption"), { timeout: 6000 }).toBeLessThan(0.05);
+    await expect.poll(() => opacity(".gv-track")).toBeLessThan(0.05);
+    expect(await opacity("#gvBack")).toBeGreaterThan(0.9);
+
+    // Touching the painting brings them back.
+    await page.mouse.move(200, 400);
+    await page.mouse.down();
+    await page.mouse.move(150, 400, { steps: 3 });
+    await expect.poll(() => opacity(".gv-caption")).toBeGreaterThan(0.9);
+    await page.mouse.up();
+    await expect.poll(() => opacity(".gv-caption"), { timeout: 6000 }).toBeLessThan(0.05);
+
+    // So does the keyboard.
+    await page.keyboard.press("ArrowRight");
+    await expect.poll(() => opacity(".gv-caption")).toBeGreaterThan(0.9);
+  });
+
   test("the board cannot be played while the garden is shown", async ({ page }) => {
     await startGame(page);
     const before = await boardSnapshot(page);
@@ -192,9 +227,10 @@ test.describe("on a screen as wide as the painting", () => {
       await expect(page.locator("main.game")).toBeHidden();
       await expect(page.locator(".gv-track")).toBeHidden();
       await expect(page.locator(".gv-hint")).toBeHidden();
-      const bar = await page.locator(".gv-bar").boundingBox();
-      expect(bar.y + bar.height).toBeLessThanOrEqual(viewport.height);
-      expect(bar.x).toBeGreaterThanOrEqual(0);
+      const back = await page.locator("#gvBack").boundingBox();
+      expect(back.y + back.height).toBeLessThanOrEqual(viewport.height);
+      expect(back.x).toBeGreaterThanOrEqual(0);
+      expect(back.x + back.width).toBeLessThanOrEqual(viewport.width);
       await page.keyboard.press("Escape");
       await expectBackInGame(page);
     });

@@ -12,7 +12,9 @@ const scenes = page => page.evaluate(() => {
     frameSize: board.frameTexture ? [board.frameTexture.width, board.frameTexture.height] : null,
     boardSize: [Math.floor(board.scale.width), Math.floor(board.scale.height)],
     worldLimit: window.gardenEngine.loop.fpsLimit,
-    boardLimit: window.gardenBoardEngine.loop.fpsLimit
+    boardLimit: window.gardenBoardEngine.loop.fpsLimit,
+    worldRate: window.gardenEngine.loop._limitRate,
+    boardRunning: window.gardenBoardEngine.loop.running
   };
 });
 
@@ -53,5 +55,19 @@ test.describe("on a phone", () => {
     const info = await scenes(page);
     expect(info.worldLimit).toBe(30);
     expect(info.boardLimit).toBe(30);
+  });
+
+  test("looking around the garden runs the world at full rate and rests the hidden board, then goes back", async ({ page }) => {
+    await startGame(page);
+    await expect.poll(async () => (await scenes(page)).worldLimit).toBe(30);
+    expect((await scenes(page)).boardRunning).toBe(true);
+    await page.locator("#viewBtn").click();
+    await expect(page.locator("#gardenView.show")).toBeVisible();
+    await expect.poll(async () => (await scenes(page)).worldRate).toBe(0);
+    expect((await scenes(page)).boardRunning).toBe(false);
+    await page.locator("#gvBack").click();
+    await expect(page.locator("#gardenView")).toBeHidden();
+    await expect.poll(async () => (await scenes(page)).worldRate).toBeCloseTo(1000 / 30, 1);
+    await expect.poll(async () => (await scenes(page)).boardRunning).toBe(true);
   });
 });
