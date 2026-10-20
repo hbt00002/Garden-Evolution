@@ -33,10 +33,10 @@ test("social metadata points at the Garden Evolution deployment", async () => {
 });
 
 test("a delayed mobile menu-music request cannot continue into gameplay", async () => {
-  const script = await readFile(projectFile("script.js"), "utf8");
-  assert.match(script, /request !== menuMusicRequest \|\| !menuMode \|\| !musicOn/);
-  assert.match(script, /menuMode && !startsGame/);
-  assert.match(script, /function stopMenuMusic[\s\S]*?menuMusicRequest \+= 1;[\s\S]*?menuMusic\.pause\(\)/);
+  const audio = await readFile(projectFile("src/audio.js"), "utf8");
+  assert.match(audio, /request !== menuMusicRequest \|\| !isMenu\(\) \|\| !musicOn/);
+  assert.match(audio, /isMenu\(\) && !startsGame/);
+  assert.match(audio, /function stopMenuMusic[\s\S]*?menuMusicRequest \+= 1;[\s\S]*?menuMusic\.pause\(\)/);
 });
 
 test("hashed bundles are cached for a year and art for a week", async () => {

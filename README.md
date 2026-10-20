@@ -19,10 +19,11 @@ Visual assets are CC0, the menu music is credited in [CREDITS.md](CREDITS.md).
 
 ## How it fits together
 
-- **Game** (`script.js`, `src/`): plain DOM and CSS for the board, with
-  [Phaser](https://phaser.io) drawing the animated world and the board frame
+- **Game** (`phaser-prototype/script.js`, `src/`): plain DOM and CSS for the board,
+  with [Phaser](https://phaser.io) drawing the animated world and the board frame
   behind it (`src/engine.js`). The Phaser part is an enhancement: without WebGL
-  the game falls back to a built-in SVG backdrop and still plays.
+  the game falls back to a built-in SVG backdrop and still plays. See
+  "Code map" below for what lives where.
 - **Rules** (`src/game-core.js`, `src/board.js`): one deterministic, seeded
   implementation of the game, used by both the browser and the Worker.
 - **Worker** (`cloudflare/worker.js`): the API and the static assets, on
@@ -31,6 +32,28 @@ Visual assets are CC0, the menu music is credited in [CREDITS.md](CREDITS.md).
   a signed session (and the seed) when a game starts, and when a score arrives
   it **replays the recorded moves** and accepts it only if the finished game
   matches the claimed score, top plant and combo.
+
+### Code map
+
+`phaser-prototype/script.js` is the game and the place where the pieces meet (the
+run's state, the rules of a move, starting a game, which world is showing, the
+boot sequence). Everything else is a small module in `phaser-prototype/src/` that
+is given what it needs, knows nothing of the others and has its own unit tests
+in `phaser-prototype/tests/`:
+
+| Area | Modules |
+| --- | --- |
+| Rules and data | `board.js` (moves), `game-core.js` (seeded deal, replay), `game-rules.js`, `game-save.js`, `levels.js` (plants, worlds) |
+| The page | `board-view.js` (cells, tiles, particles), `tile-art.js`, `end-card.js`, `combo-hud.js`, `toast.js`, `dialogs.js` (what is open, inert, Tab trap), `settings-panel.js`, `controls.js` (keys, swipes), `world-view.js` (garden view, world reveal), `world-effects.js`, `scenery-fallback.js` (SVG backdrop) |
+| The Phaser backdrop | `engine.js` and `scenes/` (loaded separately by `main.js`) |
+| Sound | `audio.js` |
+| The server | `game-session.js`, `leaderboard-api.js`, `leaderboard-ui.js`, `score-submit.js`, `error-report.js` |
+| The player | `preferences.js`, `storage.js`, `i18n.js`, `features.js` |
+
+Each `create...()` module is a factory: it takes the DOM elements and the few
+functions it needs (the current language, "is the menu showing?", a callback for
+something that happened) and returns a small API. To change how something works,
+find its module; `script.js` only wires them.
 
 ### API
 
