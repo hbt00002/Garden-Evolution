@@ -31,7 +31,7 @@ test("if the scenery fails after the game started, the SVG backdrop takes over",
   const main = await read("src/main.js");
   assert.match(main, /catch \(error\) \{[^}]*Phaser scenery could not start[\s\S]*?removeAttribute\("data-phaser-active"\)[\s\S]*?garden:scenery-failed/);
   const script = await read("script.js");
-  assert.match(script, /addEventListener\("garden:scenery-failed", \(\) => \{\s+renderStageSVG\(/);
+  assert.match(script, /addEventListener\("garden:scenery-failed", \(\) => \{\s+scenery\.renderStage\(/);
 });
 
 test("the scenery prepares the next world even when the player pressed Play first", async () => {
