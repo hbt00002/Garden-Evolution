@@ -1,7 +1,7 @@
 "use strict";
 import { createBloomFlow } from "./src/bloom-flow.js";
 import { canMergeValues, endingForMergedValue } from "./src/game-rules.js";
-import { SAVE_KEY, isSessionUsable, parseSavedGame, serializeGame } from "./src/game-save.js";
+import { isSessionUsable } from "./src/game-save.js";
 import { directionForKey } from "./src/input.js";
 import { nextFocus } from "./src/focus-trap.js";
 import { BOARD_SIZE, hasMoves, planMove } from "./src/board.js";
@@ -9,7 +9,12 @@ import { DIRECTION_CHARS, createRng, drawSpawn } from "./src/game-core.js";
 import { PERIODS, buildRows, plantIndex, topPercent } from "./src/leaderboard-view.js";
 import { currentFeatures } from "./src/features.js";
 import { createWorldView } from "./src/world-view.js";
-import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIONS } from "./src/i18n.js";
+import { LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIONS } from "./src/i18n.js";
+import { artValueFor, levelFor, stageFor, stageMeta as stageMetaFor, tileLabel as tileLabelFor } from "./src/levels.js";
+import {
+  clearSavedGame, loadBest, loadDeviceId, loadLanguage, loadPlayerName, loadPref, loadSavedGame, saveBest,
+  saveLanguage, savePlayerName, savePref, writeSavedGame
+} from "./src/storage.js";
 
 /* ============================================================
    Garden Evolution — a relaxing 2048-inspired garden game
@@ -21,58 +26,6 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   const SLIDE_MS = 115;
   const MERGE_MS = 210;
   const SWIPE_THRESHOLD = 24;
-
-  /* ---------- Evolution chain ----------
-     Each tile gets a distinct background tone (bg) and number colour (fg).
-  */
-  const LEVELS = [
-    { v: 2, name: "Seed", bg: "#efe0c6", fg: "#7a5c34" },
-    { v: 4, name: "Sprout", bg: "#e6f0cf", fg: "#5d7a2e" },
-    { v: 8, name: "Young Plant", bg: "#d6efda", fg: "#3f6b35" },
-    { v: 16, name: "Flower", bg: "#f7dde2", fg: "#9c4a64" },
-    { v: 32, name: "Bush", bg: "#cfe6b4", fg: "#3f6b28" },
-    { v: 64, name: "Sapling", bg: "#c2d9c2", fg: "#3a5c44" },
-    { v: 128, name: "Young Tree", bg: "#a8c9a0", fg: "#2f5230" },
-    { v: 256, name: "Mature Tree", bg: "#8eb07e", fg: "#244a26" },
-    { v: 512, name: "Fruit Tree", bg: "#e6c79a", fg: "#7a4a22" },
-    { v: 1024, name: "Ancient Tree", bg: "#6f8a60", fg: "#1e3a1a" },
-    { v: 2048, name: "Golden Tree", bg: "#f2d985", fg: "#6b4d12" },
-    { v: 4096, name: "Tree of Life", bg: "#b8e0a0", fg: "#2a5a1a" },
-    { v: 8192, name: "Celestial Tree", bg: "#9eb8d6", fg: "#2a3a5e" }
-  ];
-
-  // Tile colours; the artwork itself is the PNG pack in /assets/tiles.
-  const TILE_PALETTE = [
-    ["#f4ead8", "#70502e"], ["#e8f1d5", "#4c6b2c"], ["#dcebd2", "#385f36"],
-    ["#f3e0e2", "#85475c"], ["#d7e7c1", "#3e632e"], ["#b7d09b", "#315b35"],
-    ["#82aa74", "#214a2d"], ["#496e4b", "#173522"], ["#5f7d5e", "#173a25"],
-    ["#71866a", "#173a25"], ["#f0c9d5", "#75344f"], ["#b8dca8", "#25531f"],
-    ["#aebfdd", "#283d66"]
-  ];
-  LEVELS.forEach((level, index) => {
-    level.sprite = index;
-    level.bg = TILE_PALETTE[index][0];
-    level.fg = TILE_PALETTE[index][1];
-  });
-  LEVELS[8].name = "Mini Forest";
-  LEVELS[9].name = "Ancient Tree";
-  LEVELS[10].name = "Sakura Crown";
-
-  const BY_VALUE = {};
-  LEVELS.forEach(l => (BY_VALUE[l.v] = l));
-  function levelFor(v) {
-    return BY_VALUE[v] || { v, name: "Bloomed", bg: LEVELS[LEVELS.length - 1].bg, fg: "#fff" };
-  }
-
-  /* ---------- Environment stages (by highest tile value) ---------- */
-  // Returns 1..5
-  function stageFor(maxValue) {
-    if (maxValue <= 64) return 1;
-    if (maxValue <= 256) return 2;
-    if (maxValue <= 512) return 3;
-    if (maxValue <= 1024) return 4;
-    return 5;
-  }
 
   /* ---------- DOM refs ---------- */
   const boardEl = document.getElementById("board");
@@ -185,16 +138,8 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   let reduceMotion = reduceMotionQuery.matches;
   reduceMotionQuery.addEventListener?.("change", event => { reduceMotion = event.matches; });
 
-  const STAGE_META = [
-    { name: "Winter Beginning", next: 128, line: "A quiet beginning beneath the snow.", emblem: "❄" },
-    { name: "Snowmelt Valley", next: 512, line: "The snow begins to sing.", emblem: "◌" },
-    { name: "Spring Bloom", next: 1024, line: "Every corner wakes with life.", emblem: "✿" },
-    { name: "Alpine Sakura", next: 2048, line: "Petals rise over the alpine garden.", emblem: "❀" },
-    { name: "Moonlit Garden", next: null, line: "The completed garden glows at night.", emblem: "☾" }
-  ];
-
+  const stageMeta = stage => stageMetaFor(stage, currentLanguage);
   let currentLanguage = "en";
-  function stageMeta(stage){const base=STAGE_META[stage-1],localized=LOCALIZED_STAGES[currentLanguage]?.[stage-1];return localized?{...base,name:localized[0],line:localized[1]}:base;}
   function localizeGameOver(text) {
     overlayEl.querySelectorAll("[data-i18n]").forEach(el => {
       const value = text[el.dataset.i18n];
@@ -223,7 +168,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     if(tiles)Object.values(tiles).forEach(t=>{if(t&&t.el)t.el.setAttribute("aria-label",tileLabel(t.value));});
     if(currentStage)updateEvolutionUI(currentStage);
     if(!leaderboardModalEl.hidden)fetchLeaderboard();
-    try{localStorage.setItem("gardenEvolutionLanguage",currentLanguage);}catch(e){}
+    saveLanguage(currentLanguage);
   }
 
   function updateEvolutionUI(stage) {
@@ -235,48 +180,10 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     stageDots.forEach((dot, index) => dot.classList.toggle("active", index <= stage - 1));
   }
 
-  /* ---------- Storage ---------- */
-  function loadBest() {
-    try { const v = localStorage.getItem("gardenEvolutionBest"); return v ? parseInt(v, 10) || 0 : 0; }
-    catch (e) { return 0; }
-  }
-  function saveBest() { try { localStorage.setItem("gardenEvolutionBest", String(best)); } catch (e) {} }
-  function loadPref(key, dflt) { try { const v = localStorage.getItem(key); return v === null ? dflt : v === "true"; } catch (e) { return dflt; } }
-  function savePref(key, val) { try { localStorage.setItem(key, String(val)); } catch (e) {} }
-  function loadPlayerName() { try { return localStorage.getItem("gardenEvolutionPlayerName") || ""; } catch (e) { return ""; } }
-  function savePlayerName(name) { try { localStorage.setItem("gardenEvolutionPlayerName", name); } catch (e) {} }
-  /* ---------- In-progress game ----------
-     The board is written after every completed move and cleared when a run
-     ends or a new one starts. Validation lives in src/game-save.js. The combo
-     streak and flow energy are intentionally not saved: they are short-lived
-     audiovisual state that restarts cleanly.
-  */
+  /* ---------- Saving ---------- */
   function saveGame() {
     if (!completedMoves || !grid || victoryAchieved || runSeed === null) return;
-    try {
-      localStorage.setItem(SAVE_KEY, serializeGame({ seed: runSeed, moves: moveLog, session: gameSession }));
-    } catch (e) {}
-  }
-  function clearSavedGame() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
-  function loadSavedGame() {
-    try { return parseSavedGame(localStorage.getItem(SAVE_KEY)); }
-    catch (e) { return null; }
-  }
-  // Stable per-browser id so the leaderboard can keep one "best score" row
-  // per device instead of growing forever. Not a security boundary (an
-  // attacker can clear storage or fabricate a UUID) — it's a courtesy id
-  // for normal players, paired server-side with session + rate limiting.
-  function loadDeviceId() {
-    try {
-      let id = localStorage.getItem("gardenEvolutionDeviceId");
-      if (!id) {
-        id = crypto.randomUUID();
-        localStorage.setItem("gardenEvolutionDeviceId", id);
-      }
-      return id;
-    } catch (e) {
-      return null;
-    }
+    writeSavedGame({ seed: runSeed, moves: moveLog, session: gameSession });
   }
 
   // Music volume intentionally starts fresh on every page load.
@@ -338,11 +245,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   }
 
   /* ---------- Rendering ---------- */
-  function tileLabel(value) {
-    const lvl = levelFor(value);
-    const name = TILE_NAMES[currentLanguage]?.[LEVELS.indexOf(lvl)] || lvl.name;
-    return `${name}, ${value}`;
-  }
+  const tileLabel = value => tileLabelFor(value, currentLanguage);
 
   /* Tile art. Every picture is loaded once and kept (a retained image keeps its
      decoded pixels in memory), and a tile's art is copied from that, so a merge
@@ -397,7 +300,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
 
   function renderTileContent(el, value) {
     const lvl = levelFor(value);
-    const sprite = Number.isInteger(lvl.sprite) ? lvl.sprite : LEVELS.length - 1;
+    const { sprite, assetValue } = artValueFor(value);
     el.dataset.value = value;
     el.dataset.tier = sprite + 1;
     el.style.background = lvl.bg;
@@ -405,7 +308,6 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     el.setAttribute("aria-label", tileLabel(value));
     el.classList.toggle("glow", value >= 512);
     el.classList.toggle("golden", value >= 2048);
-    const assetValue = LEVELS[sprite]?.v || 8192;
     let num = el.querySelector(".t-num");
     if (!num) {
       num = document.createElement("span");
@@ -607,7 +509,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
 
   function updateScore() {
     scoreEl.textContent = score;
-    if (score > best) { best = score; saveBest(); }
+    if (score > best) { best = score; saveBest(best); }
     bestEl.textContent = best;
   }
 
@@ -2984,9 +2886,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   /* ---------- Boot ---------- */
   best = loadBest();
   bestEl.textContent = best;
-  let savedLanguage = "en";
-  try { savedLanguage = localStorage.getItem("gardenEvolutionLanguage") || "en"; } catch (e) {}
-  applyLanguage(savedLanguage);
+  applyLanguage(loadLanguage());
   applyVisualPrefs();
   syncToggles();
   buildGrid();
