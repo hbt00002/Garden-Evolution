@@ -118,8 +118,10 @@ for (const phone of PHONES) {
       frame.quarters.forEach((share, index) => {
         if (share < 0.9) problems.push(`${label}: the board's frame is missing in quarter ${index + 1} (${(share * 100).toFixed(0)}% drawn)`);
       });
-      const board = await rect(page, "#board");
-      if (Math.abs(frame.width - Math.floor(board.width)) > 1) problems.push(`${label}: frame is ${frame.width}px but the board is ${Math.round(board.width)}px`);
+      // (The frame fills the box Phaser draws in, which is the board without its
+      // border: the last world gives the board a 1px border.)
+      const box = await rect(page, "#boardEngine");
+      if (Math.abs(frame.width - Math.floor(box.width)) > 1) problems.push(`${label}: frame is ${frame.width}px but its box is ${Math.round(box.width)}px`);
 
       // Tiles sit on cells; nothing is cut off, outside the screen or on top of something else.
       const off = await tileMisalignment(page);
@@ -155,8 +157,8 @@ test("turning the phone back and forth keeps everything whole", async ({ page })
     await page.waitForTimeout(900);
     const frame = await measureCanvas(page, "board");
     frame.quarters.forEach((share, index) => { if (share < 0.9) problems.push(`${width}x${height}: frame missing in quarter ${index + 1}`); });
-    const board = await rect(page, "#board");
-    if (Math.abs(frame.width - Math.floor(board.width)) > 1) problems.push(`${width}x${height}: frame ${frame.width}px, board ${Math.round(board.width)}px`);
+    const box = await rect(page, "#boardEngine");
+    if (Math.abs(frame.width - Math.floor(box.width)) > 1) problems.push(`${width}x${height}: frame ${frame.width}px, its box ${Math.round(box.width)}px`);
     const off = await tileMisalignment(page);
     if (off > 1.5) problems.push(`${width}x${height}: a tile is ${off.toFixed(1)}px off its cell`);
     const world = await measureCanvas(page, "world");
