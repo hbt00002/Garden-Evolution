@@ -101,12 +101,22 @@ const syncBoardViewport = () => {
   boardSyncFrame = requestAnimationFrame(() => {
     const bounds = boardMount.getBoundingClientRect();
     if (bounds.width < 1 || bounds.height < 1) return;
+    // In RESIZE mode Phaser takes its size from the parent size it last measured
+    // (and only re-measures on a window resize), so resizing it by hand gets undone
+    // by the next refresh using the old measurement: the frame stayed 2px wider
+    // than its box in the last world, where the board has a border. Measure the
+    // parent again first, then let Phaser refresh itself.
+    boardGame.scale.getParentBounds();
     if (Math.abs(boardGame.scale.width - bounds.width) >= 1 || Math.abs(boardGame.scale.height - bounds.height) >= 1) {
-      boardGame.scale.resize(bounds.width, bounds.height);
+      boardGame.scale.refresh();
       paintBoardOnce();
     }
   });
 };
+new ResizeObserver(syncBoardViewport).observe(boardMount);
+window.addEventListener("resize", syncBoardViewport, { passive: true });
+window.visualViewport?.addEventListener("resize", syncBoardViewport, { passive: true });
+window.addEventListener("orientationchange", () => [0, 150, 500, 1200].forEach(ms => setTimeout(syncBoardViewport, ms)));
 
 // A canvas that is resized while its loop sleeps goes blank until the next
 // frame, so give a sleeping board a moment to paint the new size. (Not while
