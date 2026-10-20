@@ -11,6 +11,7 @@ import { createLeaderboardUi } from "./src/leaderboard-ui.js";
 import { createScoreSubmit } from "./src/score-submit.js";
 import { currentFeatures } from "./src/features.js";
 import { createAudio } from "./src/audio.js";
+import { createEndCard } from "./src/end-card.js";
 import { createWorldEffects } from "./src/world-effects.js";
 import { createPreferences } from "./src/preferences.js";
 import { createSettingsPanel } from "./src/settings-panel.js";
@@ -20,7 +21,7 @@ import { createWorldView } from "./src/world-view.js";
 import { PLAY_LABELS, TRANSLATIONS } from "./src/i18n.js";
 import { artValueFor, levelFor, stageFor, stageMeta as stageMetaFor, tileLabel as tileLabelFor } from "./src/levels.js";
 import {
-  clearSavedGame, loadBest, loadLanguage, loadPlayerName, loadSavedGame, saveBest, saveLanguage, writeSavedGame
+  clearSavedGame, loadBest, loadLanguage, loadSavedGame, saveBest, saveLanguage, writeSavedGame
 } from "./src/storage.js";
 
 /* ============================================================
@@ -40,11 +41,6 @@ import {
   const overlayEl = document.getElementById("overlay");
   const scoreEl = document.getElementById("score");
   const bestEl = document.getElementById("best");
-  const finalScoreEl = document.getElementById("finalScore");
-  const finalScoreLabelEl = finalScoreEl.previousElementSibling;
-  const finalBestEl = document.getElementById("finalBest");
-  const finalTitleEl = document.getElementById("finalTitle");
-  const finalExplanationEl = document.getElementById("finalExplanation");
   const newBtn = document.getElementById("newBtn");
   const playAgainBtn = document.getElementById("playAgainBtn");
   const continueMilestoneBtn = document.getElementById("continueMilestoneBtn");
@@ -52,7 +48,6 @@ import {
   const leaderboardModalEl = document.getElementById("leaderboardModal");
   const leaderboardCloseBtn = document.getElementById("leaderboardClose");
   const scoreFormEl = document.getElementById("scoreForm");
-  const scoreFormLabelEl = scoreFormEl.querySelector("label");
   const playerNameEl = document.getElementById("playerName");
   const submitScoreBtn = document.getElementById("submitScoreBtn");
   const scoreSubmitStatusEl = document.getElementById("scoreSubmitStatus");
@@ -79,19 +74,12 @@ import {
   const comboHudEl = document.getElementById("comboHud");
   const comboValueEl = document.getElementById("comboValue");
   const worldEventLayerEl = document.getElementById("worldEventLayer");
-  const finalWorldEl = document.getElementById("finalWorld");
-  const finalTileEl = document.getElementById("finalTile");
-  const finalComboEl = document.getElementById("finalCombo");
-  const finalEmblemEl = document.getElementById("finalEmblem");
-  const unrankedNoteEl = document.getElementById("unrankedNote");
   const viewBtn = document.getElementById("viewBtn");
   const gardenViewEl = document.getElementById("gardenView");
   const worldRevealEl = document.getElementById("worldReveal");
   const revealRow = document.getElementById("revealRow");
   const gameMainEl = document.querySelector("main.game");
   const announcerEl = document.getElementById("a11yAnnouncer");
-  const milestoneArtEl = document.getElementById("milestoneArt");
-  const victoryArtEl = document.getElementById("victoryArt");
 
   /* ---------- State ---------- */
   let grid;
@@ -127,22 +115,6 @@ import {
 
   const stageMeta = stage => stageMetaFor(stage, currentLanguage);
   let currentLanguage = "en";
-  function localizeGameOver(text) {
-    overlayEl.querySelectorAll("[data-i18n]").forEach(el => {
-      const value = text[el.dataset.i18n];
-      if (value) el.textContent = value;
-    });
-    playerNameEl.placeholder = text.yourName;
-    if (currentStage) {
-      const overlayStage = overlayEl.hidden ? currentStage : stageFor(Math.max(2, maxValueReached));
-      const mode = overlayEl.dataset.mode;
-      finalWorldEl.textContent = !overlayEl.hidden && mode === "milestone"
-        ? text.milestoneKicker
-        : !overlayEl.hidden && mode === "victory"
-          ? text.victoryKicker
-          : stageMeta(overlayStage).name;
-    }
-  }
   function applyLanguage(language){
     currentLanguage=TRANSLATIONS[language]?language:"en";const text=TRANSLATIONS[currentLanguage];
     document.documentElement.lang=currentLanguage;languageSelect.value=currentLanguage;
@@ -150,7 +122,7 @@ import {
     startPlayBtn.textContent=PLAY_LABELS[currentLanguage]||PLAY_LABELS.en;
     playerNameEl.placeholder=text.yourName;settingsBtn.setAttribute("aria-label",text.settings);viewBtn.setAttribute("aria-label",text.viewGarden);viewBtn.title=text.viewGarden;musicVolumeEl.setAttribute("aria-label",text.music);
     performanceNoteEl.textContent=lowPowerDevice?text.balanced:text.fullDetail;
-    localizeGameOver(text);
+    endCard.localize();
     settingsCloseBtn.setAttribute("aria-label",text.closeSettings);leaderboardCloseBtn.setAttribute("aria-label",text.closeLeaderboard);
     if(tiles)Object.values(tiles).forEach(t=>{if(t&&t.el)t.el.setAttribute("aria-label",tileLabel(t.value));});
     if(currentStage)updateEvolutionUI(currentStage);
@@ -395,9 +367,9 @@ import {
       if (endingPending !== "victory") spawn();
       if (endingPending === "victory" || isGameOver()) clearSavedGame();
       else saveGame();
-      if (endingPending === "victory") showGameOver("victory");
-      else if (isGameOver()) showGameOver("noMoves");
-      else if (endingPending === "milestone") showMilestone();
+      if (endingPending === "victory") endCard.show("victory");
+      else if (isGameOver()) endCard.show("noMoves");
+      else if (endingPending === "milestone") endCard.show("milestone");
       // Keep scene creation/theme work off the merge-finalization frame. The
       // tile update and its forced animation layouts finish first.
       if (stageAdvancePending) requestAnimationFrame(maybeEvolveEnvironment);
@@ -484,76 +456,6 @@ import {
     ], { duration:strong ? 250 : 220, easing:"ease-out" });
   }
 
-  function emitEndingParticles(artEl) {
-    artEl.querySelectorAll(".milestone-mote").forEach(node => node.remove());
-    if (prefs.reduceMotion || !prefs.particlesOn) return;
-    const kinds = ["leaf", "spark", "firefly"];
-    for (let index = 0; index < 18; index++) {
-      const mote = document.createElement("i");
-      const angle = (Math.PI * 2 * index) / 18 + Math.random() * .22;
-      const distance = 58 + Math.random() * 42;
-      mote.className = `milestone-mote milestone-mote--${kinds[index % kinds.length]}`;
-      mote.style.setProperty("--mote-x", `${Math.cos(angle) * distance}px`);
-      mote.style.setProperty("--mote-y", `${Math.sin(angle) * distance - 14}px`);
-      mote.style.setProperty("--mote-delay", `${(index % 6) * 34}ms`);
-      mote.style.setProperty("--mote-spin", `${90 + Math.random() * 240}deg`);
-      artEl.appendChild(mote);
-      mote.addEventListener("animationend", () => mote.remove(), { once:true });
-    }
-  }
-
-  function showEndOverlay(mode) {
-    coolFlow();
-    const text = TRANSLATIONS[currentLanguage];
-    const milestone = mode === "milestone";
-    finalTitleEl.dataset.i18n = milestone ? "milestoneTitle" : mode === "victory" ? "victoryTitle" : "noMoves";
-    finalExplanationEl.dataset.i18n = milestone ? "milestoneText" : mode === "victory" ? "victoryText" : "noMovesText";
-    scoreFormLabelEl.dataset.i18n = mode === "victory" ? "saveFinalScore" : "joinLeaderboard";
-    finalScoreLabelEl.dataset.i18n = milestone ? "currentScore" : "final";
-    overlayEl.dataset.mode = mode;
-    localizeGameOver(text);
-    const endingStage = stageFor(Math.max(2, maxValueReached));
-    finalScoreEl.textContent = Number(score).toLocaleString(currentLanguage);
-    finalBestEl.textContent = Number(best).toLocaleString(currentLanguage);
-    finalWorldEl.textContent = milestone ? text.milestoneKicker : mode === "victory" ? text.victoryKicker : stageMeta(endingStage).name;
-    finalTileEl.textContent = Number(maxValueReached || 2).toLocaleString(currentLanguage);
-    finalComboEl.textContent = `${bestCombo || 0}×`;
-    finalEmblemEl.textContent = stageMeta(endingStage).emblem;
-    playerNameEl.value = loadPlayerName();
-    const ranked = isRankedRun();
-    scoreFormEl.hidden = milestone || !ranked;
-    unrankedNoteEl.hidden = milestone || ranked;
-    scoreFormEl.classList.remove("success");
-    scoreSubmitStatusEl.textContent = "";
-    submitScoreBtn.disabled = false;
-    submitScoreBtn.textContent = text.submit;
-    continueMilestoneBtn.hidden = !milestone;
-    playAgainBtn.hidden = milestone;
-    overlayEl.dataset.stage = endingStage;
-    overlayEl.hidden = false;
-    overlayEl.classList.remove("ready");
-    requestAnimationFrame(() => {
-      overlayEl.classList.add("show");
-      if (milestone) emitEndingParticles(milestoneArtEl);
-      else if (mode === "victory") emitEndingParticles(victoryArtEl);
-    });
-    clearTimeout(showEndOverlay._readyTimer);
-    showEndOverlay._readyTimer = setTimeout(() => {
-      overlayEl.classList.add("ready");
-      (milestone ? continueMilestoneBtn : ranked ? playerNameEl : playAgainBtn).focus();
-    }, milestone ? 350 : 850);
-    if (!milestone) audio.playGameOver();
-  }
-  function showGameOver(mode = "noMoves") { showEndOverlay(mode); }
-  function showMilestone() { showEndOverlay("milestone"); }
-  function hideGameOver() {
-    clearTimeout(showEndOverlay._readyTimer);
-    overlayEl.classList.remove("ready");
-    overlayEl.classList.remove("show");
-    overlayEl.hidden = true;
-  }
-
-
   const gameSession = createGameSession({
     getGeneration: () => gameGeneration,
     errorMessage: () => TRANSLATIONS[currentLanguage].sessionError,
@@ -577,6 +479,35 @@ import {
     spawn();
     updateScore();
   }
+  const endCard = createEndCard({
+    elements: {
+      overlay: overlayEl,
+      finalScore: document.getElementById("finalScore"),
+      finalBest: document.getElementById("finalBest"),
+      finalTitle: document.getElementById("finalTitle"),
+      finalExplanation: document.getElementById("finalExplanation"),
+      scoreForm: scoreFormEl,
+      playerName: playerNameEl,
+      submitBtn: submitScoreBtn,
+      status: scoreSubmitStatusEl,
+      continueBtn: continueMilestoneBtn,
+      playAgainBtn,
+      finalWorld: document.getElementById("finalWorld"),
+      finalTile: document.getElementById("finalTile"),
+      finalCombo: document.getElementById("finalCombo"),
+      finalEmblem: document.getElementById("finalEmblem"),
+      unrankedNote: document.getElementById("unrankedNote"),
+      milestoneArt: document.getElementById("milestoneArt"),
+      victoryArt: document.getElementById("victoryArt")
+    },
+    prefs,
+    text: () => TRANSLATIONS[currentLanguage],
+    language: () => currentLanguage,
+    snapshot: () => ({ score, best, maxValueReached, bestCombo, ranked: isRankedRun(), currentStage }),
+    onShow: () => coolFlow(),
+    playGameOver: () => audio.playGameOver()
+  });
+
   const leaderboardApi = createLeaderboardApi();
   const leaderboard = createLeaderboardUi({
     api: leaderboardApi,
@@ -776,7 +707,7 @@ import {
     tilesEl.innerHTML = "";
     boardEl.querySelectorAll(".particle").forEach(p => p.remove());
     tilesEl.querySelectorAll(".particle").forEach(p => p.remove());
-    hideGameOver();
+    endCard.hide();
     setEnvironmentStage(saved ? stageFor(saved.maxValueReached) : 1, true);
     measure();
     if (saved) {
@@ -834,7 +765,7 @@ import {
   });
   playAgainBtn.addEventListener("click", () => { audio.ensure(); newGame(); });
   continueMilestoneBtn.addEventListener("click", () => {
-    hideGameOver();
+    endCard.hide();
     boardEl.focus?.();
     // The world that unlocked together with the milestone gets its showcase now.
     if (pendingReveal) {
@@ -1000,7 +931,7 @@ import {
       victoryAchieved = previewEnding === "victory";
       updateScore();
       setEnvironmentStage(5, true);
-      previewEnding === "victory" ? showGameOver("victory") : showMilestone();
+      endCard.show(previewEnding);
     }
   }
 })();
