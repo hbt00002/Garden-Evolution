@@ -15,6 +15,14 @@ const lowPowerDevice = Boolean(
   (navigator.deviceMemory && navigator.deviceMemory <= 4) ||
   (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4)
 );
+// The worlds and the board's living frame are ambience: slow drifts and soft
+// light, nothing that needs 60 frames a second. On a phone or tablet (a touch
+// screen) and on weak devices they run at 30, which halves the work they take
+// from the main thread that the game's own controls also need. (The tiles
+// themselves slide with CSS and stay smooth either way.)
+const ambientFps = lowPowerDevice || window.matchMedia("(pointer: coarse)").matches ? 30 : 60;
+const ambientFpsConfig = { target: ambientFps, limit: ambientFps === 30 ? 30 : 0 };
+
 
 const game = new Phaser.Game({
   type: Phaser.WEBGL,
@@ -33,7 +41,7 @@ const game = new Phaser.Game({
     antialias: false,
     pixelArt: true
   },
-  fps: { target: lowPowerDevice ? 30 : 60, forceSetTimeOut: lowPowerDevice },
+  fps: { ...ambientFpsConfig, forceSetTimeOut: lowPowerDevice },
   scene: [WinterMountainScene, SnowmeltValleyScene, SpringBloomScene, SakuraGardenScene, MoonlitFinaleScene]
 });
 
@@ -75,7 +83,7 @@ const boardGame = new Phaser.Game({
   roundPixels: true,
   scale: { mode: Phaser.Scale.RESIZE, width: boardMount.clientWidth || 480, height: boardMount.clientHeight || 480 },
   render: { powerPreference: "high-performance", antialias: false, pixelArt: true },
-  fps: { target: lowPowerDevice ? 30 : 60 },
+  fps: ambientFpsConfig,
   scene: [LivingBoardScene]
 });
 window.gardenBoardEngine = boardGame;

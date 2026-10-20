@@ -224,6 +224,18 @@ replaced or removed from the database by the owner.
   57 MB and 32 MB decoded to about 19 MB each. `tests/asset-budget.test.js`
   fails if a world grows past its budget. Art folders are cached for a week, so
   a replaced image always gets a new folder name (`-v2`, `-v3`).
+- **Smoothness.** Phaser draws the worlds and the board's living frame on the same
+  thread as the game's controls, so what it costs is what a tap or swipe has to
+  wait behind. Two things used to keep a phone's main thread busy all the time
+  and are guarded by `e2e/performance.spec.js`: a Phaser `Graphics` object
+  replays (and re-triangulates) every shape on every frame, so the board's frame
+  and sixteen cells are drawn once into a texture (`LivingBoardScene.bakeFrame`),
+  and the drifting particles use triangle fans (`scenes/fast-shapes.js`) instead
+  of `fillCircle`/`fillEllipse`. The backdrop also runs at 30 frames a second on
+  touch screens and weak devices (`engine.js`); the tiles slide with CSS and stay
+  smooth either way. To measure, slow the CPU 4x in Chrome's Performance panel
+  (or with the DevTools Protocol) and look at how much of the main thread is idle
+  while the game just sits there: it was 0% before and is about 60-75% now.
 - **Saved games** are the seed and the moves, replayed on load. Changing the
   rules or the random stream changes what old saves replay to, so bump
   `SAVE_VERSION` in `src/game-save.js` when you do.
