@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 // A phone keeps every texture of the worlds it has visited decoded in memory
@@ -20,7 +20,7 @@ function decodedBytes(folder) {
       }
     }
   };
-  walk(join(assets, folder));
+  if (existsSync(join(assets, folder))) walk(join(assets, folder));
   return total;
 }
 

@@ -218,7 +218,18 @@ test.describe("switching it off", () => {
   });
 });
 
+// The showcase is off by default (a new world should not interrupt play); these
+// tests are about it, so they turn it on the way a player would, in Settings.
+const showcaseOn = page => page.addInitScript(() => {
+  if (sessionStorage.getItem("showcase-seeded") === null) {
+    localStorage.setItem("gardenEvolutionReveal", "true");
+    sessionStorage.setItem("showcase-seeded", "1");
+  }
+});
+
 test.describe("the showcase when a world unlocks", () => {
+  test.beforeEach(async ({ page }) => { await showcaseOn(page); });
+
   test("a new world is shown off, then the game carries on", async ({ page }) => {
     await startGame(page);
     await unlock(page, 2);
@@ -280,26 +291,6 @@ test.describe("the showcase when a world unlocks", () => {
     await expectBackInGame(page);
   });
 
-  test("it can be switched off in the settings and the choice is remembered", async ({ page }) => {
-    await startGame(page);
-    await page.locator("#settingsBtn").click();
-    const toggle = page.locator("#revealToggle");
-    await expect(toggle).toHaveAttribute("aria-checked", "true");
-    await toggle.click();
-    await expect(toggle).toHaveAttribute("aria-checked", "false");
-    await page.keyboard.press("Escape");
-
-    await unlock(page, 2);
-    await page.waitForTimeout(2500);
-    await expect(page.locator("#worldReveal")).toBeHidden();
-    await expect(page.locator("main.game")).toBeVisible();
-
-    await page.reload();
-    await expect(page.locator("#grid .cell")).toHaveCount(16);
-    await page.locator("#startSettingsBtn").click();
-    await expect(page.locator("#revealToggle")).toHaveAttribute("aria-checked", "false");
-  });
-
   test("?features=-worldReveal removes the feature and its setting", async ({ page }) => {
     await page.goto("/?features=-worldReveal");
     await expect(page.locator("#grid .cell")).toHaveCount(16);
@@ -323,8 +314,37 @@ test.describe("the showcase when a world unlocks", () => {
   });
 });
 
+test.describe("the showcase setting", () => {
+  test("it is off until the player turns it on in the settings, and the choice is remembered", async ({ page }) => {
+    // A player who never touched the setting: the world changes quietly.
+    await startGame(page);
+    await unlock(page, 2);
+    await page.waitForTimeout(2500);
+    await expect(page.locator("#worldReveal")).toBeHidden();
+    await expect(page.locator("main.game")).toBeVisible();
+
+    await page.locator("#settingsBtn").click();
+    const toggle = page.locator("#revealToggle");
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("Escape");
+    await unlock(page, 3);
+    await expect(page.locator("#worldReveal.show")).toBeVisible({ timeout: 8000 });
+    await page.waitForTimeout(800);
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#worldReveal")).toBeHidden({ timeout: 3000 });
+
+    await page.reload();
+    await expect(page.locator("#grid .cell")).toHaveCount(16);
+    await page.locator("#startSettingsBtn").click();
+    await expect(page.locator("#revealToggle")).toHaveAttribute("aria-checked", "true");
+  });
+});
+
 test.describe("with reduced motion", () => {
   test.use({ reducedMotion: "reduce", viewport: { width: 390, height: 844 } });
+  test.beforeEach(async ({ page }) => { await showcaseOn(page); });
 
   test("the showcase is calm: no sweeping, the world keeps its size", async ({ page }) => {
     await startGame(page);

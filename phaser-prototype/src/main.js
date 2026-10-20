@@ -7,6 +7,10 @@
 
 import "./fonts.js";
 import { loadErrorCopy } from "./load-error.js";
+import { installErrorReporting } from "./error-report.js";
+
+// First, so a failure anywhere below (or later) is noticed.
+const errors = installErrorReporting();
 
 performance.mark("app-start");
 
@@ -42,6 +46,7 @@ try {
   // Without the game's code every button is dead. Say why instead of leaving a
   // silent, frozen page: an ad blocker swallowing a file is the usual reason.
   console.error("The game could not be loaded.", error);
+  errors.report({ kind: "load", message: String(error?.message || error).slice(0, 300), stack: error?.stack });
   let stored = null;
   try { stored = localStorage.getItem("gardenEvolutionLanguage"); } catch (e) { /* storage blocked */ }
   const [title, text, label] = loadErrorCopy(stored, navigator.language);
@@ -60,6 +65,7 @@ if (sceneryLoad) {
     performance.mark("scenery-ready");
   } catch (error) {
     console.error("The Phaser scenery could not start; using the built-in scenery.", error);
+    errors.report({ kind: "load", message: `Scenery: ${String(error?.message || error).slice(0, 280)}`, stack: error?.stack });
     // Only fall back when the world itself never came up. If just the board
     // frame failed, the world is already running and must stay in charge.
     if (!window.gardenEngine) {

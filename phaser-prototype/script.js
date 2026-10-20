@@ -287,7 +287,8 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   let motionOn = loadPref("gardenEvolutionMotion", true);
   let particlesOn = loadPref("gardenEvolutionParticles", true);
   let contrastOn = loadPref("gardenEvolutionContrast", false);
-  let revealOn = loadPref("gardenEvolutionReveal", true);
+  // Off unless the player turns it on in Settings: a world arriving should not interrupt play.
+  let revealOn = loadPref("gardenEvolutionReveal", false);
   // Newer, self-contained features can be switched off (src/features.js).
   const features = currentFeatures();
   let worldView = null;
@@ -343,22 +344,43 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     return `${name}, ${value}`;
   }
 
-  function renderTileContent(el, value) {
-    const lvl = levelFor(value);
-    const sprite = Number.isInteger(lvl.sprite) ? lvl.sprite : LEVELS.length - 1;
-    el.dataset.value = value;
-    el.dataset.tier = sprite + 1;
-    el.style.background = lvl.bg;
-    el.style.setProperty("--fg", lvl.fg);
-    el.setAttribute("aria-label", tileLabel(value));
-    el.classList.toggle("glow", value >= 512);
-    el.classList.toggle("golden", value >= 2048);
-    const assetValue = LEVELS[sprite]?.v || 8192;
-    el.innerHTML = `<img class="tile-art" src="/assets/tiles/v3/tile-${assetValue}.png" alt="" aria-hidden="true" draggable="false"><span class="t-num">${value}</span>`;
+  /* Tile art. Every picture is loaded once and kept (a retained image keeps its
+     decoded pixels in memory), and a tile's art is copied from that, so a merge
+     never waits for a download or a decode. If a picture is somehow not ready
+     yet, the tile keeps its old art until the new one arrives instead of going
+     blank, and a failed download is retried. */
+  const tileArtReady = new Map();      // asset value -> loaded <img> (kept on purpose)
+  const tileArtLoading = new Map();    // asset value -> Promise of that <img>
+  const tileArtUrl = value => `/assets/tiles/v3/tile-${value}.png`;
+  function loadTileArt(value, attempt = 0) {
+    if (tileArtReady.has(value)) return Promise.resolve(tileArtReady.get(value));
+    if (tileArtLoading.has(value) && attempt === 0) return tileArtLoading.get(value);
+    const promise = new Promise(resolve => {
+      const image = new Image();
+      image.decoding = "async";
+      image.onload = () => {
+        const done = () => { tileArtReady.set(value, image); tileArtLoading.delete(value); resolve(image); };
+        if (image.decode) image.decode().then(done, done); else done();
+      };
+      image.onerror = () => {
+        tileArtLoading.delete(value);
+        if (attempt >= 3) { resolve(null); return; }
+        setTimeout(() => loadTileArt(value, attempt + 1).then(resolve), 400 * (attempt + 1));
+      };
+      image.src = tileArtUrl(value);
+    });
+    tileArtLoading.set(value, promise);
+    return promise;
+  }
+  function makeTileArt(value, ready) {
+    const art = ready ? ready.cloneNode(false) : new Image();
+    if (!ready) art.src = tileArtUrl(value);
+    art.className = "tile-art";
+    art.alt = "";
+    art.setAttribute("aria-hidden", "true");
+    art.draggable = false;
     // Critical containment is repeated inline so a stale stylesheet can never
     // let a newly-rendered sprite escape its tile while caches are refreshing.
-    el.style.overflow = "hidden";
-    const art = el.querySelector(".tile-art");
     Object.assign(art.style, {
       position: "absolute",
       inset: "4% 4% 9%",
@@ -370,6 +392,45 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
       display: "block",
       pointerEvents: "none"
     });
+    return art;
+  }
+
+  function renderTileContent(el, value) {
+    const lvl = levelFor(value);
+    const sprite = Number.isInteger(lvl.sprite) ? lvl.sprite : LEVELS.length - 1;
+    el.dataset.value = value;
+    el.dataset.tier = sprite + 1;
+    el.style.background = lvl.bg;
+    el.style.setProperty("--fg", lvl.fg);
+    el.setAttribute("aria-label", tileLabel(value));
+    el.classList.toggle("glow", value >= 512);
+    el.classList.toggle("golden", value >= 2048);
+    const assetValue = LEVELS[sprite]?.v || 8192;
+    let num = el.querySelector(".t-num");
+    if (!num) {
+      num = document.createElement("span");
+      num.className = "t-num";
+      el.appendChild(num);
+    }
+    num.textContent = value;
+    el.style.overflow = "hidden";
+    el.dataset.art = assetValue;
+    const current = el.querySelector(".tile-art");
+    if (current && current.dataset.assetValue === String(assetValue)) return;
+    const swapIn = ready => {
+      if (el.dataset.art !== String(assetValue)) return;   // merged again meanwhile
+      const art = makeTileArt(assetValue, ready);
+      art.dataset.assetValue = assetValue;
+      const old = el.querySelector(".tile-art");
+      if (old) old.replaceWith(art); else el.insertBefore(art, el.firstChild);
+    };
+    const ready = tileArtReady.get(assetValue);
+    if (ready) swapIn(ready);
+    else {
+      // Nothing to show yet: keep the previous art (if any) until this one is loaded.
+      if (!current) swapIn(null);
+      loadTileArt(assetValue).then(image => { if (image) swapIn(image); });
+    }
   }
 
   function createTile(r, c, value, isNew) {
@@ -2457,7 +2518,7 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
     envEl.dataset.stage = stage;
     renderStageSVG(stage);
     spawnEnvParticles(stage);
-    preloadTileAssets(stage);
+    preloadTileAssets();
     updateEvolutionUI(stage);
     scheduleWorldEvent();
     if (!menuMode && audioCtx?.state === "running" && musicOn) startMusic();
@@ -2498,21 +2559,22 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   });
   if (["localhost", "127.0.0.1"].includes(location.hostname)) window.debugSetEnvironmentStage = setEnvironmentStage;
 
-  const preloadedTileAssets = new Set();
+  // Every tile picture is small (30-190 KB), so load them all rather than
+  // waiting for the world that needs them: the first ones straight away, the
+  // rest as soon as the browser is idle.
   const TILE_PRELOAD_GROUPS = [
     [2, 4, 8, 16, 32, 64], [128, 256], [512], [1024, 2048], [4096, 8192]
   ];
-  function preloadTileAssets(stage) {
-    const values = TILE_PRELOAD_GROUPS.slice(0, Math.max(1, stage)).flat();
-    const load = () => values.forEach(value => {
-      if (preloadedTileAssets.has(value)) return;
-      preloadedTileAssets.add(value);
-      const image = new Image();
-      image.decoding = "async";
-      image.src = `/assets/tiles/v3/tile-${value}.png`;
+  let tileArtPreloadStarted = false;
+  function preloadTileAssets() {
+    if (tileArtPreloadStarted) return;
+    tileArtPreloadStarted = true;
+    TILE_PRELOAD_GROUPS.forEach((group, index) => {
+      const load = () => group.forEach(value => loadTileArt(value));
+      if (index === 0) load();
+      else if ("requestIdleCallback" in window) requestIdleCallback(load, { timeout: 1500 });
+      else setTimeout(load, 300 * index);
     });
-    if ("requestIdleCallback" in window) requestIdleCallback(load, { timeout: 1200 });
-    else setTimeout(load, 120);
   }
 
   function maybeEvolveEnvironment() {
@@ -2851,6 +2913,9 @@ import { LOCALIZED_STAGES, LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIO
   contrastToggle.addEventListener("click", () => { contrastOn = !contrastOn; savePref("gardenEvolutionContrast", contrastOn); applyVisualPrefs(); syncToggles(); });
   revealToggle.addEventListener("click", () => { revealOn = !revealOn; savePref("gardenEvolutionReveal", revealOn); syncToggles(); });
   languageSelect.addEventListener("change", () => applyLanguage(languageSelect.value));
+
+  // Start fetching the tile pictures while the player is still on the menu.
+  preloadTileAssets();
 
   // Resize handling
   let resizeTimer;

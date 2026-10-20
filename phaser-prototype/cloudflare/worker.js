@@ -487,6 +487,89 @@ async function leaderboard(request, env, ctx) {
   return json(201, { ok: true, playerName });
 }
 
+/* ---------- Client error reports ---------- */
+// The game reports when it breaks in a player's browser (src/error-report.js).
+// Only technical facts are stored, one row per distinct error with a count;
+// see migrations/0005_client_errors.sql. Everything here is best effort: a
+// report that cannot be stored is dropped, never turned into a visible error.
+const ERROR_KINDS = new Set(["error", "rejection", "resource", "load"]);
+const ERROR_RATE_LIMIT = 20;           // reports per IP+browser per 10 minutes
+const ERROR_ROW_CAP = 500;             // distinct errors kept; flooding with new ones is ignored
+const ERROR_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const MAX_ERROR_BODY_BYTES = 6 * 1024;
+
+const clip = (value, max) => (typeof value === "string" && value.trim() ? value.trim().slice(0, max) : null);
+const smallInt = value => (Number.isSafeInteger(value) && value >= 0 && value < 1_000_000 ? value : null);
+
+// A coarse description of the browser and device, from the User-Agent. The
+// raw header (which can be nearly unique) is not stored.
+export function coarseClient(userAgent = "") {
+  const ua = String(userAgent);
+  const pick = (pairs, fallback) => (pairs.find(([pattern]) => pattern.test(ua)) || [null, fallback])[1];
+  const major = pattern => ua.match(pattern)?.[1];
+  const family = pick([
+    [/Edg(?:e|A|iOS)?\//, "Edge"], [/SamsungBrowser\//, "Samsung Internet"], [/OPR\/|Opera/, "Opera"],
+    [/Firefox\/|FxiOS\//, "Firefox"], [/CriOS\/|Chrome\//, "Chrome"], [/Safari\//, "Safari"]
+  ], "Other");
+  const version = family === "Chrome" ? major(/(?:CriOS|Chrome)\/(\d+)/)
+    : family === "Safari" ? major(/Version\/(\d+)/)
+    : family === "Firefox" ? major(/(?:Firefox|FxiOS)\/(\d+)/)
+    : family === "Edge" ? major(/Edg(?:e|A|iOS)?\/(\d+)/) : null;
+  const system = pick([
+    [/iPhone|iPad|iPod/, "iOS"], [/Android/, "Android"], [/Windows/, "Windows"], [/Mac OS X|Macintosh/, "macOS"],
+    [/CrOS/, "ChromeOS"], [/Linux/, "Linux"]
+  ], "Other");
+  const form = /Mobi|iPhone|Android.*Mobile/.test(ua) ? "phone" : /iPad|Tablet|Android/.test(ua) ? "tablet" : "desktop";
+  return { browser: version ? `${family} ${version}` : family, device: `${system} ${form}` };
+}
+
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function handleClientError(request, env) {
+  // The answer is always empty and quick: the game does not look at it.
+  const quiet = status => new Response(null, { status, headers: { "cache-control": "no-store" } });
+  if (request.method !== "POST") return quiet(405);
+  if (!requestIsSameOrigin(request, { required: true })) return quiet(403);
+  let raw;
+  try {
+    raw = await readJsonWithLimit(request, MAX_ERROR_BODY_BYTES);
+  } catch (error) {
+    return quiet(error?.message === "payload_too_large" ? 413 : 400);
+  }
+  if (!raw || typeof raw !== "object" || !ERROR_KINDS.has(raw.kind)) return quiet(400);
+  const message = clip(raw.message, 300);
+  if (!message) return quiet(400);
+  const kind = raw.kind;
+  const source = clip(raw.source, 200);
+  const line = smallInt(raw.line);
+  const column = smallInt(raw.column);
+  try {
+    const limit = await enforceRateLimit(request, env, { scope: "error", limit: ERROR_RATE_LIMIT });
+    if (!limit.allowed) return quiet(429);
+    const { browser, device } = coarseClient(request.headers.get("user-agent") || "");
+    const now = new Date().toISOString();
+    const signature = (await sha256Hex(`${kind}|${message}|${source ?? ""}|${line ?? ""}`)).slice(0, 32);
+    await env.DB.prepare(`
+      INSERT INTO client_errors (signature, kind, message, source, line, column, stack, page, build, browser, device, screen, count, first_seen, last_seen)
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?
+      WHERE (SELECT COUNT(*) FROM client_errors) < ? OR EXISTS (SELECT 1 FROM client_errors WHERE signature = ?)
+      ON CONFLICT (signature) DO UPDATE SET count = count + 1, last_seen = excluded.last_seen
+    `).bind(
+      signature, kind, message, source, line, column,
+      clip(raw.stack, 1500), clip(raw.page, 100), clip(raw.build, 40), browser, device, clip(raw.screen, 24),
+      now, now, ERROR_ROW_CAP, signature
+    ).run();
+  } catch (error) {
+    // The table may not exist yet (code deployed before the migration), or the database is busy.
+    console.warn("Could not store a client error report", error?.message);
+    return quiet(204);
+  }
+  return quiet(204);
+}
+
 async function handleScheduledCleanup(env) {
   const bucket = Math.floor(Date.now() / 1000 / RATE_WINDOW_SECONDS);
   const sessionCutoff = new Date(Date.now() - SESSION_MAX_AGE_MS * 2).toISOString();
@@ -494,6 +577,12 @@ async function handleScheduledCleanup(env) {
     env.DB.prepare("DELETE FROM submission_limits WHERE bucket < ?").bind(bucket - 6),
     env.DB.prepare("DELETE FROM used_sessions WHERE used_at < ?").bind(sessionCutoff)
   ]);
+  try {
+    await env.DB.prepare("DELETE FROM client_errors WHERE last_seen < ?")
+      .bind(new Date(Date.now() - ERROR_RETENTION_MS).toISOString()).run();
+  } catch (error) {
+    console.warn("Could not trim client errors", error?.message);   // table not migrated yet
+  }
   try {
     await env.DB.prepare("DELETE FROM score_log WHERE created_at < ?")
       .bind(new Date(Date.now() - SCORE_LOG_RETENTION_MS).toISOString()).run();
@@ -509,6 +598,7 @@ export default {
       if (url.pathname === "/api/session") {
         return await issueSession(request, env);
       }
+      if (url.pathname === "/api/client-error") return await handleClientError(request, env);
       if (url.pathname === "/api/leaderboard") return await leaderboard(request, env, ctx);
       if (url.pathname === "/api/leaderboard/me") return await handleLeaderboardMe(request, env);
       return env.ASSETS.fetch(request);

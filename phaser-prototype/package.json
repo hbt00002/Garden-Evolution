@@ -12,6 +12,7 @@
     "cf:deploy": "npm run build && wrangler deploy",
     "d1:migrate:local": "wrangler d1 migrations apply garden-evolution-leaderboard --local",
     "d1:migrate:remote": "wrangler d1 migrations apply garden-evolution-leaderboard --remote",
+    "errors:remote": "wrangler d1 execute garden-evolution-leaderboard --remote --command \"SELECT count, kind, message, source, line, browser, device, build, last_seen FROM client_errors WHERE last_seen >= strftime('%Y-%m-%dT%H:%M:%fZ','now','-7 days') ORDER BY count DESC LIMIT 30\"",
     "e2e": "playwright test",
     "e2e:serve": "node e2e/serve.mjs"
   },
