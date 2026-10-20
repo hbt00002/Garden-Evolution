@@ -1,6 +1,6 @@
 "use strict";
 import { createBloomFlow } from "./src/bloom-flow.js";
-import { canMergeValues, endingForMergedValue } from "./src/game-rules.js";
+import { endingForMergedValue } from "./src/game-rules.js";
 import { isSessionUsable } from "./src/game-save.js";
 import { directionForKey } from "./src/input.js";
 import { nextFocus } from "./src/focus-trap.js";
@@ -11,14 +11,15 @@ import { createLeaderboardUi } from "./src/leaderboard-ui.js";
 import { createScoreSubmit } from "./src/score-submit.js";
 import { currentFeatures } from "./src/features.js";
 import { createAudio } from "./src/audio.js";
+import { createPreferences } from "./src/preferences.js";
+import { createSettingsPanel } from "./src/settings-panel.js";
 import { createTileArt } from "./src/tile-art.js";
 import { createFallbackScenery } from "./src/scenery-fallback.js";
 import { createWorldView } from "./src/world-view.js";
 import { PLAY_LABELS, TRANSLATIONS } from "./src/i18n.js";
 import { artValueFor, levelFor, stageFor, stageMeta as stageMetaFor, tileLabel as tileLabelFor } from "./src/levels.js";
 import {
-  clearSavedGame, loadBest, loadLanguage, loadPlayerName, loadPref, loadSavedGame, saveBest,
-  saveLanguage, savePref, writeSavedGame
+  clearSavedGame, loadBest, loadLanguage, loadPlayerName, loadSavedGame, saveBest, saveLanguage, writeSavedGame
 } from "./src/storage.js";
 
 /* ============================================================
@@ -58,19 +59,12 @@ import {
   const lowerScoreConfirmEl = document.getElementById("lowerScoreConfirm");
   const settingsBtn = document.getElementById("settingsBtn");
   const settingsPanel = document.getElementById("settingsPanel");
-  const settingsBackdrop = document.getElementById("settingsBackdrop");
   const settingsCloseBtn = document.getElementById("settingsClose");
   const startScreenEl = document.getElementById("startScreen");
   const startPlayBtn = document.getElementById("startPlayBtn");
   const startSettingsBtn = document.getElementById("startSettingsBtn");
   const startLeaderboardBtn = document.getElementById("startLeaderboardBtn");
   const musicVolumeEl = document.getElementById("musicVolume");
-  const musicVolumeValueEl = document.getElementById("musicVolumeValue");
-  const pianoToggle = document.getElementById("pianoToggle");
-  const sfxToggle = document.getElementById("sfxToggle");
-  const motionToggle = document.getElementById("motionToggle");
-  const particlesToggle = document.getElementById("particlesToggle");
-  const contrastToggle = document.getElementById("contrastToggle");
   const performanceNoteEl = document.getElementById("performanceNote");
   const languageSelect = document.getElementById("languageSelect");
   const envEl = document.getElementById("env");
@@ -93,7 +87,6 @@ import {
   const viewBtn = document.getElementById("viewBtn");
   const gardenViewEl = document.getElementById("gardenView");
   const worldRevealEl = document.getElementById("worldReveal");
-  const revealToggle = document.getElementById("revealToggle");
   const revealRow = document.getElementById("revealRow");
   const gameMainEl = document.querySelector("main.game");
   const announcerEl = document.getElementById("a11yAnnouncer");
@@ -131,9 +124,7 @@ import {
   const cancelRestart = document.getElementById("cancelNewGame");
   const confirmRestart = document.getElementById("confirmNewGame");
   let worldEventTimer = null;
-  const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-  let reduceMotion = reduceMotionQuery.matches;
-  reduceMotionQuery.addEventListener?.("change", event => { reduceMotion = event.matches; });
+  const prefs = createPreferences();
 
   const stageMeta = stage => stageMetaFor(stage, currentLanguage);
   let currentLanguage = "en";
@@ -186,11 +177,6 @@ import {
   let menuMode = !startScreenEl.hidden;
   const tileArt = createTileArt();
   const audio = createAudio({ getStage: () => currentStage, isMenu: () => menuMode });
-  let motionOn = loadPref("gardenEvolutionMotion", true);
-  let particlesOn = loadPref("gardenEvolutionParticles", true);
-  let contrastOn = loadPref("gardenEvolutionContrast", false);
-  // Off unless the player turns it on in Settings: a world arriving should not interrupt play.
-  let revealOn = loadPref("gardenEvolutionReveal", false);
   // Newer, self-contained features can be switched off (src/features.js).
   const features = currentFeatures();
   let worldView = null;
@@ -276,7 +262,7 @@ import {
     el.style.height = cellSize + "px";
     el.style.transform = tx;
     tilesEl.appendChild(el);
-    if (isNew && !reduceMotion) {
+    if (isNew && !prefs.reduceMotion) {
       el.addEventListener("animationend", () => el.classList.remove("spawn"), { once: true });
     } else {
       el.classList.remove("spawn");
@@ -423,7 +409,7 @@ import {
       }
     };
 
-    if (reduceMotion) finalize();
+    if (prefs.reduceMotion) finalize();
     else setTimeout(finalize, SLIDE_MS);
   }
 
@@ -484,7 +470,7 @@ import {
   }
 
   function pulseGameEnergy(mergeCount) {
-    if (reduceMotion || mergeCount < 1) return;
+    if (prefs.reduceMotion || mergeCount < 1) return;
     scoreEl.getAnimations().forEach(animation => animation.cancel());
     boardEl.getAnimations().forEach(animation => animation.cancel());
     scoreEl.animate([
@@ -500,7 +486,7 @@ import {
 
   function emitEndingParticles(artEl) {
     artEl.querySelectorAll(".milestone-mote").forEach(node => node.remove());
-    if (reduceMotion || !particlesOn) return;
+    if (prefs.reduceMotion || !prefs.particlesOn) return;
     const kinds = ["leaf", "spark", "firefly"];
     for (let index = 0; index < 18; index++) {
       const mote = document.createElement("i");
@@ -686,7 +672,7 @@ import {
 
   /* ---------- Particles (board-local, transient) ---------- */
   function emitParticles(r, c, value) {
-    if (reduceMotion || !particlesOn) return;
+    if (prefs.reduceMotion || !prefs.particlesOn) return;
     const p = cellPos(r, c);
     const cx = p.x + cellSize / 2;
     const cy = p.y + cellSize / 2;
@@ -711,7 +697,7 @@ import {
   function celebrate() {
     showToast(TRANSLATIONS[currentLanguage].crownBloomed);
     audio.playGolden();
-    if (reduceMotion) return;
+    if (prefs.reduceMotion) return;
     boardEl.classList.add("celebrate");
     setTimeout(() => boardEl.classList.remove("celebrate"), 1600);
     const cx = tilesEl.clientWidth / 2;
@@ -746,7 +732,7 @@ import {
     env: envEl,
     sky: envSkyEl,
     particles: envParticlesEl,
-    canAnimate: () => !reduceMotion && particlesOn
+    canAnimate: () => !prefs.reduceMotion && prefs.particlesOn
   });
 
   function setEnvironmentStage(stage, immediate) {
@@ -771,7 +757,7 @@ import {
   // The showcase waits for the merge to settle, and for anything that is in the
   // way (an ending card, a dialog) to be dealt with.
   function scheduleWorldReveal(stage) {
-    if (!features.worldReveal || !revealOn) return;
+    if (!features.worldReveal || !prefs.revealOn) return;
     const generation = gameGeneration;
     setTimeout(() => {
       if (generation !== gameGeneration) return;
@@ -814,13 +800,13 @@ import {
     requestAnimationFrame(() => envEl.classList.add("stage-soft-transition"));
     showStageTransition._t = setTimeout(() => {
       envEl.classList.remove("stage-soft-transition");
-    }, reduceMotion || !motionOn ? 100 : 390);
+    }, prefs.calm ? 100 : 390);
   }
 
   const EVENT_GLYPHS = ["✦", "●", "✿", "❀", "✧"];
   const EVENT_COLORS = ["#eff9ff", "#82b85f", "#f5d76f", "#f39abb", "#ffe98f"];
   function triggerWorldEvent(stage, strong) {
-    if (reduceMotion || !motionOn || !particlesOn || document.hidden) return;
+    if (prefs.calm || !prefs.particlesOn || document.hidden) return;
     const count = document.body.classList.contains("perf-low") ? 3 : (strong ? 8 : 5);
     envEl.classList.remove("event-stage-1", "event-stage-2", "event-stage-3", "event-stage-4", "event-stage-5");
     envEl.classList.add(`event-stage-${stage}`);
@@ -853,7 +839,7 @@ import {
   // Subtle gust: briefly intensify particle drift via a CSS class
   let gustTimer = null;
   function triggerEnvGust(strong) {
-    if (reduceMotion) return;
+    if (prefs.reduceMotion) return;
     envEl.classList.add(strong ? "gust-strong" : "gust");
     clearTimeout(gustTimer);
     gustTimer = setTimeout(() => {
@@ -1017,105 +1003,57 @@ import {
       document.body.classList.remove("start-menu-active");
       boardEl.focus?.();
     };
-    if (reduceMotion) finish(); else setTimeout(finish, 480);
+    if (prefs.reduceMotion) finish(); else setTimeout(finish, 480);
   });
   startLeaderboardBtn.addEventListener("click", leaderboard.open);
   leaderboardBtn.addEventListener("click", leaderboard.open);
 
   // Settings panel
-  function syncToggles() {
-    musicVolumeEl.value = String(Math.round(audio.musicVolume));
-    musicVolumeValueEl.value = `${Math.round(audio.musicVolume)}%`;
-    musicVolumeValueEl.textContent = `${Math.round(audio.musicVolume)}%`;
-    pianoToggle.setAttribute("aria-checked", String(audio.pianoOn));
-    pianoToggle.classList.toggle("off", !audio.pianoOn);
-    sfxToggle.setAttribute("aria-checked", String(audio.sfxOn));
-    sfxToggle.classList.toggle("off", !audio.sfxOn);
-    motionToggle.setAttribute("aria-checked", String(motionOn));
-    motionToggle.classList.toggle("off", !motionOn);
-    particlesToggle.setAttribute("aria-checked", String(particlesOn));
-    particlesToggle.classList.toggle("off", !particlesOn);
-    contrastToggle.setAttribute("aria-checked", String(contrastOn));
-    contrastToggle.classList.toggle("off", !contrastOn);
-    revealToggle.setAttribute("aria-checked", String(revealOn));
-    revealToggle.classList.toggle("off", !revealOn);
-  }
   function applyVisualPrefs() {
-    document.body.classList.toggle("motion-off", !motionOn);
-    document.body.classList.toggle("particles-off", !particlesOn);
-    document.body.classList.toggle("high-contrast", contrastOn);
-    if (particlesOn) scenery.spawnParticles(Math.max(1, currentStage));
+    document.body.classList.toggle("motion-off", !prefs.motionOn);
+    document.body.classList.toggle("particles-off", !prefs.particlesOn);
+    document.body.classList.toggle("high-contrast", prefs.contrastOn);
+    if (prefs.particlesOn) scenery.spawnParticles(Math.max(1, currentStage));
     else scenery.clearParticles();
     window.dispatchEvent(new CustomEvent("garden:preferences", { detail: {
-      motionOn, particlesOn, contrastOn
+      motionOn: prefs.motionOn, particlesOn: prefs.particlesOn, contrastOn: prefs.contrastOn
     }}));
   }
-  function setSettingsOpen(open, trigger = settingsBtn) {
-    if (open) { closeRestart(false); coolFlow(); queuedDirection = null; }
-    const inGame = startScreenEl.hidden;
-    settingsPanel.classList.toggle("settings-panel--popover", inGame);
-    settingsPanel.style.removeProperty("top");
-    settingsPanel.style.removeProperty("left");
-    if (open && inGame) {
-      const rect = settingsBtn.getBoundingClientRect();
-      const panelWidth = Math.min(320, window.innerWidth - 24);
-      const left = Math.max(8, Math.min(rect.left, window.innerWidth - panelWidth - 8));
-      settingsPanel.style.left = `${left}px`;
-      settingsPanel.style.top = `${rect.bottom + 9}px`;
-    }
-    settingsPanel.hidden = !open;
-    syncInert();
-    if (open && inGame) {
-      // On a short screen (a phone held sideways) the panel would hang below the
-      // bottom edge: keep it on screen and let it scroll if it is still taller.
-      settingsPanel.style.maxHeight = `${window.innerHeight - 16}px`;
-      const panelHeight = settingsPanel.getBoundingClientRect().height;
-      const top = Math.max(8, Math.min(parseFloat(settingsPanel.style.top) || 8, window.innerHeight - panelHeight - 8));
-      settingsPanel.style.top = `${top}px`;
-    } else {
-      settingsPanel.style.removeProperty("max-height");
-    }
-    settingsBackdrop.hidden = !open || inGame;
-    settingsBtn.setAttribute("aria-expanded", String(open));
-    startSettingsBtn.setAttribute("aria-expanded", String(open));
-    if (open) { syncToggles(); requestAnimationFrame(() => settingsCloseBtn.focus()); }
-    else trigger?.focus?.();
-  }
-  function toggleSettings(e) {
-    e.stopPropagation();
-    setSettingsOpen(settingsPanel.hidden, e.currentTarget);
-  }
-  settingsBtn.addEventListener("click", toggleSettings);
-  startSettingsBtn.addEventListener("click", toggleSettings);
-  settingsCloseBtn.addEventListener("click", () => setSettingsOpen(false, !startScreenEl.hidden ? startSettingsBtn : settingsBtn));
-  settingsBackdrop.addEventListener("click", () => setSettingsOpen(false, !startScreenEl.hidden ? startSettingsBtn : settingsBtn));
-  document.addEventListener("click", e => {
-    if (!settingsPanel.hidden && !settingsPanel.contains(e.target) && e.target !== settingsBtn && e.target !== startSettingsBtn) {
-      setSettingsOpen(false, !startScreenEl.hidden ? startSettingsBtn : settingsBtn);
-    }
+  const settings = createSettingsPanel({
+    elements: {
+      button: settingsBtn,
+      startButton: startSettingsBtn,
+      panel: settingsPanel,
+      backdrop: document.getElementById("settingsBackdrop"),
+      closeButton: settingsCloseBtn,
+      musicVolume: musicVolumeEl,
+      musicVolumeValue: document.getElementById("musicVolumeValue"),
+      piano: document.getElementById("pianoToggle"),
+      sfx: document.getElementById("sfxToggle"),
+      motion: document.getElementById("motionToggle"),
+      particles: document.getElementById("particlesToggle"),
+      contrast: document.getElementById("contrastToggle"),
+      reveal: document.getElementById("revealToggle"),
+      language: languageSelect
+    },
+    audio,
+    prefs,
+    applyLanguage,
+    hooks: {
+      onOpen: () => { closeRestart(false); coolFlow(); queuedDirection = null; },
+      onVisualChange: applyVisualPrefs,
+      startMenuShowing: () => !startScreenEl.hidden
+    },
+    syncInert
   });
   document.addEventListener("keydown", e => {
     if (e.key === "Escape" && !restartPanel.hidden) { closeRestart(); return; }
-    if (e.key === "Escape" && !leaderboardModalEl.hidden) {
+    if (e.key === "Escape" && leaderboard.isOpen()) {
       leaderboard.close();
       return;
     }
-    if (e.key === "Escape" && !settingsPanel.hidden) {
-      setSettingsOpen(false, !startScreenEl.hidden ? startSettingsBtn : settingsBtn);
-    }
+    if (e.key === "Escape" && settings.isOpen()) settings.close();
   });
-  musicVolumeEl.addEventListener("input", () => {
-    audio.ensure();
-    audio.setMusicVolume(musicVolumeEl.value);
-    syncToggles();
-  });
-  pianoToggle.addEventListener("click", () => { audio.ensure(); audio.setPianoEnabled(!audio.pianoOn); syncToggles(); });
-  sfxToggle.addEventListener("click", () => { audio.ensure(); audio.setSfxEnabled(!audio.sfxOn); syncToggles(); });
-  motionToggle.addEventListener("click", () => { motionOn = !motionOn; savePref("gardenEvolutionMotion", motionOn); applyVisualPrefs(); syncToggles(); });
-  particlesToggle.addEventListener("click", () => { particlesOn = !particlesOn; savePref("gardenEvolutionParticles", particlesOn); applyVisualPrefs(); syncToggles(); });
-  contrastToggle.addEventListener("click", () => { contrastOn = !contrastOn; savePref("gardenEvolutionContrast", contrastOn); applyVisualPrefs(); syncToggles(); });
-  revealToggle.addEventListener("click", () => { revealOn = !revealOn; savePref("gardenEvolutionReveal", revealOn); syncToggles(); });
-  languageSelect.addEventListener("change", () => applyLanguage(languageSelect.value));
 
   // Start fetching the tile pictures while the player is still on the menu.
   tileArt.preloadAll();
@@ -1153,7 +1091,7 @@ import {
   bestEl.textContent = best;
   applyLanguage(loadLanguage());
   applyVisualPrefs();
-  syncToggles();
+  settings.sync();
   buildGrid();
   // Look around the world instead of playing.
   viewBtn.hidden = !features.gardenView;
@@ -1165,7 +1103,7 @@ import {
     view: gardenViewEl,
     reveal: worldRevealEl,
     getStage: () => currentStage || 1,
-    getMotion: () => ({ reduced: reduceMotion || !motionOn }),
+    getMotion: () => ({ reduced: prefs.calm }),
     canPan: () => Boolean(window.gardenEngine),
     announce,
     text: key => TRANSLATIONS[currentLanguage][key],
