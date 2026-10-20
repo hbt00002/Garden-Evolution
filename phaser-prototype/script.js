@@ -11,6 +11,7 @@ import { createLeaderboardUi } from "./src/leaderboard-ui.js";
 import { createScoreSubmit } from "./src/score-submit.js";
 import { currentFeatures } from "./src/features.js";
 import { createAudio } from "./src/audio.js";
+import { createWorldEffects } from "./src/world-effects.js";
 import { createPreferences } from "./src/preferences.js";
 import { createSettingsPanel } from "./src/settings-panel.js";
 import { createTileArt } from "./src/tile-art.js";
@@ -123,7 +124,6 @@ import {
   const restartPanel = document.getElementById("newGameConfirm");
   const cancelRestart = document.getElementById("cancelNewGame");
   const confirmRestart = document.getElementById("confirmNewGame");
-  let worldEventTimer = null;
   const prefs = createPreferences();
 
   const stageMeta = stage => stageMetaFor(stage, currentLanguage);
@@ -176,6 +176,7 @@ import {
 
   let menuMode = !startScreenEl.hidden;
   const tileArt = createTileArt();
+  const worldEffects = createWorldEffects({ env: envEl, layer: worldEventLayerEl, prefs, getStage: () => currentStage });
   const audio = createAudio({ getStage: () => currentStage, isMenu: () => menuMode });
   // Newer, self-contained features can be switched off (src/features.js).
   const features = currentFeatures();
@@ -464,7 +465,7 @@ import {
     comboHudEl.hidden = combo < 2;
     publishFlow(state.flow);
     if (mergeCount > 0) audio.playComboPiano(state.streak, mergeCount);
-    if ([3, 5, 8].some(tier => previousFlow < tier && state.flow >= tier)) triggerWorldEvent(currentStage, true);
+    if ([3, 5, 8].some(tier => previousFlow < tier && state.flow >= tier)) worldEffects.event(currentStage, true);
     if (document.hidden || !restartPanel.hidden || !settingsPanel.hidden || !leaderboardModalEl.hidden) coolFlow();
     else if (flowTimer === null && flow > 0) flowTimer = setTimeout(tickFlow, 200);
   }
@@ -714,7 +715,7 @@ import {
       tilesEl.appendChild(dot);
       dot.addEventListener("animationend", () => dot.remove(), { once: true });
     }
-    triggerEnvGust(true);
+    worldEffects.gust(true);
   }
 
   function showToast(msg) {
@@ -744,12 +745,12 @@ import {
     scenery.spawnParticles(stage);
     tileArt.preloadAll();
     updateEvolutionUI(stage);
-    scheduleWorldEvent();
+    worldEffects.schedule();
     audio.startMusic();
     if (!immediate) {
       announce(`${stageKickerEl.textContent}: ${stageNameEl.textContent}`);
       audio.playStageRise(stage);
-      showStageTransition(stage, previousStage);
+      worldEffects.transition();
       if (previousStage && stage > previousStage) scheduleWorldReveal(stage);
     }
   }
@@ -788,63 +789,8 @@ import {
     if (newStage !== currentStage) {
       setEnvironmentStage(newStage);
       // Brief gentle reaction on stage transition
-      triggerEnvGust(false);
+      worldEffects.gust(false);
     }
-  }
-
-  function showStageTransition(stage, previousStage) {
-    // A compositor-only veil softens the scene swap without text, layout work
-    // or a synchronous reflow. The game UI remains stable and interactive.
-    envEl.classList.remove("stage-soft-transition");
-    clearTimeout(showStageTransition._t);
-    requestAnimationFrame(() => envEl.classList.add("stage-soft-transition"));
-    showStageTransition._t = setTimeout(() => {
-      envEl.classList.remove("stage-soft-transition");
-    }, prefs.calm ? 100 : 390);
-  }
-
-  const EVENT_GLYPHS = ["✦", "●", "✿", "❀", "✧"];
-  const EVENT_COLORS = ["#eff9ff", "#82b85f", "#f5d76f", "#f39abb", "#ffe98f"];
-  function triggerWorldEvent(stage, strong) {
-    if (prefs.calm || !prefs.particlesOn || document.hidden) return;
-    const count = document.body.classList.contains("perf-low") ? 3 : (strong ? 8 : 5);
-    envEl.classList.remove("event-stage-1", "event-stage-2", "event-stage-3", "event-stage-4", "event-stage-5");
-    envEl.classList.add(`event-stage-${stage}`);
-    clearTimeout(triggerWorldEvent._t);
-    triggerWorldEvent._t = setTimeout(() => envEl.classList.remove(`event-stage-${stage}`), 3600);
-    for (let i = 0; i < count; i++) {
-      const mote = document.createElement("span");
-      mote.className = "world-event";
-      mote.textContent = EVENT_GLYPHS[stage - 1];
-      mote.style.setProperty("--x", `${8 + Math.random() * 84}%`);
-      mote.style.setProperty("--y", `${55 + Math.random() * 38}%`);
-      mote.style.setProperty("--drift", `${-70 + Math.random() * 140}px`);
-      mote.style.setProperty("--size", `${10 + Math.random() * 13}px`);
-      mote.style.setProperty("--event-color", EVENT_COLORS[stage - 1]);
-      mote.style.animationDelay = `${Math.random() * .8}s`;
-      worldEventLayerEl.appendChild(mote);
-      mote.addEventListener("animationend", () => mote.remove(), { once: true });
-    }
-    triggerEnvGust(stage >= 4 || strong);
-  }
-
-  function scheduleWorldEvent() {
-    clearTimeout(worldEventTimer);
-    worldEventTimer = setTimeout(() => {
-      triggerWorldEvent(currentStage, false);
-      scheduleWorldEvent();
-    }, 15000 + Math.random() * 14000);
-  }
-
-  // Subtle gust: briefly intensify particle drift via a CSS class
-  let gustTimer = null;
-  function triggerEnvGust(strong) {
-    if (prefs.reduceMotion) return;
-    envEl.classList.add(strong ? "gust-strong" : "gust");
-    clearTimeout(gustTimer);
-    gustTimer = setTimeout(() => {
-      envEl.classList.remove("gust", "gust-strong");
-    }, strong ? 1800 : 1200);
   }
 
   /* ---------- New game ---------- */
