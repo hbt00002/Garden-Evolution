@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { withFastShapes } from "./fast-shapes.js";
 
 const THEMES={1:{frame:0x20384a,edge:0xc6e4f0,cell:0x49677b,cell2:0x304c60},2:{frame:0x244d49,edge:0xb8d9bd,cell:0x537f6c,cell2:0x345f58},3:{frame:0x3f5133,edge:0xe0c77e,cell:0x68744a,cell2:0x465d3c},4:{frame:0x4d2d48,edge:0xf0b3cd,cell:0x76506b,cell2:0x4d344f},5:{frame:0x0b172d,edge:0xb7d3eb,cell:0x233954,cell2:0x13253f}};
 const APPROVED_GRASS="board-grass-approved";
@@ -33,6 +34,7 @@ const softenTint=(color,amount)=>{
   return(Math.round(r+(gray-r)*amount)<<16)|(Math.round(g+(gray-g)*amount)<<8)|Math.round(b+(gray-b)*amount);
 };
 
+
 export class LivingBoardScene extends Phaser.Scene{
   constructor(){
     super("LivingBoardScene");
@@ -50,8 +52,8 @@ export class LivingBoardScene extends Phaser.Scene{
     this.springGround=this.add.graphics().setVisible(false);
     this.springBackLayer=this.add.container().setVisible(false);
     this.springFrontLayer=this.add.container().setVisible(false);
-    this.light=this.add.graphics().setBlendMode(Phaser.BlendModes.ADD);
-    this.fx=this.add.graphics().setBlendMode(Phaser.BlendModes.ADD);
+    this.light=withFastShapes(this.add.graphics().setBlendMode(Phaser.BlendModes.ADD));
+    this.fx=withFastShapes(this.add.graphics().setBlendMode(Phaser.BlendModes.ADD));
     this.lowPower=Boolean(this.game?.registry?.get("lowPower"));
     this.ensureTulipFrames();this.resetMotes();
     this.scale.on("resize",this.redraw,this);
@@ -203,6 +205,22 @@ export class LivingBoardScene extends Phaser.Scene{
     this.springPivots.forEach(plant=>{if(plant.bloom)this.springFrontLayer.bringToTop(plant.bloom);});
   }
 
+  // The board's frame and its sixteen cells never move, but a Graphics object
+  // replays (and re-triangulates) all of its rounded rectangles on every frame:
+  // fifty-odd paths, which kept a phone's main thread busy by themselves. Draw
+  // them once into a texture and show that instead.
+  bakeFrame(w,h){
+    // The canvas is whole pixels; the board's size may not be.
+    const width=Math.max(1,Math.floor(w)),height=Math.max(1,Math.floor(h));
+    if(!this.frameTexture){
+      this.frameTexture=this.add.renderTexture(0,0,width,height).setOrigin(0,0).setDepth(-1);
+    }else if(this.frameTexture.width!==width||this.frameTexture.height!==height){
+      this.frameTexture.resize(width,height);
+    }
+    this.frameTexture.clear().draw(this.base,0,0);
+    this.base.clear();
+  }
+
   redraw(){
     if(!this.base)return;
     const w=this.scale.width,h=this.scale.height,s=Math.min(w,h),g=s/48,r=s/30,t=THEMES[this.stage];
@@ -223,6 +241,7 @@ export class LivingBoardScene extends Phaser.Scene{
       this.base.fillStyle(t.cell,.42).fillRoundedRect(x+2,y+2,c-4,c-4,Math.max(4,s/52));
       this.base.lineStyle(Math.max(1,s/520),t.edge,.25).strokeRoundedRect(x+.5,y+.5,c-1,c-1,Math.max(5,s/48));
     }
+    this.bakeFrame(w,h);
     const visible=this.stage===3;
     this.springGround.setVisible(visible);this.springBackLayer.setVisible(visible);this.springFrontLayer.setVisible(visible);
     this.buildSpringFlora(w,h,s);
@@ -269,8 +288,8 @@ export class LivingBoardScene extends Phaser.Scene{
   }
 
   snow(p,dt,w,h,s){this.motes.slice(0,20).forEach((m,i)=>{m.y+=m.speed*.36*dt;m.x+=(m.drift*.18+Math.sin(p*.75+m.phase)*.006)*dt;if(m.y>1.04||m.x>1.08)this.respawn(m);const x=m.x*w,y=m.y*h,r=Math.max(1,m.size*s/310),a=.24+(i%4)*.08;this.fx.lineStyle(Math.max(.7,s/650),0xf1fbff,a);this.fx.lineBetween(x-r,y,x+r,y).lineBetween(x,y-r,x,y+r).lineBetween(x-r*.7,y-r*.7,x+r*.7,y+r*.7).lineBetween(x+r*.7,y-r*.7,x-r*.7,y+r*.7);});}
-  rain(p,dt,w,h,s){this.motes.forEach((m,i)=>{const leaf=m.kind===0;m.y+=m.speed*(leaf?.38:1.45)*dt;m.x+=(leaf?Math.sin(p*1.15+m.phase)*m.drift*.28:-m.drift*.12)*dt;if(m.y>1.06||m.x<-.08||m.x>1.08)this.respawn(m);const x=m.x*w,y=m.y*h;if(leaf){const turn=Math.abs(Math.sin(p*m.spin+m.phase));this.fx.fillStyle(i%2?0xc79047:0x89a84f,.44).fillEllipse(x,y,m.size*s/170,Math.max(1,turn*m.size*s/300));this.fx.lineStyle(.7,0x54482f,.38).lineBetween(x-1,y+1,x+m.size,y-m.size*.5);}else{const len=s*(.017+m.size*.005);this.fx.lineStyle(Math.max(.65,s/720),0xc7e4ea,.17+(i%3)*.06).lineBetween(x,y,x-w*.009,y+len);this.fx.fillStyle(0xe3f4f6,.18).fillCircle(x-w*.009,y+len,Math.max(.7,s/700));}});}
-  spring(p,w,h,s){this.motes.slice(0,7).forEach((m,i)=>{const x=w*(.1+m.x*.8)+Math.sin(p*(.7+m.speed*3)+m.phase)*s*(.035+i%2*.012),y=h*(.12+m.y*.72)+Math.cos(p*(.9+m.speed*2)+m.phase)*s*.025,b=Math.max(1.2,s/260);this.light.fillStyle(0xffef8a,.045).fillCircle(x,y,b*4.8);this.light.fillStyle(0xffe35c,.09).fillCircle(x,y,b*3.1);this.light.fillStyle(0xffd43d,.18).fillCircle(x,y,b*1.8);this.fx.fillStyle(0xffe66a,.9).fillCircle(x,y,b*.58);this.fx.fillStyle(0x3b3024,.72).fillRect(x-b*.25,y-b*.6,b*.4,b*1.2);this.fx.fillStyle(0xeaf7ee,.36).fillEllipse(x-b*.8,y-b*.8,b,b*.7).fillEllipse(x+b*.8,y-b*.8,b,b*.7);});}
-  sakura(p,dt,w,h,s){this.motes.slice(0,21).forEach((m,i)=>{m.y+=m.speed*.48*dt;m.x+=(Math.sin(p*.85+m.phase)*m.drift*.32+.006)*dt;if(m.y>1.05||m.x>1.08)this.respawn(m);const x=m.x*w,y=m.y*h,turn=Math.abs(Math.sin(p*1.3*m.spin+m.phase));this.fx.fillStyle(i%3===0?0xffd6e6:0xf5a9c8,.34+(i%4)*.06).fillEllipse(x,y,Math.max(1.5,m.size*s/180),Math.max(.8,turn*m.size*s/310));this.fx.fillStyle(0xffe9f1,.26).fillCircle(x+m.size,y,m.size*.35);});}
-  moon(p,w,h,s){const sw=Math.sin(p*.48)*s*.012;this.fx.lineStyle(Math.max(4,s/82),0x81583a,.9).beginPath().moveTo(-s*.02,h*.18).lineTo(w*.08,h*.12).lineTo(w*.18+sw,h*.09).lineTo(w*.29+sw*.8,h*.13).lineTo(w*.45+sw,h*.22).strokePath();[[.07,.14],[.15,.09],[.23,.12],[.32,.16],[.39,.19]].forEach(([x,y],i)=>{const dx=sw*(.35+i*.17);this.fx.fillStyle(i%2?0x729064:0x557b5c,.86).fillEllipse(w*x+dx,h*y,s*.072,s*.032);});const x=w*.19+sw*.5,y=h*.2;this.light.fillStyle(0xff7627,.08).fillCircle(x,y,s*.21);this.light.fillStyle(0xff953b,.15).fillCircle(x,y,s*.135);this.light.fillStyle(0xffc06a,.3+.06*Math.sin(p*1.6)).fillCircle(x,y,s*.062);this.fx.lineStyle(Math.max(1,s/420),0xc19865,.9).lineBetween(x,y-s*.072,x,y-s*.02);this.fx.fillStyle(0x8c4d2c,.95).fillRoundedRect(x-s*.038,y-s*.022,s*.076,s*.095,s*.012);this.fx.fillStyle(0xffb253,.88+.08*Math.sin(p*1.6)).fillCircle(x,y+s*.024,s*.019);}
+  rain(p,dt,w,h,s){this.motes.forEach((m,i)=>{const leaf=m.kind===0;m.y+=m.speed*(leaf?.38:1.45)*dt;m.x+=(leaf?Math.sin(p*1.15+m.phase)*m.drift*.28:-m.drift*.12)*dt;if(m.y>1.06||m.x<-.08||m.x>1.08)this.respawn(m);const x=m.x*w,y=m.y*h;if(leaf){const turn=Math.abs(Math.sin(p*m.spin+m.phase));this.fx.fillStyle(i%2?0xc79047:0x89a84f,.44).fillOval(x,y,m.size*s/170,Math.max(1,turn*m.size*s/300));this.fx.lineStyle(.7,0x54482f,.38).lineBetween(x-1,y+1,x+m.size,y-m.size*.5);}else{const len=s*(.017+m.size*.005);this.fx.lineStyle(Math.max(.65,s/720),0xc7e4ea,.17+(i%3)*.06).lineBetween(x,y,x-w*.009,y+len);this.fx.fillStyle(0xe3f4f6,.18).fillDisc(x-w*.009,y+len,Math.max(.7,s/700));}});}
+  spring(p,w,h,s){this.motes.slice(0,7).forEach((m,i)=>{const x=w*(.1+m.x*.8)+Math.sin(p*(.7+m.speed*3)+m.phase)*s*(.035+i%2*.012),y=h*(.12+m.y*.72)+Math.cos(p*(.9+m.speed*2)+m.phase)*s*.025,b=Math.max(1.2,s/260);this.light.fillStyle(0xffef8a,.045).fillDisc(x,y,b*4.8);this.light.fillStyle(0xffe35c,.09).fillDisc(x,y,b*3.1);this.light.fillStyle(0xffd43d,.18).fillDisc(x,y,b*1.8);this.fx.fillStyle(0xffe66a,.9).fillDisc(x,y,b*.58);this.fx.fillStyle(0x3b3024,.72).fillRect(x-b*.25,y-b*.6,b*.4,b*1.2);this.fx.fillStyle(0xeaf7ee,.36).fillOval(x-b*.8,y-b*.8,b,b*.7).fillOval(x+b*.8,y-b*.8,b,b*.7);});}
+  sakura(p,dt,w,h,s){this.motes.slice(0,21).forEach((m,i)=>{m.y+=m.speed*.48*dt;m.x+=(Math.sin(p*.85+m.phase)*m.drift*.32+.006)*dt;if(m.y>1.05||m.x>1.08)this.respawn(m);const x=m.x*w,y=m.y*h,turn=Math.abs(Math.sin(p*1.3*m.spin+m.phase));this.fx.fillStyle(i%3===0?0xffd6e6:0xf5a9c8,.34+(i%4)*.06).fillOval(x,y,Math.max(1.5,m.size*s/180),Math.max(.8,turn*m.size*s/310));this.fx.fillStyle(0xffe9f1,.26).fillDisc(x+m.size,y,m.size*.35);});}
+  moon(p,w,h,s){const sw=Math.sin(p*.48)*s*.012;this.fx.lineStyle(Math.max(4,s/82),0x81583a,.9).beginPath().moveTo(-s*.02,h*.18).lineTo(w*.08,h*.12).lineTo(w*.18+sw,h*.09).lineTo(w*.29+sw*.8,h*.13).lineTo(w*.45+sw,h*.22).strokePath();[[.07,.14],[.15,.09],[.23,.12],[.32,.16],[.39,.19]].forEach(([x,y],i)=>{const dx=sw*(.35+i*.17);this.fx.fillStyle(i%2?0x729064:0x557b5c,.86).fillOval(w*x+dx,h*y,s*.072,s*.032);});const x=w*.19+sw*.5,y=h*.2;this.light.fillStyle(0xff7627,.08).fillDisc(x,y,s*.21);this.light.fillStyle(0xff953b,.15).fillDisc(x,y,s*.135);this.light.fillStyle(0xffc06a,.3+.06*Math.sin(p*1.6)).fillDisc(x,y,s*.062);this.fx.lineStyle(Math.max(1,s/420),0xc19865,.9).lineBetween(x,y-s*.072,x,y-s*.02);this.fx.fillStyle(0x8c4d2c,.95).fillRect(x-s*.038,y-s*.022,s*.076,s*.095);this.fx.fillStyle(0xffb253,.88+.08*Math.sin(p*1.6)).fillDisc(x,y+s*.024,s*.019);}
 }
