@@ -6,17 +6,19 @@ import { directionForKey } from "./src/input.js";
 import { nextFocus } from "./src/focus-trap.js";
 import { BOARD_SIZE, hasMoves, planMove } from "./src/board.js";
 import { DIRECTION_CHARS, createRng, drawSpawn } from "./src/game-core.js";
-import { PERIODS, buildRows, plantIndex, topPercent } from "./src/leaderboard-view.js";
+import { createLeaderboardApi } from "./src/leaderboard-api.js";
+import { createLeaderboardUi } from "./src/leaderboard-ui.js";
+import { createScoreSubmit } from "./src/score-submit.js";
 import { currentFeatures } from "./src/features.js";
 import { createAudio } from "./src/audio.js";
 import { createTileArt } from "./src/tile-art.js";
 import { createFallbackScenery } from "./src/scenery-fallback.js";
 import { createWorldView } from "./src/world-view.js";
-import { LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIONS } from "./src/i18n.js";
+import { PLAY_LABELS, TRANSLATIONS } from "./src/i18n.js";
 import { artValueFor, levelFor, stageFor, stageMeta as stageMetaFor, tileLabel as tileLabelFor } from "./src/levels.js";
 import {
-  clearSavedGame, loadBest, loadDeviceId, loadLanguage, loadPlayerName, loadPref, loadSavedGame, saveBest,
-  saveLanguage, savePlayerName, savePref, writeSavedGame
+  clearSavedGame, loadBest, loadLanguage, loadPlayerName, loadPref, loadSavedGame, saveBest,
+  saveLanguage, savePref, writeSavedGame
 } from "./src/storage.js";
 
 /* ============================================================
@@ -48,19 +50,12 @@ import {
   const leaderboardBtn = document.getElementById("leaderboardBtn");
   const leaderboardModalEl = document.getElementById("leaderboardModal");
   const leaderboardCloseBtn = document.getElementById("leaderboardClose");
-  const leaderboardListEl = document.getElementById("leaderboardList");
-  const leaderboardMeEl = document.getElementById("leaderboardMe");
-  const leaderboardTabs = Array.from(document.querySelectorAll(".lb-tab"));
   const scoreFormEl = document.getElementById("scoreForm");
   const scoreFormLabelEl = scoreFormEl.querySelector("label");
   const playerNameEl = document.getElementById("playerName");
   const submitScoreBtn = document.getElementById("submitScoreBtn");
   const scoreSubmitStatusEl = document.getElementById("scoreSubmitStatus");
   const lowerScoreConfirmEl = document.getElementById("lowerScoreConfirm");
-  const lowerScoreTitleEl = document.getElementById("lowerScoreTitle");
-  const lowerScoreMessageEl = document.getElementById("lowerScoreMessage");
-  const cancelLowerScoreBtn = document.getElementById("cancelLowerScore");
-  const confirmLowerScoreBtn = document.getElementById("confirmLowerScore");
   const settingsBtn = document.getElementById("settingsBtn");
   const settingsPanel = document.getElementById("settingsPanel");
   const settingsBackdrop = document.getElementById("settingsBackdrop");
@@ -136,7 +131,6 @@ import {
   const cancelRestart = document.getElementById("cancelNewGame");
   const confirmRestart = document.getElementById("confirmNewGame");
   let worldEventTimer = null;
-  let scoreSubmitted = false;
   const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   let reduceMotion = reduceMotionQuery.matches;
   reduceMotionQuery.addEventListener?.("change", event => { reduceMotion = event.matches; });
@@ -170,7 +164,7 @@ import {
     settingsCloseBtn.setAttribute("aria-label",text.closeSettings);leaderboardCloseBtn.setAttribute("aria-label",text.closeLeaderboard);
     if(tiles)Object.values(tiles).forEach(t=>{if(t&&t.el)t.el.setAttribute("aria-label",tileLabel(t.value));});
     if(currentStage)updateEvolutionUI(currentStage);
-    if(!leaderboardModalEl.hidden)fetchLeaderboard();
+    if(leaderboard.isOpen())leaderboard.refresh();
     saveLanguage(currentLanguage);
   }
 
@@ -573,9 +567,6 @@ import {
     overlayEl.hidden = true;
   }
 
-  let leaderboardPeriod = "all";
-  let leaderboardToken = 0;
-  let leaderboardCache = {};
 
   // Signed play session used for leaderboard anti-cheat. Requested when a
   // new game starts (see newGame()) so its issue time reflects actual play
@@ -645,366 +636,53 @@ import {
     spawn();
     updateScore();
   }
-  function plantName(maxTile) {
-    const index = plantIndex(maxTile);
-    return index < 0 ? "" : (TILE_NAMES[currentLanguage]?.[index] || TILE_NAMES.en[index]);
-  }
+  const leaderboardApi = createLeaderboardApi();
+  const leaderboard = createLeaderboardUi({
+    api: leaderboardApi,
+    elements: {
+      modal: leaderboardModalEl,
+      closeBtn: leaderboardCloseBtn,
+      list: document.getElementById("leaderboardList"),
+      me: document.getElementById("leaderboardMe"),
+      tabs: Array.from(document.querySelectorAll(".lb-tab")),
+      tabBar: document.querySelector(".lb-tabs")
+    },
+    text: () => TRANSLATIONS[currentLanguage],
+    language: () => currentLanguage,
+    onOpen: () => { closeRestart(false); coolFlow(); queuedDirection = null; },
+    returnTarget: () => (!startScreenEl.hidden ? startLeaderboardBtn : leaderboardBtn),
+    syncInert
+  });
 
-  // The plant's pixel art, so a row shows at a glance how far the run got.
-  function plantIcon(maxTile) {
-    const icon = document.createElement("span");
-    icon.className = "lb-plant";
-    if (plantIndex(maxTile) < 0) return icon;
-    const img = document.createElement("img");
-    img.src = `/assets/tiles/v3/tile-${maxTile}.png`;
-    img.alt = "";
-    img.width = 30;
-    img.height = 30;
-    img.loading = "lazy";
-    img.decoding = "async";
-    img.draggable = false;
-    img.addEventListener("error", () => img.remove(), { once: true });
-    icon.appendChild(img);
-    return icon;
-  }
-
-  function entryDetail(entry) {
-    const parts = [plantName(entry.max_tile)];
-    if (entry.best_combo > 1) parts.push(`${entry.best_combo}×`);
-    return parts.filter(Boolean).join(" · ");
-  }
-
-  function leaderboardMessage(message) {
-    const note = document.createElement("p");
-    note.className = "leaderboard-message";
-    note.textContent = message;
-    return note;
-  }
-
-  function renderLeaderboardLoading() {
-    const text = TRANSLATIONS[currentLanguage];
-    const list = document.createElement("ol");
-    list.className = "lb-rows lb-skeleton";
-    list.setAttribute("aria-label", text.loadingScores);
-    for (let i = 0; i < 6; i++) {
-      const item = document.createElement("li");
-      item.className = "leaderboard-entry";
-      list.appendChild(item);
+  const scoreSubmit = createScoreSubmit({
+    elements: {
+      form: scoreFormEl,
+      playerName: playerNameEl,
+      submitBtn: submitScoreBtn,
+      status: scoreSubmitStatusEl,
+      confirm: lowerScoreConfirmEl,
+      confirmTitle: document.getElementById("lowerScoreTitle"),
+      confirmMessage: document.getElementById("lowerScoreMessage"),
+      cancel: document.getElementById("cancelLowerScore"),
+      accept: document.getElementById("confirmLowerScore")
+    },
+    text: () => TRANSLATIONS[currentLanguage],
+    language: () => currentLanguage,
+    getRun: () => ({
+      ranked: isRankedRun(),
+      session: gameSession,
+      score,
+      maxValueReached,
+      bestCombo,
+      moves: moveLog
+    }),
+    syncInert,
+    // The all-time board, with the player's new rank, after a short pause.
+    onSaved: () => {
+      leaderboard.showAllTimeNext();
+      setTimeout(leaderboard.open, 550);
     }
-    leaderboardListEl.setAttribute("aria-busy", "true");
-    leaderboardListEl.replaceChildren(list);
-  }
-
-  // The pinned card: the player's own rank, always visible without scrolling.
-  function renderLeaderboardMe(me, ready) {
-    const text = TRANSLATIONS[currentLanguage];
-    leaderboardMeEl.replaceChildren();
-    leaderboardMeEl.hidden = !ready;
-    if (!ready) return;
-    const ranked = Boolean(me?.rank);
-    leaderboardMeEl.classList.toggle("empty", !ranked);
-    if (!ranked) {
-      const prompt = document.createElement("p");
-      prompt.className = "lb-me-prompt";
-      prompt.textContent = text.lbJoinPrompt;
-      leaderboardMeEl.appendChild(prompt);
-      return;
-    }
-    const place = document.createElement("div");
-    place.className = "lb-me-place";
-    const label = document.createElement("span");
-    label.className = "lb-me-label";
-    label.textContent = text.lbYourRank;
-    const rank = document.createElement("strong");
-    rank.className = "lb-me-rank";
-    rank.textContent = `#${me.rank}`;
-    place.append(label, rank);
-
-    const who = document.createElement("div");
-    who.className = "lb-me-who";
-    const name = document.createElement("strong");
-    name.textContent = me.entry.player_name;
-    const detail = document.createElement("small");
-    detail.textContent = entryDetail(me.entry);
-    who.append(name, detail);
-
-    const result = document.createElement("div");
-    result.className = "lb-me-result";
-    const points = document.createElement("strong");
-    points.textContent = Number(me.entry.score).toLocaleString(currentLanguage);
-    const standing = document.createElement("small");
-    standing.textContent = text.lbOfPlayers.replace("{total}", Number(me.total).toLocaleString(currentLanguage));
-    result.append(points, standing);
-    const percent = me.total >= 20 ? topPercent(me.rank, me.total) : null;
-    if (percent !== null && percent <= 50) {
-      const badge = document.createElement("span");
-      badge.className = "lb-me-top";
-      badge.textContent = text.lbTop.replace("{percent}", percent);
-      result.appendChild(badge);
-    }
-    leaderboardMeEl.append(place, plantIcon(me.entry.max_tile), who, result);
-  }
-
-  function renderLeaderboardRows(period, entries, me) {
-    const text = TRANSLATIONS[currentLanguage];
-    leaderboardListEl.removeAttribute("aria-busy");
-    if (!entries.length) {
-      leaderboardListEl.replaceChildren(leaderboardMessage(period === "all" ? text.leaderboardEmpty : text.lbEmptyPeriod));
-      return;
-    }
-    const list = document.createElement("ol");
-    list.className = "lb-rows";
-    for (const row of buildRows(entries, me)) {
-      const item = document.createElement("li");
-      if (row.type === "gap") {
-        item.className = "lb-gap";
-        item.setAttribute("aria-hidden", "true");
-        item.textContent = "⋯";
-        list.appendChild(item);
-        continue;
-      }
-      item.className = "leaderboard-entry" + (row.rank <= 3 ? " top" : "") + (row.own ? " own" : "");
-      item.dataset.rank = String(row.rank);
-      if (row.own) item.setAttribute("aria-current", "true");
-      const rank = document.createElement("span");
-      rank.className = "leaderboard-rank";
-      rank.textContent = String(row.rank);
-      rank.setAttribute("aria-label", `${text.rank} ${row.rank}`);
-      const player = document.createElement("div");
-      player.className = "leaderboard-player";
-      const who = document.createElement("div");
-      who.className = "lb-who";
-      const name = document.createElement("strong");
-      name.textContent = row.entry.player_name;
-      if (row.own) {
-        const you = document.createElement("em");
-        you.className = "lb-you";
-        you.textContent = text.lbYou;
-        name.append(" ", you);
-      }
-      const detail = document.createElement("small");
-      detail.textContent = entryDetail(row.entry);
-      who.append(name, detail);
-      player.append(plantIcon(row.entry.max_tile), who);
-      const points = document.createElement("span");
-      points.className = "leaderboard-score";
-      points.textContent = Number(row.entry.score).toLocaleString(currentLanguage);
-      item.append(rank, player, points);
-      list.appendChild(item);
-    }
-    leaderboardListEl.replaceChildren(list);
-    leaderboardListEl.scrollTop = 0;
-  }
-
-  function renderLeaderboardError(period, error) {
-    const text = TRANSLATIONS[currentLanguage];
-    renderLeaderboardMe(null, false);
-    leaderboardListEl.removeAttribute("aria-busy");
-    const retry = document.createElement("button");
-    retry.type = "button";
-    retry.className = "btn lb-retry";
-    retry.textContent = text.lbRetry;
-    retry.addEventListener("click", () => { delete leaderboardCache[period]; fetchLeaderboard(period); });
-    leaderboardListEl.replaceChildren(
-      leaderboardMessage(error?.name === "AbortError" ? text.requestTimeout : text.loadScoresError),
-      retry
-    );
-  }
-
-  async function requestBoard(period) {
-    const cached = leaderboardCache[period];
-    if (cached && Date.now() - cached.time < 30000) return cached.entries;
-    const path = period === "all" ? "/api/leaderboard" : `/api/leaderboard?period=${period}`;
-    const response = await leaderboardRequest({ headers: { accept: "application/json" } }, path);
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error("leaderboard_load_failed");
-    const entries = Array.isArray(data.entries) ? data.entries : [];
-    leaderboardCache[period] = { time: Date.now(), entries };
-    return entries;
-  }
-
-  // Never cached, and a failure only hides the rank card: the list still works.
-  async function requestMe(period, deviceId) {
-    const response = await leaderboardRequest(
-      { headers: { accept: "application/json" } },
-      `/api/leaderboard/me?period=${period}&device=${encodeURIComponent(deviceId)}`
-    );
-    if (!response.ok) throw new Error("rank_load_failed");
-    return response.json();
-  }
-
-  async function fetchLeaderboard(period = leaderboardPeriod) {
-    const token = ++leaderboardToken;
-    const cached = leaderboardCache[period];
-    if (!(cached && Date.now() - cached.time < 30000)) renderLeaderboardLoading();
-    const deviceId = loadDeviceId();
-    const [list, me] = await Promise.allSettled([
-      requestBoard(period),
-      deviceId ? requestMe(period, deviceId) : Promise.reject(new Error("no_device"))
-    ]);
-    // A newer request (another tab, another open) owns the screen now.
-    if (token !== leaderboardToken) return;
-    if (list.status === "rejected") {
-      renderLeaderboardError(period, list.reason);
-      return;
-    }
-    const mine = me.status === "fulfilled" ? me.value : null;
-    renderLeaderboardMe(mine, me.status === "fulfilled");
-    renderLeaderboardRows(period, list.value, mine);
-  }
-
-  function setLeaderboardPeriod(period, { focus = false } = {}) {
-    if (!PERIODS.includes(period)) return;
-    leaderboardPeriod = period;
-    for (const tab of leaderboardTabs) {
-      const active = tab.dataset.period === period;
-      tab.setAttribute("aria-selected", String(active));
-      tab.tabIndex = active ? 0 : -1;
-      if (active && focus) tab.focus();
-    }
-    leaderboardListEl.setAttribute("aria-labelledby", `lbTab-${period}`);
-    fetchLeaderboard(period);
-  }
-
-  async function leaderboardRequest(options = {}, path = "/api/leaderboard") {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-    try {
-      const requestOptions = { ...options, signal: controller.signal };
-      const response = await fetch(path, requestOptions);
-      const type = response.headers.get("content-type") || "";
-      if (!type.includes("application/json")) {
-        throw new Error("Leaderboard is temporarily unavailable.");
-      }
-      return response;
-    } finally { clearTimeout(timeout); }
-  }
-
-  function openLeaderboard() {
-    closeRestart(false);
-    coolFlow();
-    queuedDirection = null;
-    leaderboardModalEl.hidden = false;
-    syncInert();
-    document.body.style.overflow = "hidden";
-    setLeaderboardPeriod(leaderboardPeriod);
-    requestAnimationFrame(() => leaderboardCloseBtn.focus());
-  }
-
-  function closeLeaderboard() {
-    leaderboardModalEl.hidden = true;
-    document.body.style.overflow = "";
-    syncInert();
-    const returnTarget = !startScreenEl.hidden ? startLeaderboardBtn : leaderboardBtn;
-    returnTarget.focus();
-  }
-
-  function confirmLowerScore(currentScore, newScore) {
-    const copy = LOWER_SCORE_COPY[currentLanguage] || LOWER_SCORE_COPY.en;
-    lowerScoreTitleEl.textContent = copy[0];
-    lowerScoreMessageEl.textContent = copy[1]
-      .replace("{newScore}", Number(newScore).toLocaleString(currentLanguage))
-      .replace("{currentScore}", Number(currentScore).toLocaleString(currentLanguage));
-    cancelLowerScoreBtn.textContent = copy[2];
-    confirmLowerScoreBtn.textContent = copy[3];
-    lowerScoreConfirmEl.hidden = false;
-    syncInert();
-    document.body.classList.add("score-confirm-open");
-    window.dispatchEvent(new CustomEvent("garden:score-confirm", { detail: { open: true } }));
-    confirmLowerScoreBtn.focus();
-    return new Promise(resolve => {
-      const finish = accepted => {
-        lowerScoreConfirmEl.hidden = true;
-        syncInert();
-        document.body.classList.remove("score-confirm-open");
-        window.dispatchEvent(new CustomEvent("garden:score-confirm", { detail: { open: false } }));
-        cancelLowerScoreBtn.removeEventListener("click", cancel);
-        confirmLowerScoreBtn.removeEventListener("click", confirm);
-        lowerScoreConfirmEl.removeEventListener("click", backdrop);
-        document.removeEventListener("keydown", escape);
-        resolve(accepted);
-      };
-      const cancel = () => finish(false);
-      const confirm = () => finish(true);
-      const backdrop = event => { if (event.target === lowerScoreConfirmEl) cancel(); };
-      const escape = event => { if (event.key === "Escape") cancel(); };
-      cancelLowerScoreBtn.addEventListener("click", cancel);
-      confirmLowerScoreBtn.addEventListener("click", confirm);
-      lowerScoreConfirmEl.addEventListener("click", backdrop);
-      document.addEventListener("keydown", escape);
-    });
-  }
-
-  async function submitScore(event) {
-    event.preventDefault();
-    if (scoreSubmitted) return;
-    const playerName = playerNameEl.value.normalize("NFKC").replace(/\s+/g, " ").trim().slice(0, 16);
-    const text = TRANSLATIONS[currentLanguage];
-    if (playerName.length < 2) {
-      scoreSubmitStatusEl.textContent = text.nameTooShort;
-      playerNameEl.focus();
-      return;
-    }
-    submitScoreBtn.disabled = true;
-    submitScoreBtn.textContent = text.sending;
-    scoreSubmitStatusEl.textContent = "";
-    try {
-      // The record is verified against the session's seed, so only the
-      // session this run was dealt from can be presented.
-      if (!isRankedRun()) throw new Error(text.sessionError);
-      const session = gameSession;
-      const deviceId = loadDeviceId();
-      const payload = {
-          playerName,
-          score,
-          maxTile: Math.max(2, maxValueReached),
-          bestCombo,
-          comboRules: 2,
-          reachedStage: stageFor(Math.max(2, maxValueReached)),
-          moves: moveLog,
-          deviceId,
-          session
-      };
-      const send = replaceLowerScore => leaderboardRequest({
-          method: "POST",
-          headers: { "content-type": "application/json", accept: "application/json" },
-          body: JSON.stringify({ ...payload, replaceLowerScore })
-        });
-      let response = await send(false);
-      let data = await response.json().catch(() => ({}));
-      if (response.status === 409 && data.code === "lower_score_confirmation_required") {
-        const accepted = await confirmLowerScore(data.currentScore, score);
-        if (!accepted) {
-          submitScoreBtn.disabled = false;
-          submitScoreBtn.textContent = TRANSLATIONS[currentLanguage].submit;
-          scoreSubmitStatusEl.textContent = "";
-          return;
-        }
-        response = await send(true);
-        data = await response.json().catch(() => ({}));
-      }
-      if (data.code === "name_not_allowed") throw new Error("name_not_allowed");
-      if (response.status === 429) throw new Error("score_rate_limited");
-      if (!response.ok) throw new Error("score_submit_failed");
-      scoreSubmitted = true;
-      // Show the all-time board with the player's new rank.
-      leaderboardCache = {};
-      leaderboardPeriod = "all";
-      savePlayerName(data.playerName || playerName);
-      playerNameEl.value = "";
-      scoreFormEl.classList.add("success");
-      scoreSubmitStatusEl.textContent = text.submitSuccess;
-      setTimeout(openLeaderboard, 550);
-    } catch (error) {
-      submitScoreBtn.disabled = false;
-      submitScoreBtn.textContent = text.submit;
-      if (error.message === "name_not_allowed") playerNameEl.focus();
-      scoreSubmitStatusEl.textContent = error.message === "name_not_allowed" ? text.nameNotAllowed
-        : error.message === "score_rate_limited" ? text.submitRateLimited
-        : error.message === "score_submit_failed" ? text.submitError
-        : (error.message || text.submitError);
-    }
-  }
+  });
 
   /* ---------- Particles (board-local, transient) ---------- */
   function emitParticles(r, c, value) {
@@ -1202,7 +880,7 @@ import {
     queuedDirection = null;
     maxValueReached = saved ? saved.maxValueReached : 0;
     bestCombo = saved ? saved.bestCombo : 0;
-    scoreSubmitted = false;
+    scoreSubmit.reset();
     pendingReveal = 0;
     resetCombo();
     if (saved) bloomFlow.restore(saved.streak, saved.bestCombo);
@@ -1341,23 +1019,8 @@ import {
     };
     if (reduceMotion) finish(); else setTimeout(finish, 480);
   });
-  startLeaderboardBtn.addEventListener("click", openLeaderboard);
-  leaderboardBtn.addEventListener("click", openLeaderboard);
-  leaderboardCloseBtn.addEventListener("click", closeLeaderboard);
-  leaderboardTabs.forEach(tab => tab.addEventListener("click", () => setLeaderboardPeriod(tab.dataset.period)));
-  document.querySelector(".lb-tabs").addEventListener("keydown", event => {
-    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
-    const at = PERIODS.indexOf(leaderboardPeriod);
-    let next = null;
-    if (step) next = PERIODS[(at + step + PERIODS.length) % PERIODS.length];
-    else if (event.key === "Home") next = PERIODS[0];
-    else if (event.key === "End") next = PERIODS[PERIODS.length - 1];
-    if (next === null) return;
-    event.preventDefault();
-    setLeaderboardPeriod(next, { focus: true });
-  });
-  leaderboardModalEl.addEventListener("click", event => { if (event.target === leaderboardModalEl) closeLeaderboard(); });
-  scoreFormEl.addEventListener("submit", submitScore);
+  startLeaderboardBtn.addEventListener("click", leaderboard.open);
+  leaderboardBtn.addEventListener("click", leaderboard.open);
 
   // Settings panel
   function syncToggles() {
@@ -1434,7 +1097,7 @@ import {
   document.addEventListener("keydown", e => {
     if (e.key === "Escape" && !restartPanel.hidden) { closeRestart(); return; }
     if (e.key === "Escape" && !leaderboardModalEl.hidden) {
-      closeLeaderboard();
+      leaderboard.close();
       return;
     }
     if (e.key === "Escape" && !settingsPanel.hidden) {
