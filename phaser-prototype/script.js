@@ -1,5 +1,5 @@
 "use strict";
-import { createBloomFlow } from "./src/bloom-flow.js";
+import { createComboHud } from "./src/combo-hud.js";
 import { endingForMergedValue } from "./src/game-rules.js";
 import { createGameSession, randomSeed, withTimeout } from "./src/game-session.js";
 import { installControls } from "./src/controls.js";
@@ -92,11 +92,7 @@ import {
   let queuedDirection = null;
   let currentStage = 0;
   let maxValueReached = 0;
-  let combo = 0;
   let bestCombo = 0;
-  const bloomFlow = createBloomFlow();
-  let flow = 0;
-  let flowTimer = null;
   let completedMoves = 0;
   // A run is its seed plus the moves played: the Worker replays exactly these
   // to verify a score. runPending is true until the first tiles are dealt.
@@ -156,6 +152,13 @@ import {
   const toast = createToast(toastEl);
   const worldEffects = createWorldEffects({ env: envEl, layer: worldEventLayerEl, prefs, getStage: () => currentStage });
   const audio = createAudio({ getStage: () => currentStage, isMenu: () => menuMode });
+  const comboHud = createComboHud({
+    elements: { hud: comboHudEl, value: comboValueEl, score: scoreEl, board: boardEl },
+    prefs,
+    quiet: () => document.hidden || !restartPanel.hidden || !settingsPanel.hidden || !leaderboardModalEl.hidden,
+    onMerges: (streak, mergeCount) => audio.playComboPiano(streak, mergeCount),
+    onTier: () => worldEffects.event(currentStage, true)
+  });
   // Newer, self-contained features can be switched off (src/features.js).
   const features = currentFeatures();
   let worldView = null;
@@ -247,7 +250,7 @@ import {
       moveLog += DIRECTION_CHARS[dir];
       let stageAdvancePending = false;
       let endingPending = null;
-      updateCombo(merges.length);
+      bestCombo = comboHud.update(merges.length).best;
       merges.forEach(m => {
         boardView.remove(m.absorbed);
         if (!boardView.merge(m.survivor, m.value)) return;
@@ -269,7 +272,7 @@ import {
           endingPending = "victory";
         }
       });
-      pulseGameEnergy(merges.length);
+      comboHud.pulse(merges.length);
       updateScore();
       // 8192 is the official ending. Do not add another random tile after the
       // winning merge; freeze the exact completed board behind the final card.
@@ -306,63 +309,6 @@ import {
     scoreEl.textContent = score;
     if (score > best) { best = score; saveBest(best); }
     bestEl.textContent = best;
-  }
-
-  function resetCombo() {
-    combo = 0;
-    bloomFlow.reset();
-    comboHudEl.hidden = true;
-    coolFlow();
-  }
-
-  function publishFlow(value) {
-    flow = value;
-    comboHudEl.querySelector("i").style.transform = `scaleX(${flow / 8})`;
-    window.dispatchEvent(new CustomEvent("garden:combo", { detail: { combo: flow } }));
-  }
-
-  function coolFlow() {
-    clearTimeout(flowTimer);
-    flowTimer = null;
-    bloomFlow.cool();
-    publishFlow(0);
-  }
-
-  function tickFlow() {
-    flowTimer = null;
-    const next = bloomFlow.level(performance.now());
-    if (next !== flow) publishFlow(next);
-    // At most five small updates per second, only while energy remains.
-    if (next > 0) flowTimer = setTimeout(tickFlow, 200);
-  }
-
-  function updateCombo(mergeCount) {
-    const previousFlow = bloomFlow.level(performance.now());
-    const state = bloomFlow.move(mergeCount, performance.now());
-    combo = state.streak;
-    bestCombo = state.best;
-    comboValueEl.textContent = `${combo}×`;
-    comboHudEl.hidden = combo < 2;
-    publishFlow(state.flow);
-    if (mergeCount > 0) audio.playComboPiano(state.streak, mergeCount);
-    if ([3, 5, 8].some(tier => previousFlow < tier && state.flow >= tier)) worldEffects.event(currentStage, true);
-    if (document.hidden || !restartPanel.hidden || !settingsPanel.hidden || !leaderboardModalEl.hidden) coolFlow();
-    else if (flowTimer === null && flow > 0) flowTimer = setTimeout(tickFlow, 200);
-  }
-
-  function pulseGameEnergy(mergeCount) {
-    if (prefs.reduceMotion || mergeCount < 1) return;
-    scoreEl.getAnimations().forEach(animation => animation.cancel());
-    boardEl.getAnimations().forEach(animation => animation.cancel());
-    scoreEl.animate([
-      { transform:"scale(1)" },{ transform:"scale(1.28)", offset:.45 },{ transform:"scale(1)" }
-    ], { duration:240, easing:"cubic-bezier(.2,1.7,.35,1)" });
-    const strong = mergeCount > 1;
-    boardEl.animate([
-      { transform:"scale(1)", filter:"saturate(1)" },
-      { transform:`scale(${strong ? 1.012 : 1.006})`, filter:`saturate(${strong ? 1.08 : 1})`, offset:strong ? .42 : .48 },
-      { transform:"scale(1)", filter:"saturate(1)" }
-    ], { duration:strong ? 250 : 220, easing:"ease-out" });
   }
 
   const gameSession = createGameSession({
@@ -413,7 +359,7 @@ import {
     text: () => TRANSLATIONS[currentLanguage],
     language: () => currentLanguage,
     snapshot: () => ({ score, best, maxValueReached, bestCombo, ranked: isRankedRun(), currentStage }),
-    onShow: () => coolFlow(),
+    onShow: () => comboHud.cool(),
     playGameOver: () => audio.playGameOver()
   });
 
@@ -430,7 +376,7 @@ import {
     },
     text: () => TRANSLATIONS[currentLanguage],
     language: () => currentLanguage,
-    onOpen: () => { closeRestart(false); coolFlow(); queuedDirection = null; },
+    onOpen: () => { closeRestart(false); comboHud.cool(); queuedDirection = null; },
     returnTarget: () => (!startScreenEl.hidden ? startLeaderboardBtn : leaderboardBtn),
     syncInert
   });
@@ -556,8 +502,8 @@ import {
     bestCombo = saved ? saved.bestCombo : 0;
     scoreSubmit.reset();
     pendingReveal = 0;
-    resetCombo();
-    if (saved) bloomFlow.restore(saved.streak, saved.bestCombo);
+    comboHud.reset();
+    if (saved) comboHud.restore(saved.streak, saved.bestCombo);
     runSeed = saved ? saved.seed : null;
     runRng = saved ? { s: saved.rngState } : null;
     moveLog = saved ? saved.moves : "";
@@ -594,7 +540,7 @@ import {
     if (!completedMoves && !busy) { newGame(); return; }
     if (!restartPanel.hidden) { closeRestart(); return; }
     queuedDirection = null;
-    coolFlow();
+    comboHud.cool();
     restartPanel.hidden = false;
     newBtn.setAttribute("aria-expanded", "true");
     cancelRestart.focus();
@@ -672,7 +618,7 @@ import {
     prefs,
     applyLanguage,
     hooks: {
-      onOpen: () => { closeRestart(false); coolFlow(); queuedDirection = null; },
+      onOpen: () => { closeRestart(false); comboHud.cool(); queuedDirection = null; },
       onVisualChange: applyVisualPrefs,
       startMenuShowing: () => !startScreenEl.hidden
     },
@@ -697,7 +643,7 @@ import {
   const lowPowerDevice = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
   document.body.classList.toggle("perf-low", Boolean(lowPowerDevice));
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) { coolFlow(); queuedDirection = null; }
+    if (document.hidden) { comboHud.cool(); queuedDirection = null; }
     document.body.classList.toggle("page-hidden", document.hidden);
   });
 
@@ -723,7 +669,7 @@ import {
     announce,
     text: key => TRANSLATIONS[currentLanguage][key],
     onChange: active => {
-      if (active) { queuedDirection = null; coolFlow(); }
+      if (active) { queuedDirection = null; comboHud.cool(); }
       syncInert();
     }
   });
