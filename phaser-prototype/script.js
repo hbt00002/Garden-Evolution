@@ -27,6 +27,7 @@ import { createFallbackScenery } from "./src/scenery-fallback.js";
 import { currentFeatures } from "./src/features.js";
 import { DIRECTION_CHARS, createRng, drawSpawn } from "./src/game-core.js";
 import { endingForMergedValue } from "./src/game-rules.js";
+import { createInstallHint } from "./src/install.js";
 import { createGameSession, randomSeed, withTimeout } from "./src/game-session.js";
 import { PLAY_LABELS, TRANSLATIONS } from "./src/i18n.js";
 import { createLeaderboardApi } from "./src/leaderboard-api.js";
@@ -627,6 +628,12 @@ const settings = createSettingsPanel({
     startMenuShowing: () => !startScreenEl.hidden
   },
   syncInert
+});
+// "Add to home screen", only where it can help (see src/install.js).
+createInstallHint({
+  row: document.getElementById("installRow"),
+  button: document.getElementById("installBtn"),
+  steps: document.getElementById("installSteps")
 });
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && !restartPanel.hidden) { closeRestart(); return; }

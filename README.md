@@ -168,6 +168,26 @@ Both features are self-contained: `src/world-view.js` (state and motion),
 `src/pan.js` (the maths), one clearly marked block at the end of `style.css`, and
 a few lines in `script.js`.
 
+## On the home screen
+
+The game can be added to a phone's home screen, where it opens full screen without
+the browser's bars (which also gives the sideways layout its height back).
+`public/manifest.webmanifest` and the tags in `index.html` describe it (name,
+icons, `display: standalone`, both orientations); there is deliberately **no
+service worker**, so there is no offline play and nothing that can leave a player on
+an old version: every deploy reaches everyone at once. Chrome still considers the
+game installable without one (checked in `e2e/install.spec.js`).
+
+- Icons are drawn by `tools/make-icons.mjs` (a sprout on the game's greens) into
+  `public/icons/`: 192 and 512 px, a maskable 512 px with room for Android's
+  crop, and the 180 px picture iOS uses. Run it again to change the picture.
+- Settings gets an "Add to home screen" row (`src/install.js`) only where it helps:
+  a button on Android (Chrome's install prompt) and the steps ("Share, then Add
+  to Home Screen") on iPhone and iPad, whose browsers cannot be asked to install.
+  It is hidden once the game is installed.
+- iOS reads `apple-mobile-web-app-*` tags rather than the manifest; the status bar
+  is the default (not translucent), so the page needs no top inset there.
+
 ## Switching a feature off, and rolling back
 
 Newer features have switches (`src/features.js`), from the smallest step to the

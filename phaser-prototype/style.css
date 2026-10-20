@@ -2400,3 +2400,10 @@ body.no-garden-view .controls { grid-template-columns: 42px minmax(0,1fr) 116px;
 @media (orientation: landscape) and (max-height: 540px) {
   .combo-hud { bottom: auto; top: -15px; left: 76%; }
 }
+
+/* ----- "Add to home screen" in Settings ----- */
+.install-row { flex-wrap: wrap; }
+.install-row[hidden] { display: none; }
+.install-btn { min-width: 72px; height: 34px; padding: 0 14px; font-size: .72rem; }
+.install-btn[hidden], .install-steps[hidden] { display: none; }
+.install-steps { flex: 1 0 100%; margin: 0; font-size: .74rem; line-height: 1.35; color: var(--ink-soft); }
