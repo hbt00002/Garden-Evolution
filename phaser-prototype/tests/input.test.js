@@ -33,3 +33,24 @@ test("other keys are ignored", () => {
   assert.equal(directionForKey({ key: "x", code: "KeyX" }), null);
   assert.equal(directionForKey(null), null);
 });
+
+import { swipeDirection } from "../src/input.js";
+
+test("a swipe goes the way the finger travelled furthest", () => {
+  assert.equal(swipeDirection(60, 10, 24), "right");
+  assert.equal(swipeDirection(-60, 10, 24), "left");
+  assert.equal(swipeDirection(5, 60, 24), "down");
+  assert.equal(swipeDirection(-5, -60, 24), "up");
+});
+
+test("a small movement is not a swipe yet, but one long enough in either direction is", () => {
+  assert.equal(swipeDirection(10, -10, 24), null);
+  assert.equal(swipeDirection(23, 23, 24), null);
+  assert.equal(swipeDirection(0, 24, 24), "down");
+  assert.equal(swipeDirection(24, 0, 24), "right");
+});
+
+test("a perfectly diagonal swipe goes vertical", () => {
+  assert.equal(swipeDirection(40, 40, 24), "down");
+  assert.equal(swipeDirection(40, -40, 24), "up");
+});

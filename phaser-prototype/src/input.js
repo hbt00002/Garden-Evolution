@@ -19,3 +19,11 @@ export function directionForKey(event) {
   if (!event || event.ctrlKey || event.metaKey || event.altKey) return null;
   return BY_CODE[event.code] ?? BY_KEY[event.key] ?? null;
 }
+
+// The direction of a swipe from its horizontal and vertical travel, or null
+// while the finger has not moved far enough (in either direction) to count.
+export function swipeDirection(dx, dy, threshold) {
+  if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return null;
+  if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? "right" : "left";
+  return dy > 0 ? "down" : "up";
+}

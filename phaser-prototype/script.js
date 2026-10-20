@@ -2,7 +2,7 @@
 import { createBloomFlow } from "./src/bloom-flow.js";
 import { endingForMergedValue } from "./src/game-rules.js";
 import { isSessionUsable } from "./src/game-save.js";
-import { directionForKey } from "./src/input.js";
+import { installControls } from "./src/controls.js";
 import { nextFocus } from "./src/focus-trap.js";
 import { BOARD_SIZE, hasMoves, planMove } from "./src/board.js";
 import { DIRECTION_CHARS, createRng, drawSpawn } from "./src/game-core.js";
@@ -32,7 +32,6 @@ import {
   const SIZE = BOARD_SIZE;
   const SLIDE_MS = 115;
   const MERGE_MS = 210;
-  const SWIPE_THRESHOLD = 24;
 
   /* ---------- DOM refs ---------- */
   const boardEl = document.getElementById("board");
@@ -849,52 +848,7 @@ import {
   }
 
   /* ---------- Controls ---------- */
-  window.addEventListener("keydown", e => {
-    if (e.target instanceof HTMLElement && e.target.matches("input, textarea, select, [contenteditable='true']")) return;
-    const dir = directionForKey(e);
-    // Leave the key alone while a dialog is open so arrows can still scroll
-    // the leaderboard list and browser shortcuts keep working.
-    if (!dir || inputBlocked()) return;
-    e.preventDefault();
-    audio.ensure();
-    move(dir);
-  }, { passive: false });
-
-  let ptrStart = null;
-  function isInteractiveControl(target) {
-    return target instanceof Element && Boolean(target.closest("input, textarea, select, button, form, [contenteditable='true']"));
-  }
-  boardEl.addEventListener("pointerdown", e => {
-    if (isInteractiveControl(e.target)) {
-      ptrStart = null;
-      return;
-    }
-    audio.ensure();
-    ptrStart = { x: e.clientX, y: e.clientY, id: e.pointerId };
-  });
-  boardEl.addEventListener("pointermove", e => {
-    if (isInteractiveControl(e.target)) return;
-    if (!ptrStart || e.pointerId !== ptrStart.id) return;
-    const dx = e.clientX - ptrStart.x;
-    const dy = e.clientY - ptrStart.y;
-    if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) return;
-    let dir;
-    if (Math.abs(dx) > Math.abs(dy)) dir = dx > 0 ? "right" : "left";
-    else dir = dy > 0 ? "down" : "up";
-    ptrStart = null;
-    move(dir);
-  });
-  const endPtr = e => { if (ptrStart && e.pointerId === ptrStart.id) ptrStart = null; };
-  boardEl.addEventListener("pointerup", endPtr);
-  boardEl.addEventListener("pointercancel", endPtr);
-  boardEl.addEventListener("pointerleave", endPtr);
-
-  boardEl.addEventListener("touchstart", e => {
-    if (!isInteractiveControl(e.target)) e.preventDefault();
-  }, { passive: false });
-  boardEl.addEventListener("touchmove", e => {
-    if (!isInteractiveControl(e.target)) e.preventDefault();
-  }, { passive: false });
+  installControls({ board: boardEl, onMove: move, blocked: inputBlocked, onGesture: () => audio.ensure() });
 
   function closeRestart(restoreFocus = true) {
     restartPanel.hidden = true;
