@@ -40,6 +40,7 @@ Visual assets are CC0, the menu music is credited in [CREDITS.md](CREDITS.md).
 | `GET /api/leaderboard?period=all\|week\|day` | Top 20 for a board. Cached at the edge for 30 s. |
 | `GET /api/leaderboard/me?period=…&device=<uuid>` | One device's rank on a board. Never cached. |
 | `POST /api/leaderboard` | Submit a finished run (record is replayed and verified). |
+| `POST /api/client-error` | The game reports that it broke in a browser (see "Error reports"). Same-origin only, rate-limited, always answers with an empty body. |
 
 Security headers and the Content-Security-Policy live in
 [`public/_headers`](phaser-prototype/public/_headers); long-lived caching for
@@ -121,8 +122,8 @@ two ways to see the rest:
   edge. Escape or "Back to game" returns.
 - **World reveal**: when a new world unlocks, the game steps aside for a few
   seconds and shows the world with its name and a line of story; a tap skips it.
-  Players can turn it off in Settings. It runs a calmer, motionless version when
-  reduced motion is on.
+  It is **off by default** (it interrupts play) and players can turn it on in
+  Settings. It runs a calmer, motionless version when reduced motion is on.
 
 Held sideways the board sits in the middle with the world on both sides, as on a
 desktop. The page extends under notches and keeps clear of them.
@@ -147,6 +148,35 @@ largest:
   the database.
 - **The code:** each change lands as its own small commit, so `git revert` of one
   leaves the others alone.
+
+## Error reports and privacy
+
+When the game breaks in someone's browser (an uncaught error, a file that fails
+to load, the game or scenery failing to start) `src/error-report.js` tells the
+Worker, so a problem is noticed without a player having to complain. At most five
+different reports leave a page, each only once.
+
+What is stored (`client_errors`, one row per distinct error with a count): the
+error message and stack, the file and line, the page path, the build name, the
+screen size, and a **coarse** browser and device (for example "Safari 17, iOS
+phone"). **Not stored:** names, scores, the device id, cookies, the IP address or
+the raw User-Agent. Rows older than 30 days are deleted by the cron trigger and
+the table is capped at 500 distinct errors. The IP is only used, hashed with the
+secret salt, to rate-limit reports (20 per 10 minutes).
+
+Read what has been reported (last 7 days, most frequent first):
+
+```bash
+cd phaser-prototype
+npm run errors:remote
+```
+
+Reports are best effort: if the table is missing (code deployed before its
+migration) or the request fails, they are dropped silently.
+
+The leaderboard stores a player's chosen name, score and an anonymous device id
+(a random UUID kept in the browser) and keeps it until the player's row is
+replaced or removed from the database by the owner.
 
 ## Good to know
 
