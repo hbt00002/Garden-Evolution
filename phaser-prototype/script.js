@@ -9,6 +9,7 @@ import { DIRECTION_CHARS, createRng, drawSpawn } from "./src/game-core.js";
 import { PERIODS, buildRows, plantIndex, topPercent } from "./src/leaderboard-view.js";
 import { currentFeatures } from "./src/features.js";
 import { createAudio } from "./src/audio.js";
+import { createTileArt } from "./src/tile-art.js";
 import { createFallbackScenery } from "./src/scenery-fallback.js";
 import { createWorldView } from "./src/world-view.js";
 import { LOWER_SCORE_COPY, PLAY_LABELS, TILE_NAMES, TRANSLATIONS } from "./src/i18n.js";
@@ -189,6 +190,7 @@ import {
   }
 
   let menuMode = !startScreenEl.hidden;
+  const tileArt = createTileArt();
   const audio = createAudio({ getStage: () => currentStage, isMenu: () => menuMode });
   let motionOn = loadPref("gardenEvolutionMotion", true);
   let particlesOn = loadPref("gardenEvolutionParticles", true);
@@ -246,57 +248,6 @@ import {
   /* ---------- Rendering ---------- */
   const tileLabel = value => tileLabelFor(value, currentLanguage);
 
-  /* Tile art. Every picture is loaded once and kept (a retained image keeps its
-     decoded pixels in memory), and a tile's art is copied from that, so a merge
-     never waits for a download or a decode. If a picture is somehow not ready
-     yet, the tile keeps its old art until the new one arrives instead of going
-     blank, and a failed download is retried. */
-  const tileArtReady = new Map();      // asset value -> loaded <img> (kept on purpose)
-  const tileArtLoading = new Map();    // asset value -> Promise of that <img>
-  const tileArtUrl = value => `/assets/tiles/v3/tile-${value}.png`;
-  function loadTileArt(value, attempt = 0) {
-    if (tileArtReady.has(value)) return Promise.resolve(tileArtReady.get(value));
-    if (tileArtLoading.has(value) && attempt === 0) return tileArtLoading.get(value);
-    const promise = new Promise(resolve => {
-      const image = new Image();
-      image.decoding = "async";
-      image.onload = () => {
-        const done = () => { tileArtReady.set(value, image); tileArtLoading.delete(value); resolve(image); };
-        if (image.decode) image.decode().then(done, done); else done();
-      };
-      image.onerror = () => {
-        tileArtLoading.delete(value);
-        if (attempt >= 3) { resolve(null); return; }
-        setTimeout(() => loadTileArt(value, attempt + 1).then(resolve), 400 * (attempt + 1));
-      };
-      image.src = tileArtUrl(value);
-    });
-    tileArtLoading.set(value, promise);
-    return promise;
-  }
-  function makeTileArt(value, ready) {
-    const art = ready ? ready.cloneNode(false) : new Image();
-    if (!ready) art.src = tileArtUrl(value);
-    art.className = "tile-art";
-    art.alt = "";
-    art.setAttribute("aria-hidden", "true");
-    art.draggable = false;
-    // Critical containment is repeated inline so a stale stylesheet can never
-    // let a newly-rendered sprite escape its tile while caches are refreshing.
-    Object.assign(art.style, {
-      position: "absolute",
-      inset: "4% 4% 9%",
-      width: "92%",
-      height: "87%",
-      objectFit: "contain",
-      objectPosition: "center",
-      imageRendering: "pixelated",
-      display: "block",
-      pointerEvents: "none"
-    });
-    return art;
-  }
-
   function renderTileContent(el, value) {
     const lvl = levelFor(value);
     const { sprite, assetValue } = artValueFor(value);
@@ -315,23 +266,7 @@ import {
     }
     num.textContent = value;
     el.style.overflow = "hidden";
-    el.dataset.art = assetValue;
-    const current = el.querySelector(".tile-art");
-    if (current && current.dataset.assetValue === String(assetValue)) return;
-    const swapIn = ready => {
-      if (el.dataset.art !== String(assetValue)) return;   // merged again meanwhile
-      const art = makeTileArt(assetValue, ready);
-      art.dataset.assetValue = assetValue;
-      const old = el.querySelector(".tile-art");
-      if (old) old.replaceWith(art); else el.insertBefore(art, el.firstChild);
-    };
-    const ready = tileArtReady.get(assetValue);
-    if (ready) swapIn(ready);
-    else {
-      // Nothing to show yet: keep the previous art (if any) until this one is loaded.
-      if (!current) swapIn(null);
-      loadTileArt(assetValue).then(image => { if (image) swapIn(image); });
-    }
+    tileArt.attach(el, assetValue);
   }
 
   function createTile(r, c, value, isNew) {
@@ -1143,7 +1078,7 @@ import {
     envEl.dataset.stage = stage;
     scenery.renderStage(stage);
     scenery.spawnParticles(stage);
-    preloadTileAssets();
+    tileArt.preloadAll();
     updateEvolutionUI(stage);
     scheduleWorldEvent();
     audio.startMusic();
@@ -1183,24 +1118,6 @@ import {
     scenery.spawnParticles(currentStage || 1);
   });
   if (["localhost", "127.0.0.1"].includes(location.hostname)) window.debugSetEnvironmentStage = setEnvironmentStage;
-
-  // Every tile picture is small (30-190 KB), so load them all rather than
-  // waiting for the world that needs them: the first ones straight away, the
-  // rest as soon as the browser is idle.
-  const TILE_PRELOAD_GROUPS = [
-    [2, 4, 8, 16, 32, 64], [128, 256], [512], [1024, 2048], [4096, 8192]
-  ];
-  let tileArtPreloadStarted = false;
-  function preloadTileAssets() {
-    if (tileArtPreloadStarted) return;
-    tileArtPreloadStarted = true;
-    TILE_PRELOAD_GROUPS.forEach((group, index) => {
-      const load = () => group.forEach(value => loadTileArt(value));
-      if (index === 0) load();
-      else if ("requestIdleCallback" in window) requestIdleCallback(load, { timeout: 1500 });
-      else setTimeout(load, 300 * index);
-    });
-  }
 
   function maybeEvolveEnvironment() {
     const newStage = stageFor(maxValueReached);
@@ -1538,7 +1455,7 @@ import {
   languageSelect.addEventListener("change", () => applyLanguage(languageSelect.value));
 
   // Start fetching the tile pictures while the player is still on the menu.
-  preloadTileAssets();
+  tileArt.preloadAll();
 
   // Resize handling
   let resizeTimer;
