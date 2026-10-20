@@ -3,7 +3,7 @@ import { createComboHud } from "./src/combo-hud.js";
 import { endingForMergedValue } from "./src/game-rules.js";
 import { createGameSession, randomSeed, withTimeout } from "./src/game-session.js";
 import { installControls } from "./src/controls.js";
-import { nextFocus } from "./src/focus-trap.js";
+import { createDialogs } from "./src/dialogs.js";
 import { BOARD_SIZE, hasMoves, planMove } from "./src/board.js";
 import { DIRECTION_CHARS, createRng, drawSpawn } from "./src/game-core.js";
 import { createLeaderboardApi } from "./src/leaderboard-api.js";
@@ -155,7 +155,7 @@ import {
   const comboHud = createComboHud({
     elements: { hud: comboHudEl, value: comboValueEl, score: scoreEl, board: boardEl },
     prefs,
-    quiet: () => document.hidden || !restartPanel.hidden || !settingsPanel.hidden || !leaderboardModalEl.hidden,
+    quiet: () => document.hidden || dialogs.menusOpen(),
     onMerges: (streak, mergeCount) => audio.playComboPiano(streak, mergeCount),
     onTier: () => worldEffects.event(currentStage, true)
   });
@@ -163,6 +163,25 @@ import {
   const features = currentFeatures();
   let worldView = null;
   let pendingReveal = 0;
+
+  // Dialogs decide what is reachable: the game goes inert behind a modal, moves
+  // are ignored, Tab stays inside the open dialog.
+  const dialogs = createDialogs({
+    elements: {
+      main: gameMainEl,
+      startScreen: startScreenEl,
+      restart: restartPanel,
+      settings: settingsPanel,
+      leaderboard: leaderboardModalEl,
+      scoreConfirm: lowerScoreConfirmEl,
+      endCard: overlayEl,
+      announcer: announcerEl
+    },
+    viewActive: () => worldView?.active
+  });
+  const syncInert = dialogs.sync;
+  const announce = dialogs.announce;
+  const inputBlocked = () => menuMode || runPending || dialogs.blocking();
 
   // A tile on the board: the view draws it, the grid below remembers where it is.
   function addTile(r, c, value, isNew) {
@@ -180,47 +199,6 @@ import {
     maxValueReached = Math.max(maxValueReached, next.value);
     return addTile(Math.floor(next.index / SIZE), next.index % SIZE, next.value, true);
   }
-
-  function inputBlocked() {
-    return menuMode || runPending || Boolean(worldView?.active) || !restartPanel.hidden || !settingsPanel.hidden || !leaderboardModalEl.hidden || !overlayEl.hidden;
-  }
-
-  // Screen readers and Tab must not reach the game behind the start menu or a
-  // modal dialog.
-  function syncInert() {
-    const modalOpen = !settingsPanel.hidden || !leaderboardModalEl.hidden || !lowerScoreConfirmEl.hidden;
-    gameMainEl.inert = !startScreenEl.hidden || modalOpen || Boolean(worldView?.active);
-    startScreenEl.inert = modalOpen;
-  }
-  new MutationObserver(syncInert).observe(document.body, {
-    subtree: true, attributes: true, attributeFilter: ["hidden"]
-  });
-
-  function announce(message) {
-    announcerEl.textContent = "";
-    requestAnimationFrame(() => { announcerEl.textContent = message; });
-  }
-
-  const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-  function openDialog() {
-    if (!lowerScoreConfirmEl.hidden) return lowerScoreConfirmEl;
-    if (!leaderboardModalEl.hidden) return leaderboardModalEl;
-    if (!settingsPanel.hidden) return settingsPanel;
-    if (!overlayEl.hidden) return overlayEl;
-    return null;
-  }
-  document.addEventListener("keydown", event => {
-    // The restart confirmation has its own two-button trap.
-    if (event.key !== "Tab" || !restartPanel.hidden) return;
-    const dialog = openDialog();
-    if (!dialog) return;
-    const focusables = [...dialog.querySelectorAll(FOCUSABLE)].filter(el => el.getClientRects().length > 0);
-    const target = nextFocus(focusables, document.activeElement, event.shiftKey);
-    if (target) {
-      event.preventDefault();
-      target.focus();
-    }
-  });
 
   function move(dir) {
     if (inputBlocked()) return;
@@ -460,7 +438,7 @@ import {
 
   function showWorldReveal(stage) {
     if (!worldView || worldView.active || menuMode || document.hidden) return;
-    if (!restartPanel.hidden || !settingsPanel.hidden || !leaderboardModalEl.hidden || !overlayEl.hidden) return;
+    if (dialogs.menusOpen() || !overlayEl.hidden) return;
     const meta = stageMeta(stage);
     worldView.showReveal(stage, {
       kicker: stageKickerEl.textContent,
