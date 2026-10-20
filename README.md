@@ -152,7 +152,12 @@ two ways to see the rest:
   Settings. It runs a calmer, motionless version when reduced motion is on.
 
 Held sideways the board sits in the middle with the world on both sides, as on a
-desktop. The page extends under notches and keeps clear of them.
+desktop. The page extends under notches and keeps clear of them. A phone held
+sideways is only about 220-390 px tall, so the buttons and cards there are sized
+from the height (`LANDSCAPE COMFORT` in `style.css`). The board's frame is drawn by
+Phaser, which can miss a rotation (it measures before the new layout settles, and
+a sleeping loop does not measure at all), so `engine.js` checks it against the real
+box whenever that changes.
 
 Both features are self-contained: `src/world-view.js` (state and motion),
 `src/pan.js` (the maths), one clearly marked block at the end of `style.css`, and

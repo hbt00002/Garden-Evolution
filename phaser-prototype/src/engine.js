@@ -88,6 +88,43 @@ const boardGame = new Phaser.Game({
   scene: [LivingBoardScene]
 });
 window.gardenBoardEngine = boardGame;
+
+// Phaser's RESIZE mode measures its parent when the window announces a resize.
+// Turning a phone fires that event before the new layout has settled, so the
+// board's canvas can keep an in-between size (a frame smaller than the tiles
+// laid over it) until the next resize, which may never come. Check the canvas
+// against the real box whenever that box changes, and once more shortly after a
+// rotation, which iPhones finish in two steps.
+let boardSyncFrame = 0;
+const syncBoardViewport = () => {
+  cancelAnimationFrame(boardSyncFrame);
+  boardSyncFrame = requestAnimationFrame(() => {
+    const bounds = boardMount.getBoundingClientRect();
+    if (bounds.width < 1 || bounds.height < 1) return;
+    if (Math.abs(boardGame.scale.width - bounds.width) >= 1 || Math.abs(boardGame.scale.height - bounds.height) >= 1) {
+      boardGame.scale.resize(bounds.width, bounds.height);
+      paintBoardOnce();
+    }
+  });
+};
+
+// A canvas that is resized while its loop sleeps goes blank until the next
+// frame, so give a sleeping board a moment to paint the new size. (Not while
+// the garden view hides it: it is repainted when the view closes.)
+let lookingAround = false;
+let boardPaintTimer = 0;
+const paintBoardOnce = () => {
+  if (boardGame.loop.running || lookingAround) return;
+  boardGame.loop.wake();
+  clearTimeout(boardPaintTimer);
+  boardPaintTimer = setTimeout(() => {
+    if (!motionAllowed || lookingAround || document.hidden) boardGame.loop.sleep();
+  }, 300);
+};
+new ResizeObserver(syncBoardViewport).observe(boardMount);
+window.addEventListener("resize", syncBoardViewport, { passive: true });
+window.visualViewport?.addEventListener("resize", syncBoardViewport, { passive: true });
+window.addEventListener("orientationchange", () => [0, 150, 500, 1200].forEach(ms => setTimeout(syncBoardViewport, ms)));
 boardGame.registry.set("lowPower", lowPowerDevice);
 env.dataset.boardEngine = "";
 
@@ -150,9 +187,13 @@ window.addEventListener("garden:world-pan", event => {
 // hidden behind the view, rests.
 window.addEventListener("garden:world-focus", event => {
   const looking = Boolean(event.detail?.active);
+  lookingAround = looking;
   setFrameLimit(game.loop, looking ? 0 : ambientFpsConfig.limit);
   if (looking) boardGame.loop.sleep();
-  else if (motionAllowed && !document.hidden) boardGame.loop.wake();
+  else {
+    syncBoardViewport();            // the phone may have been turned meanwhile
+    if (motionAllowed && !document.hidden) boardGame.loop.wake();
+  }
 });
 
 window.addEventListener("garden:score-confirm", event => {

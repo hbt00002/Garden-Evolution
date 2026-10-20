@@ -130,3 +130,50 @@ test("tiles stay on their cells when the board changes size without a window res
   await expect.poll(async () => Math.max(...await misalignment()), { timeout: 3000 }).toBeLessThan(1.5);
   expect(await page.locator("#board").evaluate(el => el.clientWidth)).toBeLessThanOrEqual(270);
 });
+
+test.describe("a phone held sideways is comfortable to use", () => {
+  for (const phone of [{ name: "narrow with notches", width: 667, height: 223 }, { name: "Safari with its bars", width: 844, height: 283 }, { name: "iPhone 14", width: 844, height: 390 }]) {
+    test(`${phone.name} ${phone.width}x${phone.height}: big buttons, and the streak badge leaves the progress dots clear`, async ({ page }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      await startGame(page);
+      for (const id of ["#leaderboardBtn", "#newBtn", "#settingsBtn", "#viewBtn"]) {
+        const rect = await box(page, id);
+        expect(rect.height, `${id} is tall enough to hit`).toBeGreaterThanOrEqual(phone.height < 250 ? 36 : 40);
+        expect(rect.width, `${id} is wide enough to hit`).toBeGreaterThanOrEqual(60);
+      }
+      // A streak badge must not sit on the world card's dots.
+      await page.evaluate(() => { const hud = document.getElementById("comboHud"); hud.hidden = false; });
+      const hud = await box(page, "#comboHud");
+      const dots = await box(page, ".stage-track");
+      expect(overlaps(hud, dots), "the streak badge covers the progress dots").toBe(false);
+      await noScroll(page);
+    });
+  }
+});
+
+test("turning the phone: the board's frame follows the board even while its loop sleeps and Phaser misses the resize", async ({ page }) => {
+  // Phaser measures its parent when the window announces a resize, which on a
+  // phone happens before the rotated layout has settled, and a sleeping loop
+  // measures nothing at all (it sleeps with motion off, and behind the garden
+  // view). With Phaser's own listeners off and the loop asleep, only the game's
+  // own check is left to keep the frame (drawn by Phaser) the same size as the
+  // tiles laid over it.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await startGame(page);
+  await page.evaluate(() => {
+    window.gardenBoardEngine.scale.stopListeners();
+    // Motion off: both loops sleep, as when the player turns it off in the settings.
+    window.dispatchEvent(new CustomEvent("garden:preferences", { detail: { motionOn: false, particlesOn: true, contrastOn: false } }));
+  });
+  expect(await page.evaluate(() => window.gardenBoardEngine.loop.running)).toBe(false);
+  const sizes = () => page.evaluate(() => ({
+    canvas: window.gardenBoardEngine.scale.width,
+    box: document.getElementById("boardEngine").getBoundingClientRect().width
+  }));
+  for (const [width, height] of [[844, 283], [390, 844], [667, 223]]) {
+    await page.setViewportSize({ width, height });
+    await expect.poll(async () => { const s = await sizes(); return Math.abs(s.canvas - s.box) < 1; }, { message: `canvas follows the box at ${width}x${height}` }).toBe(true);
+  }
+  // It was given a moment to repaint, and then went back to sleep.
+  await expect.poll(() => page.evaluate(() => window.gardenBoardEngine.loop.running)).toBe(false);
+});

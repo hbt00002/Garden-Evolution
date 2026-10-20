@@ -2363,3 +2363,40 @@ body.world-focus .game {
 body.no-garden-view .controls { grid-template-columns: 42px minmax(0,1fr) 116px; }
 @media (max-width: 420px) { body.no-garden-view .controls { grid-template-columns: 38px minmax(116px,1fr) minmax(94px,108px); } }
 @media (orientation: landscape) and (max-height: 540px) { body.no-garden-view .controls { grid-template-columns: 1fr 1fr; } }
+
+/* ============================================================
+   LANDSCAPE COMFORT
+   A phone held sideways is short (about 220-390 px of height), so the buttons
+   and cards are sized from the height, not fixed: as large as fits, never
+   below a comfortable size, never huge on a tall screen.
+   ============================================================ */
+@media (orientation: landscape) and (max-height: 540px) {
+  .controls .btn { height: clamp(40px, 15vh, 54px); font-size: clamp(.72rem, 3.1vh, .92rem); border-radius: 14px; }
+  .controls { gap: clamp(8px, 2.6vh, 12px); }
+  .controls .btn .btn-ico, .controls .btn svg { width: clamp(20px, 7vh, 28px); height: clamp(20px, 7vh, 28px); }
+  .score-box { height: clamp(48px, 17vh, 62px); }
+  .score-label { font-size: clamp(.56rem, 2.3vh, .7rem); }
+  .score-value { font-size: clamp(1.1rem, 5.4vh, 1.6rem); }
+  .brand .title { font-size: clamp(1.15rem, 5.4vh, 1.6rem); }
+  .brand .hint { font-size: clamp(.7rem, 3vh, .9rem); }
+  .evolution { padding: clamp(8px, 2.4vh, 13px) clamp(10px, 3vh, 15px) clamp(10px, 2.8vh, 15px); }
+  .stage-kicker { font-size: clamp(.56rem, 2.2vh, .7rem); }
+  .stage-name { font-size: clamp(1rem, 4.6vh, 1.3rem); }
+  .stage-next { font-size: clamp(.66rem, 2.8vh, .84rem); }
+  .stage-dot { width: 14px; height: 14px; }
+  .start-btn { height: clamp(50px, 17vh, 62px); }
+}
+/* On the narrowest sideways screens (about 670 px wide, with a notch on each
+   side) the columns are narrow, so the same rule stays within what fits. */
+@media (orientation: landscape) and (max-height: 540px) and (max-width: 760px) {
+  .controls .btn { height: clamp(38px, 16vh, 46px); font-size: clamp(.68rem, 3.2vh, .8rem); }
+  .scores { flex-basis: clamp(118px, 20vw, 150px); width: clamp(118px, 20vw, 150px); }
+  .score-box { flex-basis: clamp(54px, 9vw, 70px); width: clamp(54px, 9vw, 70px); min-width: clamp(54px, 9vw, 70px); height: clamp(46px, 17vh, 58px); }
+  .brand .title { font-size: clamp(1.1rem, 5.4vh, 1.4rem); }
+}
+/* The streak badge hangs below the world card; sideways that card sits on the
+   bottom edge of the screen, so it hangs from the top instead and the
+   progress dots stay visible. */
+@media (orientation: landscape) and (max-height: 540px) {
+  .combo-hud { bottom: auto; top: -15px; }
+}
