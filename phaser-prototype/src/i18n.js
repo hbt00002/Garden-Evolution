@@ -169,6 +169,23 @@ for (const [language, copy] of Object.entries(WORLD_VIEW_COPY)) {
   Object.assign(TRANSLATIONS[language], copy);
 }
 
+// Putting the game on the phone's home screen (Settings).
+const INSTALL_COPY = {
+  en: { installApp:"Add to home screen", installBtn:"Add", installIos:"Tap the Share button, then “Add to Home Screen”." },
+  tr: { installApp:"Ana ekrana ekle", installBtn:"Ekle", installIos:"Paylaş düğmesine dokun, sonra “Ana Ekrana Ekle”yi seç." },
+  zh: { installApp:"添加到主屏幕", installBtn:"添加", installIos:"点按“分享”按钮，然后选择“添加到主屏幕”。" },
+  ja: { installApp:"ホーム画面に追加", installBtn:"追加", installIos:"共有ボタンをタップし、「ホーム画面に追加」を選びます。" },
+  ko: { installApp:"홈 화면에 추가", installBtn:"추가", installIos:"공유 버튼을 누른 다음 “홈 화면에 추가”를 선택하세요." },
+  es: { installApp:"Añadir a la pantalla de inicio", installBtn:"Añadir", installIos:"Toca el botón Compartir y elige “Añadir a pantalla de inicio”." },
+  pt: { installApp:"Adicionar à tela inicial", installBtn:"Adicionar", installIos:"Toque no botão Compartilhar e escolha “Adicionar à Tela de Início”." },
+  fr: { installApp:"Ajouter à l’écran d’accueil", installBtn:"Ajouter", installIos:"Touchez le bouton Partager, puis « Sur l’écran d’accueil »." },
+  de: { installApp:"Zum Home-Bildschirm", installBtn:"Hinzufügen", installIos:"Tippe auf „Teilen“ und wähle „Zum Home-Bildschirm“." },
+  ru: { installApp:"На главный экран", installBtn:"Добавить", installIos:"Нажмите «Поделиться», затем «На экран «Домой»»." }
+};
+for (const [language, copy] of Object.entries(INSTALL_COPY)) {
+  Object.assign(TRANSLATIONS[language], copy);
+}
+
 // Plant names in tile order (2, 4, 8 ... 8192), used for screen-reader labels.
 export const TILE_NAMES = {
   en: ["Seed", "Sprout", "Young Plant", "Flower", "Bush", "Sapling", "Young Tree", "Mature Tree", "Mini Forest", "Ancient Tree", "Sakura Crown", "Tree of Life", "Celestial Tree"],

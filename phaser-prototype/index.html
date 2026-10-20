@@ -9,6 +9,15 @@
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#eaf3df" />
+    <!-- Adding the game to the home screen: a name, an icon, and (on iPhone, which
+         reads these tags rather than the manifest) permission to open without
+         the browser's bars. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Garden Evolution" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="description" content="Garden Evolution — a relaxing 2048-inspired garden game in an evolving Japanese countryside." />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Garden Evolution" />
@@ -204,6 +213,12 @@
       <label class="setting-row"><span class="setting-label" data-i18n="extraParticles">Extra Particles</span><button class="toggle" id="particlesToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
       <label class="setting-row"><span class="setting-label" data-i18n="highContrast">High Contrast</span><button class="toggle" id="contrastToggle" type="button" role="switch" aria-checked="false"><span class="toggle-knob"></span></button></label>
       <label class="setting-row" id="revealRow"><span class="setting-label" data-i18n="worldReveal">World reveal</span><button class="toggle" id="revealToggle" type="button" role="switch" aria-checked="false"><span class="toggle-knob"></span></button></label>
+      <!-- Shown only where it helps: Android offers a button, iPhone needs the steps. -->
+      <div class="setting-row install-row" id="installRow" hidden>
+        <span class="setting-label" data-i18n="installApp">Add to home screen</span>
+        <button class="btn install-btn" id="installBtn" type="button" data-i18n="installBtn" hidden>Add</button>
+        <p class="install-steps" id="installSteps" data-i18n="installIos" hidden>Tap Share, then Add to Home Screen.</p>
+      </div>
       <p class="performance-note" id="performanceNote" data-i18n="performance">Performance adapts automatically.</p>
     </section>
 
