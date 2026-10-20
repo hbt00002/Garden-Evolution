@@ -32,6 +32,12 @@
   Cache-Control: public, max-age=604800
 /assets/stage3-board-approved/*
   Cache-Control: public, max-age=604800
+/assets/stage1-v3/*
+  Cache-Control: public, max-age=604800
+/assets/stage3-v2/*
+  Cache-Control: public, max-age=604800
+/assets/stage4-v2/*
+  Cache-Control: public, max-age=604800
 /assets/stage3-v1/*
   Cache-Control: public, max-age=604800
 /assets/stage4-v1/*

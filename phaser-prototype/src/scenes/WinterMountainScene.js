@@ -13,7 +13,7 @@ export class WinterMountainScene extends Phaser.Scene {
 
   preload() {
     this.load.image("mountain-ridge-v2", "/assets/stage1-v2/mountain-ridge.png");
-    this.load.image("snow-tile", "/assets/stage1/snow-tile.png");
+    this.load.image("snow-tile", "/assets/stage1-v3/snow-tile.png");
     this.load.image("spruce-large", "/assets/stage1-v2/spruce-large.png");
     this.load.image("spruce-medium", "/assets/stage1-v2/spruce-medium.png");
     this.load.image("spruce-small", "/assets/stage1-v2/spruce-small.png");
@@ -123,8 +123,9 @@ export class WinterMountainScene extends Phaser.Scene {
       { x: 1230, y: 482 }, { x: 1990, y: 512 }, { x: 1990, y: 1040 }, { x: -200, y: 1040 }
     ], true);
     const slopeMask = slopeMaskShape.createGeometryMask();
+    // The snow texture is 1.5x smaller than the original (tools/shrink-sprites.mjs), so its tile scale is 1.5x larger.
     this.snowTexture = this.add.tileSprite(DESIGN_W / 2, 600, DESIGN_W + 520, 810, "snow-tile")
-      .setTileScale(.34).setAlpha(.52).setDepth(-59).setMask(slopeMask);
+      .setTileScale(.34 * 1.5).setAlpha(.52).setDepth(-59).setMask(slopeMask);
 
     // Gentle broad shadows live inside the same slope instead of overlapping mesh slabs.
     const contour = this.add.graphics().setDepth(-35);

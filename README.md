@@ -162,6 +162,15 @@ largest:
   entry script. The menu backdrop is a WebP preloaded by the page (its PNG
   master stays for link previews; rebuild it with `tools/make-menu-webp.mjs`).
   `performance.getEntriesByType("mark")` shows `game-ready` and `scenery-ready`.
+- **Texture memory.** A phone keeps every texture of the worlds it has visited
+  decoded (width x height x 4 bytes), whatever the file size. A few source
+  paintings were far larger than they are drawn (a 1500 px turtle shown 95 px
+  wide), so the originals live in `phaser-prototype/art-source/` (not deployed)
+  and `tools/shrink-sprites.mjs` writes the small versions the game loads; the
+  scenes scale them back up by the same factor. Worlds 3 and 4 went from about
+  57 MB and 32 MB decoded to about 19 MB each. `tests/asset-budget.test.js`
+  fails if a world grows past its budget. Art folders are cached for a week, so
+  a replaced image always gets a new folder name (`-v2`, `-v3`).
 - **Saved games** are the seed and the moves, replayed on load. Changing the
   rules or the random stream changes what old saves replay to, so bump
   `SAVE_VERSION` in `src/game-save.js` when you do.

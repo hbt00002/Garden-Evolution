@@ -17,8 +17,9 @@ export class SakuraGardenScene extends Phaser.Scene {
     this.load.image("s4-mountains", `${root}sakura-mountains.png`);
     this.load.image("s4-valley", `${root}sakura-valley.png`);
     this.load.image("s4-tree", `${root}sakura-tree.png`);
-    this.load.image("s4-mid-tree", `${root}sakura-midground.png`);
-    this.load.image("s4-petal-pile", `${root}fallen-petals.png`);
+    // Already shrunk to the blocky look the scene wants (tools/shrink-sprites.mjs).
+    this.load.image("s4-mid-tree-pixel", "/assets/stage4-v2/sakura-midground.png");
+    this.load.image("s4-petal-pile-pixel", "/assets/stage4-v2/fallen-petals.png");
   }
 
   create() {
@@ -30,8 +31,6 @@ export class SakuraGardenScene extends Phaser.Scene {
     this.valley = this.add.image(W / 2, H, "s4-valley")
       .setOrigin(.5, 1).setDisplaySize(W + 400, 720).setDepth(-60);
     this.applyValleyFade();
-    this.createPixelMatchedTexture("s4-mid-tree", "s4-mid-tree-pixel", 4);
-    this.createPixelMatchedTexture("s4-petal-pile", "s4-petal-pile-pixel", 4);
 
     this.addPetalPile(1510, 870, 285, true, 1537);
     this.addTree(1510, 865, .255, 1.7, true, 1540);
@@ -92,18 +91,6 @@ export class SakuraGardenScene extends Phaser.Scene {
     this.valleyMaskSource = this.make.image({ x: W / 2, y: H, key: "s4-valley-mask", add: false })
       .setOrigin(.5, 1).setDisplaySize(W + 400, 720);
     this.valley.setMask(this.valleyMaskSource.createBitmapMask());
-  }
-
-  createPixelMatchedTexture(sourceKey, targetKey, divisor) {
-    const source = this.textures.get(sourceKey).getSourceImage();
-    const width = Math.max(1, Math.round(source.width / divisor));
-    const height = Math.max(1, Math.round(source.height / divisor));
-    const texture = this.textures.createCanvas(targetKey, width, height);
-    const context = texture.getContext();
-    context.imageSmoothingEnabled = false;
-    context.clearRect(0, 0, width, height);
-    context.drawImage(source, 0, 0, width, height);
-    texture.refresh();
   }
 
   addTree(x, y, scale, phase, flip, depth) {
