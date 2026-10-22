@@ -88,6 +88,8 @@ function isMissingScoreLog(error) {
 function cleanName(value) {
   return String(value || "")
     .normalize("NFKC")
+    // Control characters are exactly what is being removed here.
+    // eslint-disable-next-line no-control-regex
     .replace(/[<>\u0000-\u001f\u007f]/g, "")
     .replace(/\s+/g, " ")
     .trim()

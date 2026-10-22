@@ -23,9 +23,8 @@ const KEY_STEP = 140;
 const IDLE_MS = 2800;          // how long the name and the track stay after the last touch
 
 export function createWorldView({
-  env, world, view, reveal, getStage, getMotion, announce, onChange = () => {}, text, canPan = () => true
+  view, reveal, getStage, getMotion, announce, onChange = () => {}, text, canPan = () => true
 }) {
-  const track = view.querySelector("#gvTrack");
   const thumb = view.querySelector("#gvThumb");
   const back = view.querySelector("#gvBack");
   const drag = view.querySelector("#gvDrag");

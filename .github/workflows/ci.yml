@@ -20,6 +20,9 @@ jobs:
           cache: npm
           cache-dependency-path: phaser-prototype/package-lock.json
       - run: npm ci
+      # Mistakes a test might not reach: a name that is not defined, one that is
+      # never used, a variable that hides another.
+      - run: npm run lint
       - run: npm test
       - run: npm run build
 
