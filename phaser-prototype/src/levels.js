@@ -51,6 +51,12 @@ export function artValueFor(value) {
   return { sprite, assetValue: LEVELS[sprite]?.v || 8192 };
 }
 
+// A plant's name in the player's language: "Young Tree".
+export function plantName(value, language) {
+  const level = levelFor(value);
+  return TILE_NAMES[language]?.[LEVELS.indexOf(level)] || level.name;
+}
+
 // A tile's accessible name, in the player's language: "Young Tree, 128".
 export function tileLabel(value, language) {
   const level = levelFor(value);
