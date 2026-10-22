@@ -1,4 +1,5 @@
-// The leaderboard dialog: the three boards (all time, this week, today), the
+// The leaderboard dialog: the boards (all time, this week, the last 24 hours
+// and today's garden), the
 // player's own rank card, the tabs and keyboard handling, and opening and
 // closing. It draws from what leaderboard-api.js fetches and from the pure row
 // logic in leaderboard-view.js. The game gives it the dialog's elements, the
@@ -7,15 +8,19 @@ import { TILE_NAMES } from "./i18n.js";
 import { PERIODS, buildRows, plantIndex, topPercent } from "./leaderboard-view.js";
 import { loadDeviceId } from "./storage.js";
 
-// elements: { modal, closeBtn, list, me, tabs, tabBar }
+// elements: { modal, closeBtn, list, me, tabs, tabBar, daily, dailyWhen, dailyPlay }
 // text(): the current language's strings; language(): its code.
 // onOpen(): called when the dialog opens (the game cools its combo and closes
 // the restart prompt); returnTarget(): the button to give focus back to;
 // syncInert(): makes the game behind the dialog unreachable.
-export function createLeaderboardUi({ api, elements, text: getText, language, onOpen, returnTarget, syncInert }) {
+// daily: { when(): "22 Oct · New garden in 5 hours", action(): the play
+// button's label, or null when the player is already in today's garden,
+// play(): start it }.
+export function createLeaderboardUi({ api, elements, text: getText, language, onOpen, returnTarget, syncInert, daily }) {
   const {
     modal: leaderboardModalEl, closeBtn: leaderboardCloseBtn, list: leaderboardListEl,
-    me: leaderboardMeEl, tabs: leaderboardTabs, tabBar
+    me: leaderboardMeEl, tabs: leaderboardTabs, tabBar,
+    daily: dailyBarEl, dailyWhen: dailyWhenEl, dailyPlay: dailyPlayBtn
   } = elements;
   let leaderboardPeriod = "all";
   let leaderboardToken = 0;
@@ -81,7 +86,7 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
     if (!ranked) {
       const prompt = document.createElement("p");
       prompt.className = "lb-me-prompt";
-      prompt.textContent = text.lbJoinPrompt;
+      prompt.textContent = leaderboardPeriod === "daily" ? text.dailyJoinPrompt : text.lbJoinPrompt;
       leaderboardMeEl.appendChild(prompt);
       return;
     }
@@ -124,7 +129,9 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
     const text = getText();
     leaderboardListEl.removeAttribute("aria-busy");
     if (!entries.length) {
-      leaderboardListEl.replaceChildren(leaderboardMessage(period === "all" ? text.leaderboardEmpty : text.lbEmptyPeriod));
+      leaderboardListEl.replaceChildren(leaderboardMessage(
+        period === "all" ? text.leaderboardEmpty : period === "daily" ? text.dailyEmpty : text.lbEmptyPeriod
+      ));
       return;
     }
     const list = document.createElement("ol");
@@ -205,9 +212,21 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
     renderLeaderboardRows(period, list.value, mine);
   }
 
+  // The daily tab says which day it is and when the next one comes, and
+  // offers to play it (unless that is what the player is doing).
+  function renderDailyBar() {
+    dailyBarEl.hidden = leaderboardPeriod !== "daily";
+    if (dailyBarEl.hidden) return;
+    dailyWhenEl.textContent = daily.when();
+    const label = daily.action();
+    dailyPlayBtn.hidden = !label;
+    if (label) dailyPlayBtn.textContent = label;
+  }
+
   function setLeaderboardPeriod(period, { focus = false } = {}) {
     if (!PERIODS.includes(period)) return;
     leaderboardPeriod = period;
+    renderDailyBar();
     for (const tab of leaderboardTabs) {
       const active = tab.dataset.period === period;
       tab.setAttribute("aria-selected", String(active));
@@ -235,6 +254,12 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
   }
 
   leaderboardCloseBtn.addEventListener("click", closeLeaderboard);
+  dailyPlayBtn.addEventListener("click", () => {
+    leaderboardModalEl.hidden = true;
+    document.body.style.overflow = "";
+    syncInert();
+    daily.play();
+  });
   leaderboardTabs.forEach(tab => tab.addEventListener("click", () => setLeaderboardPeriod(tab.dataset.period)));
   tabBar.addEventListener("keydown", event => {
     const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
@@ -253,11 +278,11 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
     open: openLeaderboard,
     close: closeLeaderboard,
     // Reload what is showing (the language changed).
-    refresh: () => fetchLeaderboard(),
-    // After a score is saved: forget the old boards and show the all-time one.
-    showAllTimeNext() {
+    refresh: () => { renderDailyBar(); fetchLeaderboard(); },
+    // After a score is saved: forget the old boards and show the one it joined.
+    showNext(period = "all") {
       api.forgetAll();
-      leaderboardPeriod = "all";
+      leaderboardPeriod = PERIODS.includes(period) ? period : "all";
     },
     isOpen: () => !leaderboardModalEl.hidden,
     element: leaderboardModalEl

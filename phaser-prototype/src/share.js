@@ -11,11 +11,13 @@ export const GAME_URL = "https://play.gardenevolution.workers.dev";
 export const CARD_WIDTH = 1080;
 export const CARD_HEIGHT = 1350;   // 4:5, how most apps show a picture in a chat or a feed
 
-// The line of text that goes with the card, in the player's language.
-export function shareMessage({ mode, score, worldName, plantName, language, text }) {
+// The line of text that goes with the card, in the player's language. prefix
+// ("Today's Garden, 22 Oct:") says which garden it was, when everyone had the same one.
+export function shareMessage({ mode, score, worldName, plantName, language, text, prefix = "" }) {
   const points = Number(score).toLocaleString(language);
   const template = mode === "victory" ? text.shareVictory : mode === "milestone" ? text.shareMilestone : text.shareNoMoves;
-  return template.replace("{score}", points).replace("{world}", worldName).replace("{plant}", plantName);
+  const line = template.replace("{score}", points).replace("{world}", worldName).replace("{plant}", plantName);
+  return prefix ? `${prefix} ${line}` : line;
 }
 
 const loadImage = src => new Promise((resolve, reject) => {
@@ -84,7 +86,8 @@ function fitText(context, value, font, size, maxWidth, minSize = 20) {
 }
 
 // The card itself, as a PNG blob.
-// result: { mode, score, worldName, worldKicker, plantName, plantArt (an image URL), language }
+// result: { mode, score, worldName, worldKicker, plantName, plantArt (an image URL), language, daily }
+// (daily: today's garden, whose kicker names the day and replaces the ending's)
 // backdrop: what captureBackdrop returned (or null for a plain garden-green card)
 export async function drawShareCard({ result, text, backdrop, doc = document }) {
   try {
@@ -133,7 +136,7 @@ export async function drawShareCard({ result, text, backdrop, doc = document }) 
   context.textAlign = "center";
   fitText(context, "Garden Evolution", '700 {size}px "Oxanium", "Trebuchet MS", sans-serif', 96, CARD_WIDTH - 120);
   context.fillText("Garden Evolution", CARD_WIDTH / 2, 150);
-  const headline = result.mode === "victory" ? text.victoryKicker : result.mode === "milestone" ? text.milestoneKicker : result.worldKicker;
+  const headline = result.daily ? result.worldKicker : result.mode === "victory" ? text.victoryKicker : result.mode === "milestone" ? text.milestoneKicker : result.worldKicker;
   context.fillStyle = "rgba(255,250,240,.86)";
   fitText(context, headline.toUpperCase(), '800 {size}px "Quicksand", system-ui, sans-serif', 34, CARD_WIDTH - 160);
   context.fillText(headline.toUpperCase(), CARD_WIDTH / 2, 214);

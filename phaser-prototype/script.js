@@ -4,9 +4,10 @@
    This file is the game itself and the place where the pieces meet. Each piece
    lives in its own module under src/ and knows nothing of the others:
 
-     rules and data   board.js, game-core.js, game-rules.js, game-save.js, levels.js
+     rules and data   board.js, game-core.js, game-rules.js, game-save.js, levels.js,
+                      daily.js and daily-offer.js (today's garden), achievements.js
      the page         board-view.js, tile-art.js, end-card.js, combo-hud.js, toast.js,
-                      dialogs.js, settings-panel.js, controls.js, world-view.js,
+                      dialogs.js, settings-panel.js, achievements-panel.js, controls.js, world-view.js,
                       world-effects.js, scenery-fallback.js (the Phaser backdrop is
                       src/engine.js, loaded separately by main.js)
      sound            audio.js
@@ -17,10 +18,14 @@
    tile ids, the score, the move log), the rules of a move, starting a game, which
    world is showing, and the boot sequence at the bottom.
    ============================================================ */
+import { createAchievements } from "./src/achievements.js";
+import { createAchievementsPanel } from "./src/achievements-panel.js";
 import { BOARD_SIZE, hasMoves, planMove } from "./src/board.js";
 import { createBoardView } from "./src/board-view.js";
 import { createComboHud } from "./src/combo-hud.js";
 import { installControls } from "./src/controls.js";
+import { dayKey, dayLabel } from "./src/daily.js";
+import { dailyOffer, untilNextGarden } from "./src/daily-offer.js";
 import { createDialogs } from "./src/dialogs.js";
 import { createEndCard } from "./src/end-card.js";
 import { createFallbackScenery } from "./src/scenery-fallback.js";
@@ -39,7 +44,8 @@ import { createPreferences } from "./src/preferences.js";
 import { createScoreSubmit } from "./src/score-submit.js";
 import { createSettingsPanel } from "./src/settings-panel.js";
 import {
-  clearSavedGame, loadBest, loadLanguage, loadSavedGame, saveBest, saveLanguage, writeSavedGame
+  clearSavedGame, loadAchievements, loadBest, loadDailyRecord, loadLanguage, loadSavedGame, saveAchievements,
+  saveBest, saveDailyRecord, saveLanguage, writeSavedGame
 } from "./src/storage.js";
 import { createTileArt, tileArtUrl } from "./src/tile-art.js";
 import { createToast } from "./src/toast.js";
@@ -74,6 +80,14 @@ const startScreenEl = document.getElementById("startScreen");
 const startPlayBtn = document.getElementById("startPlayBtn");
 const startSettingsBtn = document.getElementById("startSettingsBtn");
 const startLeaderboardBtn = document.getElementById("startLeaderboardBtn");
+const startDailyBtn = document.getElementById("startDailyBtn");
+const startDailySubEl = document.getElementById("startDailySub");
+const startAchievementsBtn = document.getElementById("startAchievementsBtn");
+const settingsAchievementsBtn = document.getElementById("settingsAchievementsBtn");
+const achievementsModalEl = document.getElementById("achievementsModal");
+const modeBadgeEl = document.getElementById("modeBadge");
+const normalGameBtn = document.getElementById("normalGameBtn");
+const restartWarningEl = document.getElementById("newGameConfirmText");
 const musicVolumeEl = document.getElementById("musicVolume");
 const performanceNoteEl = document.getElementById("performanceNote");
 const languageSelect = document.getElementById("languageSelect");
@@ -115,6 +129,14 @@ let runRng = null;
 let moveLog = "";
 let runPending = false;
 let gameGeneration = 0;
+// Which garden this run is: "classic", or today's garden ("daily" is its one
+// ranked try, "practice" the same seed again, unranked). runDay is that garden's
+// day, practiceSeed the seed a practice run is dealt from.
+let runMode = "classic";
+let runDay = null;
+let practiceSeed = null;
+const slotOf = mode => (mode === "classic" ? "classic" : "daily");
+const inDailyGarden = () => runMode !== "classic";
 const restartPanel = document.getElementById("newGameConfirm");
 const cancelRestart = document.getElementById("cancelNewGame");
 const confirmRestart = document.getElementById("confirmNewGame");
@@ -146,6 +168,10 @@ function applyLanguage(language) {
   boardView.relabel();
   if (currentStage) updateEvolutionUI(currentStage);
   if (leaderboard.isOpen()) leaderboard.refresh();
+  achievementsPanel.refresh();
+  document.getElementById("achievementsClose").setAttribute("aria-label", text.closeAchievements);
+  updateModeBadge();
+  updateDailyButton();
   saveLanguage(currentLanguage);
 }
 
@@ -169,7 +195,54 @@ function updateEvolutionUI(stage) {
 /* ---------- Saving ---------- */
 function saveGame() {
   if (!completedMoves || !grid || victoryAchieved || runSeed === null) return;
-  writeSavedGame({ seed: runSeed, moves: moveLog, session: gameSession.current });
+  writeSavedGame({ seed: runSeed, moves: moveLog, session: gameSession.current, mode: runMode, day: runDay }, slotOf(runMode));
+}
+
+/* ---------- Today's garden ---------- */
+const dayText = day => dayLabel(day, currentLanguage);
+
+// What the Today's Garden button would start now.
+const currentDailyOffer = () => dailyOffer(loadDailyRecord(), loadSavedGame("daily"), dayKey());
+
+// The menu button's second line: the ranked try, carrying on, or practice
+// with the time until the next garden.
+function updateDailyButton() {
+  const text = TRANSLATIONS[currentLanguage];
+  const offer = currentDailyOffer();
+  startDailyBtn.dataset.offer = offer.kind;
+  startDailySubEl.textContent = offer.kind === "ranked" ? text.dailyRanked
+    : offer.kind === "continue" ? text.dailyContinue
+    : text.dailyPractice.replace("{when}", untilNextGarden(currentLanguage));
+}
+// Keep the countdown honest while the menu is showing (and pass midnight).
+setInterval(() => { if (!startScreenEl.hidden && !document.hidden) updateDailyButton(); }, 30000);
+
+// In today's garden the hint line says which garden this is.
+function updateModeBadge() {
+  const daily = inDailyGarden() && runDay;
+  modeBadgeEl.hidden = !daily;
+  document.body.classList.toggle("daily-run", Boolean(daily));
+  if (!daily) return;
+  const text = TRANSLATIONS[currentLanguage];
+  modeBadgeEl.dataset.mode = runMode;
+  modeBadgeEl.textContent = (runMode === "daily" ? text.dailyBadge : text.practiceBadge).replace("{day}", dayText(runDay));
+}
+
+// Today's garden: carry on with a run of it left unfinished, or start the
+// ranked try, or (once that is used) practise the same garden unranked.
+function openDailyGarden() {
+  const offer = currentDailyOffer();
+  if (offer.kind === "continue") newGame(offer.saved);
+  else newGame(null, { mode: offer.kind === "practice" ? "practice" : "daily", day: offer.day, seed: offer.seed });
+}
+
+// The ranked try is used once its first move is played: leaving the run and
+// starting again turns into practice (the server keeps one entry per device).
+function markDailyUsed() {
+  if (runMode !== "daily" || !runDay || runSeed === null) return;
+  const record = loadDailyRecord();
+  if (record?.day === runDay && record.used) return;
+  saveDailyRecord({ day: runDay, seed: runSeed, used: true });
 }
 
 let menuMode = !startScreenEl.hidden;
@@ -184,6 +257,18 @@ const boardView = createBoardView({
   getStage: () => currentStage
 });
 const toast = createToast(toastEl);
+// Achievements, on this device only (src/achievements.js). An unlock is told
+// with a short message; several at once share it.
+const achievements = createAchievements({
+  load: loadAchievements,
+  save: saveAchievements,
+  initialBest: loadBest(),
+  onUnlock: unlocked => {
+    const text = TRANSLATIONS[currentLanguage];
+    toast.show(`🏅 ${text.achUnlocked.replace("{name}", unlocked.map(a => text[`ach_${a.id}`]).join(", "))}`);
+    achievementsPanel.refresh();
+  }
+});
 const worldEffects = createWorldEffects({ env: envEl, layer: worldEventLayerEl, prefs, getStage: () => currentStage });
 const audio = createAudio({ getStage: () => currentStage, isMenu: () => menuMode });
 const comboHud = createComboHud({
@@ -207,6 +292,7 @@ const dialogs = createDialogs({
     restart: restartPanel,
     settings: settingsPanel,
     leaderboard: leaderboardModalEl,
+    achievements: achievementsModalEl,
     scoreConfirm: lowerScoreConfirmEl,
     endCard: overlayEl,
     announcer: announcerEl
@@ -286,11 +372,16 @@ function move(dir) {
     });
     comboHud.pulse(merges.length);
     updateScore();
+    if (completedMoves === 1) markDailyUsed();
+    achievements.progress({ score, maxTile: maxValueReached, combo: bestCombo });
     // 8192 is the official ending. Do not add another random tile after the
     // winning merge; freeze the exact completed board behind the final card.
     if (endingPending !== "victory") spawn();
-    if (endingPending === "victory" || isGameOver()) clearSavedGame();
-    else saveGame();
+    const finished = endingPending === "victory" || isGameOver();
+    if (finished) {
+      clearSavedGame(slotOf(runMode));
+      achievements.finish({ score, maxTile: maxValueReached, combo: bestCombo, mode: runMode, day: runDay });
+    } else saveGame();
     if (endingPending === "victory") endCard.show("victory");
     else if (isGameOver()) endCard.show("noMoves");
     else if (endingPending === "milestone") endCard.show("milestone");
@@ -326,19 +417,38 @@ function updateScore() {
 const gameSession = createGameSession({
   getGeneration: () => gameGeneration,
   errorMessage: () => TRANSLATIONS[currentLanguage].sessionError,
-  onIssued: () => saveGame()
+  onIssued: () => saveGame(),
+  getMode: () => runMode
 });
 const isRankedRun = () => gameSession.isRanked(runSeed);
 
 // Starts a fresh run: wait briefly for the server to hand out a session (and
 // with it the seed), then deal the first two tiles from that seed. If the
 // server cannot be reached the game still starts, unranked.
+// Practice of today's garden needs no server: its seed is already known.
+// Today's ranked try needs one (the seed comes with the session); without a
+// connection a normal game starts instead.
 async function beginRun() {
   const generation = gameGeneration;
   let session = null;
-  try { session = await withTimeout(gameSession.ensure(), 3000); } catch (e) {}
+  if (runMode !== "practice") {
+    try { session = await withTimeout(gameSession.ensure(), 3000); } catch (e) {}
+  }
   if (generation !== gameGeneration || !runPending) return;
-  runSeed = session ? session.seed >>> 0 : randomSeed();
+  if (runMode === "daily" && !session) {
+    // Back to the normal game (its own slot), so this run cannot overwrite it.
+    toast.show(TRANSLATIONS[currentLanguage].dailyOffline);
+    openNormalGame();
+    return;
+  }
+  if (runMode === "daily") {
+    runDay = session.daily;
+    const record = loadDailyRecord();
+    // A new day's garden: remember its seed so it can be practised later.
+    if (record?.day !== runDay) saveDailyRecord({ day: runDay, seed: session.seed >>> 0, used: false });
+    updateModeBadge();
+  }
+  runSeed = runMode === "practice" ? practiceSeed >>> 0 : session ? session.seed >>> 0 : randomSeed();
   runRng = createRng(runSeed);
   moveLog = "";
   runPending = false;
@@ -365,12 +475,13 @@ const endCard = createEndCard({
     finalEmblem: document.getElementById("finalEmblem"),
     unrankedNote: document.getElementById("unrankedNote"),
     milestoneArt: document.getElementById("milestoneArt"),
-    victoryArt: document.getElementById("victoryArt")
+    victoryArt: document.getElementById("victoryArt"),
+    normalGameBtn
   },
   prefs,
   text: () => TRANSLATIONS[currentLanguage],
   language: () => currentLanguage,
-  snapshot: () => ({ score, best, maxValueReached, bestCombo, ranked: isRankedRun(), currentStage }),
+  snapshot: () => ({ score, best, maxValueReached, bestCombo, ranked: isRankedRun(), currentStage, mode: runMode }),
   onShow: () => {
     comboHud.cool();
     // Draw the share card now, so a tap on Share can open the share sheet at once.
@@ -387,11 +498,16 @@ const shareButton = createShareButton({
     if (overlayEl.hidden) return null;
     const top = Math.max(2, maxValueReached);
     const stage = stageFor(top);
+    const text = TRANSLATIONS[currentLanguage];
+    const daily = inDailyGarden() && runDay;
     return {
       mode: overlayEl.dataset.mode,
       score,
       worldName: stageMeta(stage).name,
-      worldKicker: worldKicker(stage),
+      // Today's garden says so on the card and in the text: everyone had the same one.
+      worldKicker: daily ? text.dailyBadge.replace("{day}", dayText(runDay)) : worldKicker(stage),
+      prefix: daily ? text.shareDaily.replace("{day}", dayText(runDay)) : "",
+      daily: Boolean(daily),
       plantName: plantName(top, currentLanguage),
       plantArt: tileArtUrl(artValueFor(top).assetValue),
       language: currentLanguage
@@ -399,6 +515,7 @@ const shareButton = createShareButton({
   },
   capture: () => captureBackdrop({ engine: window.gardenEngine, plate: document.getElementById("phaserWorld"), stage: currentStage }),
   onOutcome: outcome => {
+    if (outcome === "image" || outcome === "text" || outcome === "copied") achievements.event("share");
     if (outcome === "copied") toast.show(TRANSLATIONS[currentLanguage].shareCopied);
     else if (outcome === "unavailable") toast.show(TRANSLATIONS[currentLanguage].shareUnavailable);
   }
@@ -413,12 +530,47 @@ const leaderboard = createLeaderboardUi({
     list: document.getElementById("leaderboardList"),
     me: document.getElementById("leaderboardMe"),
     tabs: Array.from(document.querySelectorAll(".lb-tab")),
-    tabBar: document.querySelector(".lb-tabs")
+    tabBar: document.querySelector(".lb-tabs"),
+    daily: document.getElementById("leaderboardDaily"),
+    dailyWhen: document.getElementById("leaderboardDailyWhen"),
+    dailyPlay: document.getElementById("leaderboardDailyPlay")
   },
   text: () => TRANSLATIONS[currentLanguage],
   language: () => currentLanguage,
   onOpen: () => { closeRestart(false); comboHud.cool(); queuedDirection = null; },
   returnTarget: () => (!startScreenEl.hidden ? startLeaderboardBtn : leaderboardBtn),
+  syncInert,
+  daily: {
+    when: () => `${dayText(dayKey())} · ${TRANSLATIONS[currentLanguage].dailyNext.replace("{when}", untilNextGarden(currentLanguage))}`,
+    // Nothing to offer while already playing today's garden in the game.
+    action: () => {
+      if (startScreenEl.hidden && inDailyGarden() && runDay === dayKey()) return null;
+      const text = TRANSLATIONS[currentLanguage];
+      const kind = currentDailyOffer().kind;
+      return kind === "ranked" ? text.dailyPlay : kind === "continue" ? text.dailyContinueBtn : text.dailyPracticeBtn;
+    },
+    play: () => {
+      if (!startScreenEl.hidden) { openDailyGarden(); leaveMenu(); return; }
+      saveGame();
+      openDailyGarden();
+      boardEl.focus?.();
+    }
+  }
+});
+
+const achievementsPanel = createAchievementsPanel({
+  achievements,
+  elements: {
+    modal: achievementsModalEl,
+    closeBtn: document.getElementById("achievementsClose"),
+    summary: document.getElementById("achievementsSummary"),
+    stats: document.getElementById("achievementsStats"),
+    list: document.getElementById("achievementsList")
+  },
+  text: () => TRANSLATIONS[currentLanguage],
+  language: () => currentLanguage,
+  onOpen: () => { closeRestart(false); comboHud.cool(); queuedDirection = null; if (settings.isOpen()) settings.close(); },
+  returnTarget: () => (!startScreenEl.hidden ? startAchievementsBtn : settingsBtn),
   syncInert
 });
 
@@ -445,9 +597,10 @@ const scoreSubmit = createScoreSubmit({
     moves: moveLog
   }),
   syncInert,
-  // The all-time board, with the player's new rank, after a short pause.
-  onSaved: () => {
-    leaderboard.showAllTimeNext();
+  // The board the score joined (all time, or today's garden), with the
+  // player's new rank, after a short pause.
+  onSaved: data => {
+    leaderboard.showNext(data?.daily ? "daily" : "all");
     setTimeout(leaderboard.open, 550);
   }
 });
@@ -526,9 +679,15 @@ function maybeEvolveEnvironment() {
 }
 
 /* ---------- New game ---------- */
-function newGame(saved = null) {
+// saved: a run to restore (it knows its own mode). Otherwise start says which
+// garden to begin: { mode, day, seed } (today's garden), or a normal game.
+function newGame(saved = null, start = { mode: "classic" }) {
   shareButton.forget();
   gameGeneration++;
+  runMode = saved ? saved.mode : start.mode;
+  runDay = saved ? saved.day : start.day ?? null;
+  practiceSeed = runMode === "practice" && !saved ? start.seed : null;
+  updateModeBadge();
   completedMoves = saved ? saved.completedMoves : 0;
   closeRestart(false);
   // A restored game keeps its leaderboard session (and so its seed) across
@@ -559,13 +718,24 @@ function newGame(saved = null) {
       if (value) addTile(r, c, value, false);
     }));
   } else {
-    clearSavedGame();
+    clearSavedGame(slotOf(runMode));
     // The boot-time board waits behind the menu; the run (and the signed
     // timer) starts once the player actually presses Play.
     if (!menuMode) beginRun();
   }
   updateScore();
 }
+
+// New Game and Play Again stay in the same garden: a normal game starts a new
+// normal game, today's garden goes back to today's garden (practice, once its
+// ranked try is used, or a new day's garden after midnight).
+function restartSameGarden() {
+  if (!inDailyGarden()) { newGame(); return; }
+  clearSavedGame("daily");
+  openDailyGarden();
+}
+// Back to the normal game, carrying on with one left unfinished.
+const openNormalGame = () => newGame(loadSavedGame("classic"));
 
 /* ---------- Controls ---------- */
 installControls({ board: boardEl, onMove: move, blocked: inputBlocked, onGesture: () => audio.ensure() });
@@ -579,16 +749,17 @@ newBtn.setAttribute("aria-haspopup", "dialog");
 newBtn.setAttribute("aria-controls", "newGameConfirm");
 newBtn.addEventListener("click", () => {
   audio.ensure();
-  if (!completedMoves && !busy) { newGame(); return; }
+  if (!completedMoves && !busy) { restartSameGarden(); return; }
   if (!restartPanel.hidden) { closeRestart(); return; }
   queuedDirection = null;
   comboHud.cool();
+  restartWarningEl.textContent = TRANSLATIONS[currentLanguage][runMode === "daily" ? "dailyRestartWarning" : "restartWarning"];
   restartPanel.hidden = false;
   newBtn.setAttribute("aria-expanded", "true");
   cancelRestart.focus();
 });
 cancelRestart.addEventListener("click", () => closeRestart());
-confirmRestart.addEventListener("click", () => { newGame(); newBtn.focus(); });
+confirmRestart.addEventListener("click", () => { restartSameGarden(); newBtn.focus(); });
 document.addEventListener("click", event => {
   if (!restartPanel.hidden && !restartPanel.contains(event.target) && !newBtn.contains(event.target)) closeRestart(false);
 });
@@ -598,7 +769,8 @@ restartPanel.addEventListener("keydown", event => {
     (document.activeElement === cancelRestart ? confirmRestart : cancelRestart).focus();
   }
 });
-playAgainBtn.addEventListener("click", () => { audio.ensure(); newGame(); });
+playAgainBtn.addEventListener("click", () => { audio.ensure(); restartSameGarden(); });
+normalGameBtn.addEventListener("click", () => { audio.ensure(); openNormalGame(); boardEl.focus?.(); });
 continueMilestoneBtn.addEventListener("click", () => {
   endCard.hide();
   boardEl.focus?.();
@@ -609,7 +781,8 @@ continueMilestoneBtn.addEventListener("click", () => {
     setTimeout(() => showWorldReveal(stage), 450);
   }
 });
-startPlayBtn.addEventListener("click", () => {
+// Leaving the start menu for the run on the board.
+function leaveMenu() {
   audio.ensure();
   menuMode = false;
   if (runPending) beginRun();
@@ -624,8 +797,19 @@ startPlayBtn.addEventListener("click", () => {
     boardEl.focus?.();
   };
   if (prefs.reduceMotion) finish(); else setTimeout(finish, 480);
+}
+startPlayBtn.addEventListener("click", () => {
+  // The board behind the menu is the normal game unless something else was opened there.
+  if (inDailyGarden()) openNormalGame();
+  leaveMenu();
+});
+startDailyBtn.addEventListener("click", () => {
+  openDailyGarden();
+  leaveMenu();
 });
 startLeaderboardBtn.addEventListener("click", leaderboard.open);
+startAchievementsBtn.addEventListener("click", achievementsPanel.open);
+settingsAchievementsBtn.addEventListener("click", achievementsPanel.open);
 leaderboardBtn.addEventListener("click", leaderboard.open);
 
 // Settings panel
@@ -678,6 +862,10 @@ document.addEventListener("keydown", e => {
     leaderboard.close();
     return;
   }
+  if (e.key === "Escape" && achievementsPanel.isOpen()) {
+    achievementsPanel.close();
+    return;
+  }
   if (e.key === "Escape" && settings.isOpen()) settings.close();
 });
 
@@ -724,10 +912,12 @@ viewBtn.addEventListener("click", () => {
   document.getElementById("gvKicker").textContent = stageKickerEl.textContent;
   document.getElementById("gvName").textContent = stageNameEl.textContent;
   worldView.enterView();
+  achievements.event("gardenView");
 });
 syncInert();
 setEnvironmentStage(1, true);
-newGame(loadSavedGame());
+newGame(loadSavedGame("classic"));
+updateDailyButton();
 // Local art direction helper: http://localhost:4173/?stage=2
 if (["localhost", "127.0.0.1"].includes(location.hostname)) {
   const previewParams = new URLSearchParams(location.search);

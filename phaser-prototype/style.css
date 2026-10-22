@@ -2419,3 +2419,132 @@ body.no-garden-view .controls { grid-template-columns: 42px minmax(0,1fr) 116px;
 .share-btn:hover { background: #fff; }
 .share-btn svg { width: 17px; height: 17px; flex: none; }
 #env[data-stage="5"] ~ .game .share-btn { color: #e8eef6; border-color: rgba(159,182,206,.34); background: #13243b; box-shadow: 0 3px 0 #07101f, inset 0 1px 0 rgba(255,255,255,.08); }
+
+/* ----- Today's garden and achievements on the start menu ----- */
+/* Play, Today's Garden, then a row of three smaller buttons, so the menu is
+   no taller than before. */
+.start-btn-daily {
+  display: grid; align-content: center; justify-items: center; gap: 5px;
+  background: linear-gradient(180deg, #6a6b8f 0 48%, #4d4e72 49% 100%);
+  box-shadow: 0 9px 0 #2c2c47, 0 15px 26px rgba(0,0,0,.34);
+}
+.start-btn-daily:hover, .start-btn-daily:focus-visible { box-shadow: 0 13px 0 #2c2c47, 0 21px 32px rgba(0,0,0,.4); }
+.start-btn-daily:active { box-shadow: 0 3px 0 #2c2c47, 0 7px 13px rgba(0,0,0,.34); }
+.start-daily-title { display: block; }
+.start-daily-sub {
+  display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: #e6e2ff; font: 700 .66rem/1 "Quicksand", system-ui, sans-serif; letter-spacing: .04em; text-transform: none; text-shadow: 0 1px 0 #111817;
+}
+.start-btn-daily[data-offer="ranked"] .start-daily-sub::before { content: "★ "; color: #ffd76a; }
+.start-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.start-btn.start-btn-small {
+  height: 50px; min-height: 50px; padding: 6px 8px;
+  font-size: clamp(.62rem, 1.7vw, .76rem); letter-spacing: .05em; line-height: 1.1;
+  overflow-wrap: anywhere; hyphens: auto;
+  clip-path: polygon(10px 0, calc(100% - 4px) 0, 100% 7px, 100% calc(100% - 10px), calc(100% - 9px) 100%, 4px 100%, 0 calc(100% - 7px), 0 9px);
+}
+.start-btn-daily { animation-delay: .21s; }
+.start-row .start-btn:nth-child(1) { animation-delay: .28s; }
+.start-row .start-btn:nth-child(2) { animation-delay: .33s; }
+.start-row .start-btn:nth-child(3) { animation-delay: .38s; }
+@media (max-width: 420px) {
+  .start-row { gap: 7px; }
+  .start-btn.start-btn-small { height: 48px; min-height: 48px; padding: 5px 6px; }
+}
+@media (orientation: landscape) and (max-height: 540px) {
+  .start-actions { gap: clamp(7px, 2.2vh, 10px); }
+  .start-btn.start-btn-daily { height: clamp(46px, 15vh, 56px); min-height: 0; padding: 6px 16px; }
+  .start-btn.start-btn-small { height: clamp(38px, 12vh, 46px); min-height: 0; }
+  .start-btn.start-btn-primary { height: clamp(46px, 16vh, 58px); min-height: 0; }
+}
+
+/* ----- In the game: which garden this is (takes the hint's place) ----- */
+.mode-badge {
+  align-self: flex-start; margin: 0; padding: 3px 9px; border-radius: 999px;
+  background: #4d4e72; color: #f4f1ff; font-size: .7rem; font-weight: 800; letter-spacing: .03em; line-height: 1.3;
+  box-shadow: 0 2px 0 #2c2c47;
+}
+.mode-badge[hidden] { display: none; }
+.mode-badge[data-mode="practice"] { background: #7a6a52; box-shadow: 0 2px 0 #4c4030; }
+body.daily-run .brand .hint { display: none; }
+/* Short phones sideways hide the hint; the badge stays, small. */
+@media (orientation: landscape) and (max-height: 540px) and (max-width: 760px) {
+  .mode-badge { font-size: .6rem; padding: 2px 7px; }
+}
+
+/* ----- End card: back to a normal game after today's garden ----- */
+.normal-game-btn[hidden] { display: none; }
+.normal-game-btn {
+  min-height: 38px; padding: 0 14px; border: 1px solid var(--cell-edge); border-radius: 9px; background: #fffaf0; color: var(--ink);
+  box-shadow: 0 3px 0 rgba(107,82,56,.25), inset 0 1px 0 rgba(255,255,255,.8); font-size: .72rem; text-shadow: none;
+}
+#env[data-stage="5"] ~ .game .normal-game-btn { color: #e8eef6; border-color: rgba(159,182,206,.34); background: #13243b; box-shadow: 0 3px 0 #07101f; }
+
+/* ----- Leaderboard: the daily tab ----- */
+.lb-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.lb-tab { padding-inline: 4px; overflow-wrap: anywhere; }
+.lb-daily {
+  flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  margin: -4px 0 12px; padding: 8px 10px 8px 12px; border-radius: 11px;
+  background: color-mix(in srgb, var(--lb-a) 12%, #fffaf0); border: 1px dashed color-mix(in srgb, var(--lb-b) 45%, transparent);
+}
+.lb-daily[hidden] { display: none; }
+.lb-daily-when { color: var(--ink-soft); font-size: .74rem; font-weight: 700; }
+.lb-daily-play[hidden] { display: none; }
+.lb-daily-play {
+  min-height: 34px; padding: 0 12px; border: 0; border-radius: 9px; color: #fffaf0; font-size: .72rem;
+  background: linear-gradient(180deg, var(--lb-a), var(--lb-b)); box-shadow: 0 3px 0 var(--lb-shadow); text-shadow: 0 1px 0 var(--lb-shadow);
+}
+
+/* ----- Settings: a row that opens the achievements ----- */
+.setting-link {
+  width: 100%; padding: 4px 0; border: 0; border-top: 1px dashed var(--cell-edge); background: none; cursor: pointer; text-align: left; font: inherit;
+}
+.setting-link:hover .setting-label, .setting-link:focus-visible .setting-label { text-decoration: underline; }
+.setting-link-arrow { color: var(--ink-soft); font-size: 1.3rem; line-height: 1; }
+
+/* ----- The achievements dialog ----- */
+.ach-stats {
+  flex: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 0 12px;
+}
+.ach-stats > div {
+  min-width: 0; padding: 7px 8px; border-radius: 10px; text-align: center;
+  background: rgba(255,255,255,.62); border: 1px solid color-mix(in srgb, var(--lb-shadow) 22%, #d8c9a6);
+}
+.ach-stats dt { color: var(--ink-soft); font-size: .58rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; overflow-wrap: anywhere; }
+.ach-stats dd { margin: 3px 0 0; color: var(--ink); font: 700 .92rem/1.15 "Oxanium", "Trebuchet MS", sans-serif; overflow-wrap: anywhere; }
+.ach-list {
+  display: grid; gap: 7px; margin: 0 -6px; padding: 3px 6px 6px; list-style: none; flex: 1 1 auto; min-height: 120px; overflow: auto; overscroll-behavior: contain;
+}
+.ach-item {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) 22px; align-items: center; gap: 10px; padding: 8px 10px 8px 8px;
+  border: 1px solid color-mix(in srgb, var(--lb-shadow) 18%, #d8c9a6); border-radius: 11px; background: rgba(247,241,227,.55);
+}
+.ach-icon {
+  width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; font-size: 1.3rem;
+  background: rgba(115,86,48,.1); filter: grayscale(1); opacity: .5;
+}
+.ach-body { display: grid; gap: 2px; min-width: 0; }
+.ach-body strong { color: var(--ink-soft); font-size: .84rem; }
+.ach-body small { color: var(--ink-soft); font-size: .7rem; line-height: 1.25; }
+.ach-progress { display: block; height: 5px; margin-top: 3px; border-radius: 3px; background: rgba(115,86,48,.14); overflow: hidden; }
+.ach-progress i { display: block; height: 100%; border-radius: inherit; background: var(--lb-a); }
+.ach-count { font-variant-numeric: tabular-nums; }
+.ach-mark { color: #fffaf0; font-weight: 900; text-align: center; }
+.ach-item.unlocked {
+  background: linear-gradient(100deg, rgba(255,255,255,.88), rgba(247,241,227,.7));
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--lb-shadow) 22%, #cdbb94), inset 0 1px 0 rgba(255,255,255,.9);
+}
+.ach-item.unlocked .ach-icon { filter: none; opacity: 1; background: color-mix(in srgb, var(--lb-a) 20%, #fffaf0); }
+.ach-item.unlocked .ach-body strong { color: var(--ink); }
+.ach-item.unlocked .ach-mark {
+  width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; font-size: .72rem;
+  background: linear-gradient(180deg, var(--lb-a), var(--lb-b)); box-shadow: 0 2px 0 var(--lb-shadow);
+}
+@media (max-width: 420px) {
+  .ach-stats { gap: 5px; }
+  .ach-stats > div { padding: 6px 4px; }
+}
+@media (orientation: landscape) and (max-height: 540px) {
+  .ach-stats { grid-template-columns: repeat(6, minmax(0, 1fr)); margin-bottom: 8px; }
+}

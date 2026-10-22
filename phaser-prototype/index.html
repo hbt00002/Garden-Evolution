@@ -56,8 +56,15 @@
         </h1>
         <div class="start-actions" aria-label="Main menu">
           <button class="start-btn start-btn-primary" id="startPlayBtn" type="button" data-i18n="play">Play</button>
-          <button class="start-btn" id="startSettingsBtn" type="button" data-i18n="settings">Settings</button>
-          <button class="start-btn" id="startLeaderboardBtn" type="button" data-i18n="leaderboard">Leaderboard</button>
+          <button class="start-btn start-btn-daily" id="startDailyBtn" type="button" aria-describedby="startDailySub">
+            <span class="start-daily-title" data-i18n="dailyGarden">Today's Garden</span>
+            <small class="start-daily-sub" id="startDailySub"></small>
+          </button>
+          <div class="start-row">
+            <button class="start-btn start-btn-small" id="startSettingsBtn" type="button" data-i18n="settings">Settings</button>
+            <button class="start-btn start-btn-small" id="startLeaderboardBtn" type="button" data-i18n="leaderboard">Leaderboard</button>
+            <button class="start-btn start-btn-small" id="startAchievementsBtn" type="button" data-i18n="achievements">Achievements</button>
+          </div>
         </div>
       </div>
     </section>
@@ -67,6 +74,8 @@
         <div class="brand">
           <h1 class="title">Garden Evolution</h1>
           <p class="hint" data-i18n="hint">Swipe or use arrow keys to grow your garden.</p>
+          <!-- In today's garden this takes the hint's place: which garden this is. -->
+          <p class="mode-badge" id="modeBadge" hidden></p>
         </div>
         <div class="scores">
           <div class="score-box">
@@ -147,6 +156,7 @@
               <div class="overlay-actions">
                 <button class="btn milestone-continue-btn overlay-btn" id="continueMilestoneBtn" type="button" data-i18n="continueGame" hidden>Continue Growing</button>
                 <button class="btn new-btn overlay-btn" id="playAgainBtn" type="button" data-i18n="playAgain">Play Again</button>
+                <button class="btn overlay-btn normal-game-btn" id="normalGameBtn" type="button" data-i18n="normalGame" hidden>Normal game</button>
                 <button class="btn share-btn overlay-btn" id="shareBtn" type="button">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
                   <span data-i18n="share">Share</span>
@@ -225,6 +235,10 @@
         <button class="btn install-btn" id="installBtn" type="button" data-i18n="installBtn" hidden>Add</button>
         <p class="install-steps" id="installSteps" data-i18n="installIos" hidden>Tap Share, then Add to Home Screen.</p>
       </div>
+      <button class="setting-row setting-link" id="settingsAchievementsBtn" type="button">
+        <span class="setting-label" data-i18n="achievements">Achievements</span>
+        <span class="setting-link-arrow" aria-hidden="true">›</span>
+      </button>
       <p class="performance-note" id="performanceNote" data-i18n="performance">Performance adapts automatically.</p>
     </section>
 
@@ -240,9 +254,28 @@
           <button class="lb-tab" id="lbTab-all" type="button" role="tab" data-period="all" aria-selected="true" aria-controls="leaderboardList" data-i18n="lbTabAll">All Time</button>
           <button class="lb-tab" id="lbTab-week" type="button" role="tab" data-period="week" aria-selected="false" tabindex="-1" aria-controls="leaderboardList" data-i18n="lbTabWeek">7 Days</button>
           <button class="lb-tab" id="lbTab-day" type="button" role="tab" data-period="day" aria-selected="false" tabindex="-1" aria-controls="leaderboardList" data-i18n="lbTabDay">24 Hours</button>
+          <button class="lb-tab" id="lbTab-daily" type="button" role="tab" data-period="daily" aria-selected="false" tabindex="-1" aria-controls="leaderboardList" data-i18n="lbTabDaily">Daily</button>
+        </div>
+        <!-- On the daily tab: which day it is, when the next garden comes, and a way to play it. -->
+        <div class="lb-daily" id="leaderboardDaily" hidden>
+          <span class="lb-daily-when" id="leaderboardDailyWhen"></span>
+          <button class="btn lb-daily-play" id="leaderboardDailyPlay" type="button"></button>
         </div>
         <div class="lb-me" id="leaderboardMe" aria-live="polite" hidden></div>
         <div class="leaderboard-list" id="leaderboardList" role="tabpanel" aria-labelledby="lbTab-all"><p class="leaderboard-message">Loading scores…</p></div>
+      </section>
+    </div>
+
+    <div class="leaderboard-modal achievements-modal" id="achievementsModal" hidden>
+      <section class="leaderboard-card achievements-card" role="dialog" aria-modal="true" aria-labelledby="achievementsTitle" aria-describedby="achievementsSummary">
+        <button class="leaderboard-close" id="achievementsClose" type="button" aria-label="Close achievements">×</button>
+        <header class="leaderboard-header">
+          <span class="leaderboard-ornament" aria-hidden="true"><i></i><b>✦</b><i></i></span>
+          <span class="leaderboard-kicker" id="achievementsSummary"></span>
+          <h2 id="achievementsTitle" data-i18n="achievements">Achievements</h2>
+        </header>
+        <dl class="ach-stats" id="achievementsStats"></dl>
+        <ol class="ach-list" id="achievementsList"></ol>
       </section>
     </div>
 

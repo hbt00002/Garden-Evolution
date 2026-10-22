@@ -9,6 +9,8 @@ test("each ending has its own line, with the score written the player's way", ()
   assert.equal(shareMessage({ ...base, mode: "noMoves" }), "I grew my garden to 32,768 points and reached Spring Bloom in Garden Evolution 🌱");
   assert.equal(shareMessage({ ...base, mode: "milestone" }), "My garden bloomed into a Young Tree with 32,768 points in Garden Evolution 🌸");
   assert.equal(shareMessage({ ...base, mode: "victory" }), "I completed every world of Garden Evolution with 32,768 points ✨");
+  assert.equal(shareMessage({ ...base, mode: "noMoves", prefix: "Today's Garden, Oct 22:" }),
+    "Today's Garden, Oct 22: I grew my garden to 32,768 points and reached Spring Bloom in Garden Evolution 🌱");
   const german = shareMessage({ ...base, mode: "noMoves", language: "de", text: TRANSLATIONS.de });
   assert.match(german, /32\.768/);
 });
