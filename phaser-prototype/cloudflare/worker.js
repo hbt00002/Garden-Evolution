@@ -1,5 +1,6 @@
 import { MAX_MOVES, replayGame } from "../src/game-core.js";
 import { isNameAllowed } from "./name-filter.js";
+import { dayEnd, dayKey, isDayKey } from "../src/daily.js";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -50,16 +51,24 @@ const LEADERBOARD_SIZE = 20;
 // score_log rows are only needed for the longest window.
 const SCORE_LOG_RETENTION_MS = 8 * 24 * 60 * 60 * 1000;
 
+// "daily" is today's garden: everyone played the same seed, one ranked run each.
+const DAILY = "daily";
+// Today's garden may still be submitted a while after midnight (a run started
+// at 23:50 can end after it).
+const DAILY_GRACE_MS = 12 * 60 * 60 * 1000;
+const DAILY_RETENTION_DAYS = 30;
+
 function periodFrom(url) {
   const period = new URL(url).searchParams.get("period") || "all";
-  return Object.hasOwn(PERIOD_MS, period) ? period : null;
+  return Object.hasOwn(PERIOD_MS, period) || period === DAILY ? period : null;
 }
 
 // The query string is ignored for caching except for the board itself, so
 // ?fresh=1 cannot be used to bypass or fill the cache.
 function leaderboardCacheKey(request, period = periodFrom(request.url) || "all") {
   const cacheUrl = new URL(request.url);
-  cacheUrl.search = period === "all" ? "" : `?period=${period}`;
+  // Today's garden is cached per day, so midnight never serves yesterday's board.
+  cacheUrl.search = period === "all" ? "" : period === DAILY ? `?period=${DAILY}&day=${dayKey()}` : `?period=${period}`;
   cacheUrl.hash = "";
   return new Request(cacheUrl.toString(), { method: "GET" });
 }
@@ -83,6 +92,10 @@ const BEST_IN_PERIOD = `
 
 function isMissingScoreLog(error) {
   return /no such table:?\s*score_log/i.test(String(error?.message || error));
+}
+
+function isMissingDaily(error) {
+  return /no such table:?\s*daily_scores/i.test(String(error?.message || error));
 }
 
 function cleanName(value) {
@@ -207,6 +220,16 @@ export async function seedForSession(secret, sid) {
   return parseInt((await hmacHex(secret, `seed.${sid}`)).slice(0, 8), 16);
 }
 
+// Today's garden: the same seed for everyone on a day, which nobody can predict
+// before the day comes (it needs the server's secret).
+export async function seedForDay(secret, day) {
+  return parseInt((await hmacHex(secret, `daily.${day}`)).slice(0, 8), 16);
+}
+
+// What a session's signature covers. A session for today's garden also names
+// its day, so it cannot be moved to another day's board.
+const sessionPayload = (sid, iat, daily) => (daily ? `${sid}.${iat}.daily.${daily}` : `${sid}.${iat}`);
+
 async function issueSession(request, env) {
   if (request.method !== "POST") {
     return json(405, { error: "Method not allowed." }, { allow: "POST" });
@@ -226,7 +249,12 @@ async function issueSession(request, env) {
   }
   const sid = crypto.randomUUID();
   const iat = Date.now();
-  const sig = await hmacHex(env.SESSION_SECRET, `${sid}.${iat}`);
+  if (new URL(request.url).searchParams.get("mode") === DAILY) {
+    const day = dayKey(iat);
+    const sig = await hmacHex(env.SESSION_SECRET, sessionPayload(sid, iat, day));
+    return json(200, { sid, iat, sig, daily: day, seed: await seedForDay(env.SESSION_SECRET, day) });
+  }
+  const sig = await hmacHex(env.SESSION_SECRET, sessionPayload(sid, iat));
   // The seed is derived from the session id with the server's secret, so the
   // player cannot choose it and the Worker can recompute it when replaying.
   return json(200, { sid, iat, sig, seed: await seedForSession(env.SESSION_SECRET, sid) });
@@ -236,19 +264,24 @@ async function verifySession(session, env) {
   const sid = session?.sid;
   const iat = Number(session?.iat);
   const sig = session?.sig;
+  const daily = session?.daily ?? null;
   if (!isValidUuid(sid) || !Number.isSafeInteger(iat) || typeof sig !== "string") {
     return { ok: false, reason: "malformed_session" };
   }
-  const expected = await hmacHex(env.SESSION_SECRET, `${sid}.${iat}`);
+  if (daily !== null && !isDayKey(daily)) return { ok: false, reason: "malformed_session" };
+  const expected = await hmacHex(env.SESSION_SECRET, sessionPayload(sid, iat, daily));
   if (!timingSafeEqual(expected, sig)) return { ok: false, reason: "bad_signature" };
 
   const ageMs = Date.now() - iat;
   if (ageMs < 0 || ageMs > SESSION_MAX_AGE_MS) return { ok: false, reason: "expired" };
 
+  if (daily && Date.now() > dayEnd(daily) + DAILY_GRACE_MS) return { ok: false, reason: "expired" };
+
   const used = await env.DB.prepare("SELECT 1 FROM used_sessions WHERE sid = ?").bind(sid).first();
   if (used) return { ok: false, reason: "already_used" };
 
-  return { ok: true, sid, ageMs, seed: await seedForSession(env.SESSION_SECRET, sid) };
+  const seed = daily ? await seedForDay(env.SESSION_SECRET, daily) : await seedForSession(env.SESSION_SECRET, sid);
+  return { ok: true, sid, ageMs, daily, seed };
 }
 
 export function isTimingPlausible(maxTile, ageMs) {
@@ -268,7 +301,14 @@ async function handleLeaderboardGet(request, env, ctx) {
 
   let result;
   try {
-    result = period === "all"
+    result = period === DAILY
+      ? await env.DB.prepare(`
+          SELECT player_name, score, max_tile, best_combo, reached_stage, created_at
+          FROM daily_scores WHERE day = ?
+          ORDER BY score DESC, created_at ASC
+          LIMIT ${LEADERBOARD_SIZE}
+        `).bind(dayKey()).all()
+      : period === "all"
       ? await env.DB.prepare(`
           SELECT player_name, score, max_tile, best_combo, combo_rules, reached_stage, created_at
           FROM leaderboard
@@ -283,11 +323,11 @@ async function handleLeaderboardGet(request, env, ctx) {
           LIMIT ${LEADERBOARD_SIZE}
         `).bind(periodCutoff(period)).all();
   } catch (error) {
-    if (isMissingScoreLog(error)) return json(503, { error: "This board is not available yet." });
+    if (isMissingScoreLog(error) || isMissingDaily(error)) return json(503, { error: "This board is not available yet." });
     throw error;
   }
 
-  const response = json(200, { period, entries: result.results || [] }, {
+  const response = json(200, { period, ...(period === DAILY ? { day: dayKey() } : {}), entries: result.results || [] }, {
     "cache-control": "public, max-age=30"
   });
   ctx.waitUntil(cache.put(cacheKey, response.clone()));
@@ -310,7 +350,15 @@ async function handleLeaderboardMe(request, env) {
   let entry;
   let total;
   try {
-    if (period === "all") {
+    if (period === DAILY) {
+      const day = dayKey();
+      entry = await env.DB.prepare(`
+        SELECT player_name, score, max_tile, best_combo, reached_stage, created_at,
+               (SELECT COUNT(*) FROM daily_scores b WHERE b.day = a.day AND (b.score > a.score OR (b.score = a.score AND b.created_at < a.created_at))) + 1 AS rank
+        FROM daily_scores a WHERE a.day = ? AND a.device_id = ?
+      `).bind(day, device).first();
+      total = await env.DB.prepare("SELECT COUNT(*) AS n FROM daily_scores WHERE day = ?").bind(day).first();
+    } else if (period === "all") {
       entry = await env.DB.prepare(`
         SELECT player_name, score, max_tile, best_combo, reached_stage, created_at,
                ${ahead.replace("%T%", "leaderboard")} AS rank
@@ -328,7 +376,7 @@ async function handleLeaderboardMe(request, env) {
       total = await env.DB.prepare(`WITH ${BEST_IN_PERIOD} SELECT COUNT(*) AS n FROM best`).bind(cutoff).first();
     }
   } catch (error) {
-    if (isMissingScoreLog(error)) return json(503, { error: "This board is not available yet." });
+    if (isMissingScoreLog(error) || isMissingDaily(error)) return json(503, { error: "This board is not available yet." });
     throw error;
   }
 
@@ -413,6 +461,8 @@ async function leaderboard(request, env, ctx) {
     return json(400, { error: "Game record does not match the score." });
   }
 
+  if (session.daily) return submitDaily({ request, env, session, deviceId, playerName, score, maxTile, bestCombo, reachedStage });
+
   if (deviceId && !replaceLowerScore) {
     const existing = await env.DB.prepare("SELECT score FROM leaderboard WHERE device_id = ?")
       .bind(deviceId)
@@ -487,6 +537,47 @@ async function leaderboard(request, env, ctx) {
   await Promise.all(Object.keys(PERIOD_MS).map(period => caches.default.delete(leaderboardCacheKey(request, period))));
 
   return json(201, { ok: true, playerName });
+}
+
+// Today's garden: the first run each device sends for a day is its entry on
+// that day's board; any later one is refused (the game plays later runs as
+// practice). Daily runs stay off the other boards, because everyone knew the seed.
+async function submitDaily({ request, env, session, deviceId, playerName, score, maxTile, bestCombo, reachedStage }) {
+  if (deviceId) {
+    let existing;
+    try {
+      existing = await env.DB.prepare("SELECT 1 FROM daily_scores WHERE day = ? AND device_id = ?").bind(session.daily, deviceId).first();
+    } catch (error) {
+      if (isMissingDaily(error)) return json(503, { error: "Today's garden is not available yet." });
+      throw error;
+    }
+    if (existing) return json(409, { error: "You have already played today's garden.", code: "daily_already_played" });
+  }
+  const rate = await enforceRateLimit(request, env);
+  if (!rate.allowed) {
+    return json(429, { error: "Too many score submissions. Please try again later." }, {
+      "retry-after": String(rate.retryAfter)
+    });
+  }
+  const now = new Date().toISOString();
+  try {
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO used_sessions (sid, used_at) VALUES (?, ?)").bind(session.sid, now),
+      env.DB.prepare(`
+        INSERT INTO daily_scores (day, device_id, player_name, score, max_tile, best_combo, reached_stage, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(session.daily, deviceId, playerName, score, maxTile, bestCombo, reachedStage, now)
+    ]);
+  } catch (error) {
+    if (isMissingDaily(error)) return json(503, { error: "Today's garden is not available yet." });
+    // Two runs of the same device racing each other: the unique index decides.
+    if (/UNIQUE constraint failed/i.test(String(error?.message || error))) {
+      return json(409, { error: "You have already played today's garden.", code: "daily_already_played" });
+    }
+    throw error;
+  }
+  await caches.default.delete(leaderboardCacheKey(request, DAILY));
+  return json(201, { ok: true, playerName, daily: session.daily });
 }
 
 /* ---------- Client error reports ---------- */
@@ -584,6 +675,12 @@ async function handleScheduledCleanup(env) {
       .bind(new Date(Date.now() - ERROR_RETENTION_MS).toISOString()).run();
   } catch (error) {
     console.warn("Could not trim client errors", error?.message);   // table not migrated yet
+  }
+  try {
+    const oldest = dayKey(Date.now() - DAILY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    await env.DB.prepare("DELETE FROM daily_scores WHERE day < ?").bind(oldest).run();
+  } catch (error) {
+    if (!isMissingDaily(error)) throw error;
   }
   try {
     await env.DB.prepare("DELETE FROM score_log WHERE created_at < ?")
