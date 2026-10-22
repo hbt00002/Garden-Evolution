@@ -56,5 +56,5 @@ test("topPercent rounds up and ignores nonsense", () => {
 });
 
 test("there are three boards, all time first", () => {
-  assert.deepEqual(PERIODS, ["all", "week", "day"]);
+  assert.deepEqual(PERIODS, ["all", "week", "day", "daily"]);
 });

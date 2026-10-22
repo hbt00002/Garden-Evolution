@@ -22,22 +22,25 @@ export function randomSeed() {
 // getGeneration(): which game is current, so a slow reply cannot attach itself
 // to a newer one. errorMessage(): the player-facing text when a session fails.
 // onIssued(): called once a session has been stored (the game saves itself).
-export function createGameSession({ getGeneration, errorMessage, onIssued = () => {} }) {
+// getMode(): "daily" asks for a session of today's garden (the day's seed).
+export function createGameSession({ getGeneration, errorMessage, onIssued = () => {}, getMode = () => "classic" }) {
   let session = null;
   let pending = null;
 
   async function ensure() {
     if (pending) return pending;
     const generation = getGeneration();
+    const daily = getMode() === "daily";
     pending = (async () => {
       try {
-        const response = await fetch("/api/session", {
+        const response = await fetch(daily ? "/api/session?mode=daily" : "/api/session", {
           method: "POST",
           headers: { accept: "application/json" }
         });
         if (!response.ok) throw new Error("session_failed");
         const issued = await response.json();
         if (!Number.isSafeInteger(issued?.seed)) throw new Error("session_failed");
+        if (daily && typeof issued.daily !== "string") throw new Error("session_failed");
         // A slow reply must not attach itself to a newer game.
         if (generation === getGeneration()) {
           session = issued;

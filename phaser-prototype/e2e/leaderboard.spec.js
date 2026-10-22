@@ -81,7 +81,7 @@ test("the tabs work from the keyboard", async ({ page }) => {
   await expect(page.locator(".lb-tab[aria-selected='true']")).toHaveText("7 Days");
   await expect(page.locator(".lb-tab[aria-selected='true']")).toBeFocused();
   await page.keyboard.press("End");
-  await expect(page.locator(".lb-tab[aria-selected='true']")).toHaveText("24 Hours");
+  await expect(page.locator(".lb-tab[aria-selected='true']")).toHaveText("Daily");
   await page.keyboard.press("Home");
   await expect(page.locator(".lb-tab[aria-selected='true']")).toHaveText("All Time");
 });

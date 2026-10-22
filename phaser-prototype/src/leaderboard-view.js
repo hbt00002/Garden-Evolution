@@ -2,7 +2,8 @@
 // the player's own, and whether the player's row is appended below the top
 // list. The DOM code in script.js only turns these rows into elements.
 
-export const PERIODS = ["all", "week", "day"];
+// "daily" is today's garden: everyone played the same seed, one ranked try each.
+export const PERIODS = ["all", "week", "day", "daily"];
 
 // entries: the board's top rows, best first. me: { rank, entry, total } for
 // this device (rank null when the device has no entry on the board).

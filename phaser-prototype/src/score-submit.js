@@ -9,7 +9,8 @@ import { loadDeviceId, savePlayerName } from "./storage.js";
 
 // elements: the end card's form and the confirmation dialog.
 // getRun(): { ranked, session, score, maxValueReached, bestCombo, moves } for the run on screen.
-// onSaved(): called once a score is accepted (the game shows the leaderboard).
+// onSaved(data): called once a score is accepted (the game shows the leaderboard);
+// data.daily is set when it joined today's garden.
 export function createScoreSubmit({ elements, text: getText, language, getRun, syncInert, onSaved }) {
   const {
     form: scoreFormEl, playerName: playerNameEl, submitBtn: submitScoreBtn, status: scoreSubmitStatusEl,
@@ -104,20 +105,24 @@ export function createScoreSubmit({ elements, text: getText, language, getRun, s
         data = await response.json().catch(() => ({}));
       }
       if (data.code === "name_not_allowed") throw new Error("name_not_allowed");
+      if (data.code === "daily_already_played") throw new Error("daily_already_played");
       if (response.status === 429) throw new Error("score_rate_limited");
       if (!response.ok) throw new Error("score_submit_failed");
       scoreSubmitted = true;
       // Show the all-time board with the player's new rank.
-      onSaved();
+      onSaved(data);
       savePlayerName(data.playerName || playerName);
       playerNameEl.value = "";
       scoreFormEl.classList.add("success");
       scoreSubmitStatusEl.textContent = text.submitSuccess;
     } catch (error) {
-      submitScoreBtn.disabled = false;
+      // Today's garden already has this device's score: sending again cannot help.
+      const final = error.message === "daily_already_played";
+      submitScoreBtn.disabled = final;
       submitScoreBtn.textContent = text.submit;
       if (error.message === "name_not_allowed") playerNameEl.focus();
-      scoreSubmitStatusEl.textContent = error.message === "name_not_allowed" ? text.nameNotAllowed
+      scoreSubmitStatusEl.textContent = final ? text.dailyAlreadyPlayed
+        : error.message === "name_not_allowed" ? text.nameNotAllowed
         : error.message === "score_rate_limited" ? text.submitRateLimited
         : error.message === "score_submit_failed" ? text.submitError
         : (error.message || text.submitError);

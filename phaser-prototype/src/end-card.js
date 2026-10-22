@@ -7,7 +7,8 @@ import { loadPlayerName } from "./storage.js";
 
 // elements: the card and its parts (see script.js).
 // text() / language(): the current language's strings and code.
-// snapshot(): { score, best, maxValueReached, bestCombo, ranked, currentStage } for the run on screen.
+// snapshot(): { score, best, maxValueReached, bestCombo, ranked, currentStage, mode } for the run on screen
+// (mode: "classic", or "daily" / "practice" for today's garden).
 // onShow(): called as the card opens (the game cools its combo).
 // playGameOver(): the sound for a finished run.
 export function createEndCard({ elements, prefs, text: getText, language, snapshot, onShow, playGameOver }) {
@@ -16,7 +17,8 @@ export function createEndCard({ elements, prefs, text: getText, language, snapsh
     finalExplanation: finalExplanationEl, scoreForm: scoreFormEl, playerName: playerNameEl,
     submitBtn: submitScoreBtn, status: scoreSubmitStatusEl, continueBtn: continueMilestoneBtn,
     playAgainBtn, finalWorld: finalWorldEl, finalTile: finalTileEl, finalCombo: finalComboEl,
-    finalEmblem: finalEmblemEl, unrankedNote: unrankedNoteEl, milestoneArt: milestoneArtEl, victoryArt: victoryArtEl
+    finalEmblem: finalEmblemEl, unrankedNote: unrankedNoteEl, milestoneArt: milestoneArtEl, victoryArt: victoryArtEl,
+    normalGameBtn
   } = elements;
   const finalScoreLabelEl = finalScoreEl.previousElementSibling;
   const scoreFormLabelEl = scoreFormEl.querySelector("label");
@@ -64,7 +66,10 @@ export function createEndCard({ elements, prefs, text: getText, language, snapsh
     const milestone = mode === "milestone";
     finalTitleEl.dataset.i18n = milestone ? "milestoneTitle" : mode === "victory" ? "victoryTitle" : "noMoves";
     finalExplanationEl.dataset.i18n = milestone ? "milestoneText" : mode === "victory" ? "victoryText" : "noMovesText";
-    scoreFormLabelEl.dataset.i18n = mode === "victory" ? "saveFinalScore" : "joinLeaderboard";
+    const daily = run.mode === "daily" || run.mode === "practice";
+    scoreFormLabelEl.dataset.i18n = run.mode === "daily" ? "joinDaily" : mode === "victory" ? "saveFinalScore" : "joinLeaderboard";
+    // Practice of today's garden is unranked on purpose, not because something failed.
+    unrankedNoteEl.dataset.i18n = run.mode === "practice" ? "dailyPracticeNote" : "unrankedRun";
     finalScoreLabelEl.dataset.i18n = milestone ? "currentScore" : "final";
     overlayEl.dataset.mode = mode;
     localize();
@@ -85,6 +90,8 @@ export function createEndCard({ elements, prefs, text: getText, language, snapsh
     submitScoreBtn.textContent = text.submit;
     continueMilestoneBtn.hidden = !milestone;
     playAgainBtn.hidden = milestone;
+    // Today's garden: Play Again practises it, and this goes back to a normal game.
+    normalGameBtn.hidden = milestone || !daily;
     overlayEl.dataset.stage = endingStage;
     overlayEl.hidden = false;
     overlayEl.classList.remove("ready");

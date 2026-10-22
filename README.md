@@ -43,8 +43,8 @@ in `phaser-prototype/tests/`:
 
 | Area | Modules |
 | --- | --- |
-| Rules and data | `board.js` (moves), `game-core.js` (seeded deal, replay), `game-rules.js`, `game-save.js`, `levels.js` (plants, worlds) |
-| The page | `board-view.js` (cells, tiles, particles), `tile-art.js`, `end-card.js`, `combo-hud.js`, `toast.js`, `dialogs.js` (what is open, inert, Tab trap), `settings-panel.js`, `controls.js` (keys, swipes), `world-view.js` (garden view, world reveal), `world-effects.js`, `scenery-fallback.js` (SVG backdrop) |
+| Rules and data | `board.js` (moves), `game-core.js` (seeded deal, replay), `game-rules.js`, `game-save.js`, `levels.js` (plants, worlds), `daily.js` (what "today" is, shared with the Worker), `daily-offer.js`, `achievements.js` |
+| The page | `board-view.js` (cells, tiles, particles), `tile-art.js`, `end-card.js`, `combo-hud.js`, `toast.js`, `dialogs.js` (what is open, inert, Tab trap), `settings-panel.js`, `achievements-panel.js`, `controls.js` (keys, swipes), `world-view.js` (garden view, world reveal), `world-effects.js`, `scenery-fallback.js` (SVG backdrop) |
 | The Phaser backdrop | `engine.js` and `scenes/` (loaded separately by `main.js`) |
 | Sound | `audio.js` |
 | The server | `game-session.js`, `leaderboard-api.js`, `leaderboard-ui.js`, `score-submit.js`, `error-report.js` |
@@ -59,8 +59,8 @@ find its module; `script.js` only wires them.
 
 | Route | Purpose |
 | --- | --- |
-| `POST /api/session` | Start a game: returns a signed session and its seed. Rate-limited. |
-| `GET /api/leaderboard?period=all\|week\|day` | Top 20 for a board. Cached at the edge for 30 s. |
+| `POST /api/session` | Start a game: returns a signed session and its seed. Rate-limited. `?mode=daily` starts today's garden: the day's seed, and the day in the signature. |
+| `GET /api/leaderboard?period=all\|week\|day\|daily` | Top 20 for a board (`daily`: today's garden). Cached at the edge for 30 s. |
 | `GET /api/leaderboard/me?period=…&device=<uuid>` | One device's rank on a board. Never cached. |
 | `POST /api/leaderboard` | Submit a finished run (record is replayed and verified). |
 | `POST /api/client-error` | The game reports that it broke in a browser (see "Error reports"). Same-origin only, rate-limited, always answers with an empty body. |
@@ -208,6 +208,32 @@ there is no share sheet (most desktops) they are copied and the player is told.
 Phones only open the share sheet straight after a tap, so the card is drawn as
 the end card appears and the tap shares it at once. The wording is in all ten
 languages (`SHARE_COPY` in `i18n.js`).
+
+## Today's garden and achievements
+
+**Today's garden** (`Günün Bahçesi`) is one seed for everyone, new every day at
+midnight Turkey time (UTC+3; `src/daily.js`, used by both the game and the
+Worker). The seed is derived from the day with the server's secret, so nobody
+can see tomorrow's garden early.
+
+- The first run a device sends for a day is its entry on the daily board
+  (`daily_scores`, migration 0006, one row per device and day). A second one is
+  refused with `daily_already_played`. Daily runs stay off the other boards,
+  since everyone knew the seed.
+- The game treats the ranked try as used once its first move is played: leaving
+  that run (New Game) does not give a fresh try. After that the same garden can
+  be practised, unranked, from the seed the device remembers.
+- A run of today's garden is saved in its own slot (`gardenEvolutionDailySave`),
+  so switching between it and a normal game loses neither. A run started just
+  before midnight can still be sent for 12 hours after its day ends.
+- The cron keeps 30 days of daily scores.
+
+**Achievements** (18, `src/achievements.js`) are kept only on the device
+(`gardenEvolutionAchievements`): worlds and plants reached, streaks, scores,
+games finished, today's garden (first and in a row), sharing and the garden
+view. An unlock shows a short message; the list and the player's stats open
+from the start menu or Settings. A player who already had a best score starts
+with it.
 
 ## Switching a feature off, and rolling back
 

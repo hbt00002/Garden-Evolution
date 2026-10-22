@@ -2,13 +2,16 @@
 // blocked (private windows, strict settings), so every access is wrapped: a
 // failed read gives the default and a failed write is ignored, and the game
 // plays on without remembering.
-import { SAVE_KEY, parseSavedGame, serializeGame } from "./game-save.js";
+import { DAILY_SAVE_KEY, SAVE_KEY, parseSavedGame, serializeGame } from "./game-save.js";
+import { isDayKey } from "./daily.js";
 
 const KEYS = {
   best: "gardenEvolutionBest",
   playerName: "gardenEvolutionPlayerName",
   deviceId: "gardenEvolutionDeviceId",
-  language: "gardenEvolutionLanguage"
+  language: "gardenEvolutionLanguage",
+  daily: "gardenEvolutionDaily",
+  achievements: "gardenEvolutionAchievements"
 };
 
 function read(key) {
@@ -60,12 +63,37 @@ export function loadDeviceId() {
    streak and flow energy are intentionally not saved: they are short-lived
    audiovisual state that restarts cleanly.
 */
-export function writeSavedGame(game) {
-  try { localStorage.setItem(SAVE_KEY, serializeGame(game)); } catch (error) { /* storage blocked or full */ }
+// slot: "classic" for normal games, "daily" for today's garden (ranked or practice).
+const slotKey = slot => (slot === "daily" ? DAILY_SAVE_KEY : SAVE_KEY);
+export function writeSavedGame(game, slot = "classic") {
+  try { localStorage.setItem(slotKey(slot), serializeGame(game)); } catch (error) { /* storage blocked or full */ }
 }
-export function clearSavedGame() {
-  try { localStorage.removeItem(SAVE_KEY); } catch (error) { /* storage blocked */ }
+export function clearSavedGame(slot = "classic") {
+  try { localStorage.removeItem(slotKey(slot)); } catch (error) { /* storage blocked */ }
 }
-export function loadSavedGame() {
-  try { return parseSavedGame(localStorage.getItem(SAVE_KEY)); } catch (error) { return null; }
+export function loadSavedGame(slot = "classic") {
+  try { return parseSavedGame(localStorage.getItem(slotKey(slot))); } catch (error) { return null; }
 }
+
+/* ---------- Today's garden ----------
+   What this device knows of the latest day it played: the day, its seed (so
+   the garden can be practised again without the server) and whether the
+   ranked try is used. The server keeps the real count; this only decides what
+   the button offers.
+*/
+export function loadDailyRecord() {
+  try {
+    const data = JSON.parse(read(KEYS.daily) || "null");
+    if (!data || !isDayKey(data.day) || !Number.isSafeInteger(data.seed) || data.seed < 0 || data.seed > 4294967295) return null;
+    return { day: data.day, seed: data.seed, used: data.used === true };
+  } catch (error) {
+    return null;
+  }
+}
+export const saveDailyRecord = record => write(KEYS.daily, JSON.stringify({ day: record.day, seed: record.seed, used: Boolean(record.used) }));
+
+// Achievements and the stats behind them (src/achievements.js checks the contents).
+export function loadAchievements() {
+  try { return JSON.parse(read(KEYS.achievements) || "null"); } catch (error) { return null; }
+}
+export const saveAchievements = state => write(KEYS.achievements, JSON.stringify(state));

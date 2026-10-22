@@ -46,7 +46,7 @@ for (const phone of PHONES) {
 
     // The start menu.
     await openGame(page);
-    for (const id of ["#startPlayBtn", "#startSettingsBtn", "#startLeaderboardBtn"]) await expectInsideScreen(page, id);
+    for (const id of ["#startPlayBtn", "#startDailyBtn", "#startSettingsBtn", "#startLeaderboardBtn", "#startAchievementsBtn"]) await expectInsideScreen(page, id);
     await noScroll(page);
 
     // The game.
@@ -68,8 +68,13 @@ for (const phone of PHONES) {
     await page.keyboard.press("Escape");
     await page.locator("#leaderboardBtn").click();
     await expect(page.locator("#leaderboardList .lb-rows:not(.lb-skeleton)")).toBeVisible();
-    await expectInsideScreen(page, ".leaderboard-card", "leaderboard card");
+    await expectInsideScreen(page, "#leaderboardModal .leaderboard-card", "leaderboard card");
     await expectInsideScreen(page, "#leaderboardClose", "leaderboard close button");
+    await page.keyboard.press("Escape");
+    await page.locator("#settingsBtn").click();
+    await page.locator("#settingsAchievementsBtn").click();
+    await expectInsideScreen(page, "#achievementsModal .leaderboard-card", "achievements card");
+    await expectInsideScreen(page, "#achievementsClose", "achievements close button");
     await page.keyboard.press("Escape");
     await noScroll(page);
     expect(page.problems).toEqual([]);

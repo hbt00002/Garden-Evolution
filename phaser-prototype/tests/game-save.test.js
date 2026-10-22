@@ -58,8 +58,8 @@ test("the restored random stream continues where the run left off", () => {
   assert.deepEqual(resumed.board, run.board);
 });
 
-test("the save stays small: only the seed, the moves and the session", () => {
-  assert.deepEqual(Object.keys(JSON.parse(save())).sort(), ["moves", "savedAt", "seed", "session", "version"]);
+test("the save stays small: only the seed, the moves, the session and which garden it is", () => {
+  assert.deepEqual(Object.keys(JSON.parse(save())).sort(), ["day", "mode", "moves", "savedAt", "seed", "session", "version"]);
 });
 
 test("anything that is not a valid save is ignored", () => {
@@ -149,4 +149,50 @@ test("hasMoves: a full board that can still merge is resumable", () => {
   assert.equal(hasMoves(stuck), false);
   stuck[3][3] = 4;
   assert.equal(hasMoves(stuck), true);
+});
+
+/* ---------- Today's garden ---------- */
+
+const DAY_KEY = "2026-10-08";
+const dailySession = (overrides = {}) => session({ daily: DAY_KEY, ...overrides });
+
+test("a save from before today's garden is a normal game", () => {
+  const restored = parseSavedGame(tamper(data => { delete data.mode; delete data.day; }), NOW);
+  assert.equal(restored.mode, "classic");
+  assert.equal(restored.day, null);
+});
+
+test("a ranked run of today's garden comes back ranked, with its day", () => {
+  const restored = parseSavedGame(save({ mode: "daily", day: DAY_KEY, session: dailySession() }), NOW);
+  assert.equal(restored.mode, "daily");
+  assert.equal(restored.day, DAY_KEY);
+  assert.deepEqual(restored.session, dailySession());
+});
+
+test("a daily run whose session can no longer be sent carries on as practice", () => {
+  // 12 hours after its day ended (21:00 UTC), the server would refuse it.
+  const late = Date.parse("2026-10-09T09:00:00Z");
+  const restored = parseSavedGame(save({ mode: "daily", day: DAY_KEY, session: dailySession() }, late - HOUR), late);
+  assert.equal(restored.mode, "practice");
+  assert.equal(restored.session, null);
+  // A session of another day does not count either.
+  const other = parseSavedGame(save({ mode: "daily", day: DAY_KEY, session: dailySession({ daily: "2026-10-07" }) }), NOW);
+  assert.equal(other.mode, "practice");
+});
+
+test("practice keeps no session, and a normal game never takes a daily one", () => {
+  assert.equal(parseSavedGame(save({ mode: "practice", day: DAY_KEY, session: dailySession() }), NOW).session, null);
+  assert.equal(parseSavedGame(save({ mode: "classic", session: dailySession() }), NOW).session, null);
+});
+
+test("a daily save without a real day, or of an unknown mode, is ignored", () => {
+  assert.equal(parseSavedGame(save({ mode: "daily", day: "tomorrow" }), NOW), null);
+  assert.equal(parseSavedGame(save({ mode: "practice" }), NOW), null);
+  assert.equal(parseSavedGame(tamper(data => { data.mode = "speedrun"; }), NOW), null);
+});
+
+test("a daily session is usable only until its day's grace period ends", () => {
+  assert.equal(isSessionUsable(dailySession(), NOW), true);
+  assert.equal(isSessionUsable(dailySession(), Date.parse("2026-10-09T08:56:00Z")), false);
+  assert.equal(isSessionUsable(dailySession({ daily: "2026-02-30" }), NOW), false);
 });

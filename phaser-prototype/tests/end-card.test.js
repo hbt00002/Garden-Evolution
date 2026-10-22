@@ -23,7 +23,7 @@ function setup({ language = "en", ranked = true, particlesOn = true, reduceMotio
   globalThis.localStorage = { getItem: key => (key === "gardenEvolutionPlayerName" ? savedName : null), setItem() {}, removeItem() {} };
   globalThis.document = { createElement: () => Object.assign(new FakeElement("mote"), { style: { setProperty() {} }, addEventListener() {}, remove() {} }) };
   const el = {};
-  for (const name of ["overlay", "finalScore", "finalBest", "finalTitle", "finalExplanation", "scoreForm", "playerName", "submitBtn", "status", "continueBtn", "playAgainBtn", "finalWorld", "finalTile", "finalCombo", "finalEmblem", "unrankedNote", "milestoneArt", "victoryArt"]) {
+  for (const name of ["overlay", "finalScore", "finalBest", "finalTitle", "finalExplanation", "scoreForm", "playerName", "submitBtn", "status", "continueBtn", "playAgainBtn", "finalWorld", "finalTile", "finalCombo", "finalEmblem", "unrankedNote", "milestoneArt", "victoryArt", "normalGameBtn"]) {
     el[name] = new FakeElement(name);
   }
   el.finalScore.previousElementSibling = new FakeElement("scoreLabel");
@@ -136,4 +136,22 @@ test("the card follows the language, open or closed", () => {
   t.state.language = "en";
   t.card.localize();
   assert.equal(t.el.finalWorld.textContent, TRANSLATIONS.en.milestoneKicker, "an open milestone card keeps its kicker");
+});
+
+test("today's garden: its own form label, practice explained, and a way back to a normal game", () => {
+  const t = setup();
+  t.state.run.mode = "daily";
+  t.card.show("noMoves");
+  assert.equal(t.el.scoreForm.label.dataset.i18n, "joinDaily");
+  assert.equal(t.el.normalGameBtn.hidden, false);
+  t.card.hide();
+  t.state.run = { ...t.state.run, mode: "practice", ranked: false };
+  t.card.show("noMoves");
+  assert.equal(t.el.unrankedNote.hidden, false);
+  assert.equal(t.el.unrankedNote.dataset.i18n, "dailyPracticeNote");
+  t.card.hide();
+  t.state.run = { ...t.state.run, mode: "classic", ranked: true };
+  t.card.show("noMoves");
+  assert.equal(t.el.normalGameBtn.hidden, true);
+  assert.equal(t.el.unrankedNote.dataset.i18n, "unrankedRun");
 });

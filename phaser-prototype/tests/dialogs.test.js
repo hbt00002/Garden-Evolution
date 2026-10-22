@@ -28,6 +28,7 @@ function setup({ viewActive = false } = {}) {
     restart: new FakeElement("restart"),
     settings: new FakeElement("settings", { focusables: [control("a"), control("b"), control("c")] }),
     leaderboard: new FakeElement("leaderboard", { focusables: [control("x"), control("y")] }),
+    achievements: new FakeElement("achievements", { focusables: [control("close")] }),
     scoreConfirm: new FakeElement("confirm", { focusables: [control("no"), control("yes")] }),
     endCard: new FakeElement("end", { focusables: [control("again")] }),
     announcer: new FakeElement("announcer")
