@@ -186,6 +186,23 @@ for (const [language, copy] of Object.entries(INSTALL_COPY)) {
   Object.assign(TRANSLATIONS[language], copy);
 }
 
+// Sharing a finished run (the end card).
+const SHARE_COPY = {
+  en: { share:"Share", shareCopied:"Copied. Paste it anywhere to share.", shareUnavailable:"Sharing is not available here.", shareNoMoves:"I grew my garden to {score} points and reached {world} in Garden Evolution 🌱", shareMilestone:"My garden bloomed into a {plant} with {score} points in Garden Evolution 🌸", shareVictory:"I completed every world of Garden Evolution with {score} points ✨" },
+  tr: { share:"Paylaş", shareCopied:"Kopyalandı. Paylaşmak için istediğin yere yapıştır.", shareUnavailable:"Burada paylaşım kullanılamıyor.", shareNoMoves:"Garden Evolution'da bahçemi {score} puana ve {world} dünyasına kadar büyüttüm 🌱", shareMilestone:"Garden Evolution'da bahçem {score} puanla {plant} oldu 🌸", shareVictory:"Garden Evolution'ın tüm dünyalarını {score} puanla tamamladım ✨" },
+  zh: { share:"分享", shareCopied:"已复制，粘贴到任意位置即可分享。", shareUnavailable:"此处无法分享。", shareNoMoves:"我在 Garden Evolution 中把花园培育到 {score} 分，抵达了{world} 🌱", shareMilestone:"我在 Garden Evolution 中以 {score} 分培育出了{plant} 🌸", shareVictory:"我以 {score} 分完成了 Garden Evolution 的所有世界 ✨" },
+  ja: { share:"シェア", shareCopied:"コピーしました。好きな場所に貼り付けてシェアできます。", shareUnavailable:"ここではシェアできません。", shareNoMoves:"Garden Evolutionで庭を{score}点まで育て、{world}にたどり着いた 🌱", shareMilestone:"Garden Evolutionで{score}点、庭に{plant}が咲いた 🌸", shareVictory:"Garden Evolutionの全ワールドを{score}点でクリアした ✨" },
+  ko: { share:"공유", shareCopied:"복사했습니다. 원하는 곳에 붙여넣어 공유하세요.", shareUnavailable:"여기서는 공유할 수 없습니다.", shareNoMoves:"Garden Evolution에서 정원을 {score}점까지 키워 {world}에 도달했어요 🌱", shareMilestone:"Garden Evolution에서 {score}점으로 {plant}을(를) 피웠어요 🌸", shareVictory:"Garden Evolution의 모든 월드를 {score}점으로 완료했어요 ✨" },
+  es: { share:"Compartir", shareCopied:"Copiado. Pégalo donde quieras para compartirlo.", shareUnavailable:"Aquí no se puede compartir.", shareNoMoves:"Hice crecer mi jardín hasta {score} puntos y llegué a {world} en Garden Evolution 🌱", shareMilestone:"Mi jardín floreció en un {plant} con {score} puntos en Garden Evolution 🌸", shareVictory:"Completé todos los mundos de Garden Evolution con {score} puntos ✨" },
+  pt: { share:"Compartilhar", shareCopied:"Copiado. Cole onde quiser para compartilhar.", shareUnavailable:"Não é possível compartilhar aqui.", shareNoMoves:"Fiz meu jardim crescer até {score} pontos e cheguei a {world} em Garden Evolution 🌱", shareMilestone:"Meu jardim floresceu em um {plant} com {score} pontos em Garden Evolution 🌸", shareVictory:"Completei todos os mundos de Garden Evolution com {score} pontos ✨" },
+  fr: { share:"Partager", shareCopied:"Copié. Collez-le où vous voulez pour le partager.", shareUnavailable:"Le partage n’est pas disponible ici.", shareNoMoves:"J’ai fait pousser mon jardin jusqu’à {score} points et atteint {world} dans Garden Evolution 🌱", shareMilestone:"Mon jardin a fleuri en {plant} avec {score} points dans Garden Evolution 🌸", shareVictory:"J’ai terminé tous les mondes de Garden Evolution avec {score} points ✨" },
+  de: { share:"Teilen", shareCopied:"Kopiert. Zum Teilen einfach irgendwo einfügen.", shareUnavailable:"Teilen ist hier nicht verfügbar.", shareNoMoves:"Ich habe meinen Garten in Garden Evolution auf {score} Punkte gebracht und {world} erreicht 🌱", shareMilestone:"Mein Garten ist in Garden Evolution mit {score} Punkten zu {plant} erblüht 🌸", shareVictory:"Ich habe alle Welten von Garden Evolution mit {score} Punkten abgeschlossen ✨" },
+  ru: { share:"Поделиться", shareCopied:"Скопировано. Вставьте куда угодно, чтобы поделиться.", shareUnavailable:"Здесь поделиться нельзя.", shareNoMoves:"Я вырастил сад до {score} очков и дошёл до мира «{world}» в Garden Evolution 🌱", shareMilestone:"В Garden Evolution мой сад расцвёл: {plant}, {score} очков 🌸", shareVictory:"Я прошёл все миры Garden Evolution, набрав {score} очков ✨" }
+};
+for (const [language, copy] of Object.entries(SHARE_COPY)) {
+  Object.assign(TRANSLATIONS[language], copy);
+}
+
 // Plant names in tile order (2, 4, 8 ... 8192), used for screen-reader labels.
 export const TILE_NAMES = {
   en: ["Seed", "Sprout", "Young Plant", "Flower", "Bush", "Sapling", "Young Tree", "Mature Tree", "Mini Forest", "Ancient Tree", "Sakura Crown", "Tree of Life", "Celestial Tree"],

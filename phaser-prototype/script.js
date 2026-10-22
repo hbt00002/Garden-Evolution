@@ -32,7 +32,8 @@ import { createGameSession, randomSeed, withTimeout } from "./src/game-session.j
 import { PLAY_LABELS, TRANSLATIONS } from "./src/i18n.js";
 import { createLeaderboardApi } from "./src/leaderboard-api.js";
 import { createLeaderboardUi } from "./src/leaderboard-ui.js";
-import { stageFor, stageMeta as stageMetaFor } from "./src/levels.js";
+import { artValueFor, plantName, stageFor, stageMeta as stageMetaFor } from "./src/levels.js";
+import { captureBackdrop, createShareButton } from "./src/share.js";
 import { createAudio } from "./src/audio.js";
 import { createPreferences } from "./src/preferences.js";
 import { createScoreSubmit } from "./src/score-submit.js";
@@ -40,7 +41,7 @@ import { createSettingsPanel } from "./src/settings-panel.js";
 import {
   clearSavedGame, loadBest, loadLanguage, loadSavedGame, saveBest, saveLanguage, writeSavedGame
 } from "./src/storage.js";
-import { createTileArt } from "./src/tile-art.js";
+import { createTileArt, tileArtUrl } from "./src/tile-art.js";
 import { createToast } from "./src/toast.js";
 import { createWorldEffects } from "./src/world-effects.js";
 import { createWorldView } from "./src/world-view.js";
@@ -148,11 +149,17 @@ function applyLanguage(language) {
   saveLanguage(currentLanguage);
 }
 
+// "World 3 of 5" in the player's language.
+function worldKicker(stage) {
+  const text = TRANSLATIONS[currentLanguage];
+  return currentLanguage === "tr" ? `${text.world} ${stage} / 5` : `${text.world} ${stage} ${text.of} 5`;
+}
+
 // The world HUD: "World 3 of 5", its name, what unlocks the next one, and the progress dots.
 function updateEvolutionUI(stage) {
   const meta = stageMeta(stage);
   const text = TRANSLATIONS[currentLanguage];
-  stageKickerEl.textContent = currentLanguage === "tr" ? `${text.world} ${stage} / 5` : `${text.world} ${stage} ${text.of} 5`;
+  stageKickerEl.textContent = worldKicker(stage);
   stageNameEl.textContent = meta.name;
   stageNextEl.textContent = meta.next ? `${text.nextWorld} ${meta.next}` : text.fullyEvolved;
   stageFillEl.style.width = `${((stage - 1) / 4) * 100}%`;
@@ -364,8 +371,37 @@ const endCard = createEndCard({
   text: () => TRANSLATIONS[currentLanguage],
   language: () => currentLanguage,
   snapshot: () => ({ score, best, maxValueReached, bestCombo, ranked: isRankedRun(), currentStage }),
-  onShow: () => comboHud.cool(),
+  onShow: () => {
+    comboHud.cool();
+    // Draw the share card now, so a tap on Share can open the share sheet at once.
+    setTimeout(() => shareButton.prepare(), 250);
+  },
   playGameOver: () => audio.playGameOver()
+});
+
+// Sharing the run on the end card (src/share.js).
+const shareButton = createShareButton({
+  button: document.getElementById("shareBtn"),
+  text: () => TRANSLATIONS[currentLanguage],
+  getResult: () => {
+    if (overlayEl.hidden) return null;
+    const top = Math.max(2, maxValueReached);
+    const stage = stageFor(top);
+    return {
+      mode: overlayEl.dataset.mode,
+      score,
+      worldName: stageMeta(stage).name,
+      worldKicker: worldKicker(stage),
+      plantName: plantName(top, currentLanguage),
+      plantArt: tileArtUrl(artValueFor(top).assetValue),
+      language: currentLanguage
+    };
+  },
+  capture: () => captureBackdrop({ engine: window.gardenEngine, plate: document.getElementById("phaserWorld"), stage: currentStage }),
+  onOutcome: outcome => {
+    if (outcome === "copied") toast.show(TRANSLATIONS[currentLanguage].shareCopied);
+    else if (outcome === "unavailable") toast.show(TRANSLATIONS[currentLanguage].shareUnavailable);
+  }
 });
 
 const leaderboardApi = createLeaderboardApi();
@@ -491,6 +527,7 @@ function maybeEvolveEnvironment() {
 
 /* ---------- New game ---------- */
 function newGame(saved = null) {
+  shareButton.forget();
   gameGeneration++;
   completedMoves = saved ? saved.completedMoves : 0;
   closeRestart(false);

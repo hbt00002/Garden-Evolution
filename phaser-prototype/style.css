@@ -2407,3 +2407,15 @@ body.no-garden-view .controls { grid-template-columns: 42px minmax(0,1fr) 116px;
 .install-btn { min-width: 72px; height: 34px; padding: 0 14px; font-size: .72rem; }
 .install-btn[hidden], .install-steps[hidden] { display: none; }
 .install-steps { flex: 1 0 100%; margin: 0; font-size: .74rem; line-height: 1.35; color: var(--ink-soft); }
+
+/* ----- Sharing a finished run (end card) ----- */
+.overlay-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; }
+.overlay-actions .overlay-btn { margin: 0; }
+.share-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 0 16px;
+  border: 1px solid var(--cell-edge); border-radius: 9px; background: #fffaf0; color: var(--ink);
+  box-shadow: 0 3px 0 rgba(107,82,56,.25), inset 0 1px 0 rgba(255,255,255,.8); font-size: .72rem; text-shadow: none;
+}
+.share-btn:hover { background: #fff; }
+.share-btn svg { width: 17px; height: 17px; flex: none; }
+#env[data-stage="5"] ~ .game .share-btn { color: #e8eef6; border-color: rgba(159,182,206,.34); background: #13243b; box-shadow: 0 3px 0 #07101f, inset 0 1px 0 rgba(255,255,255,.08); }

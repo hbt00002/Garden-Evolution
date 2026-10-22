@@ -198,6 +198,17 @@ game installable without one (checked in `e2e/install.spec.js`).
 - iOS reads `apple-mobile-web-app-*` tags rather than the manifest; the status bar
   is the default (not translucent), so the page needs no top inset there.
 
+## Sharing a result
+
+The end card has a Share button (`src/share.js`). It shares a 1080 x 1350 picture
+card (the world as it looks behind the game, the score, the top plant and its
+picture, the game's address) with a line of text, through the phone's own share
+sheet. Where pictures cannot be shared the words and the link go alone; where
+there is no share sheet (most desktops) they are copied and the player is told.
+Phones only open the share sheet straight after a tap, so the card is drawn as
+the end card appears and the tap shares it at once. The wording is in all ten
+languages (`SHARE_COPY` in `i18n.js`).
+
 ## Switching a feature off, and rolling back
 
 Newer features have switches (`src/features.js`), from the smallest step to the
