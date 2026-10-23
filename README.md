@@ -227,6 +227,9 @@ can see tomorrow's garden early.
   so switching between it and a normal game loses neither. A run started just
   before midnight can still be sent for 12 hours after its day ends.
 - The cron keeps 30 days of daily scores.
+- The menu button shows the daily streak (days in a row with the ranked try
+  finished, kept with the achievements on the device). While today's garden is
+  still to be played it asks to keep the streak going; a missed day ends it.
 
 **Achievements** (18, `src/achievements.js`) are kept only on the device
 (`gardenEvolutionAchievements`): worlds and plants reached, streaks, scores,

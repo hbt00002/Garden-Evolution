@@ -1,4 +1,5 @@
 import { test, expect, openGame, playToTheEnd, waitUntilHumanPaced } from "./fixtures.js";
+import { dayKey, previousDay } from "../src/daily.js";
 
 // Today's garden and achievements, through the real Worker: everyone gets the
 // same seed for the day, the first run a device sends is its entry on the
@@ -151,4 +152,45 @@ test("in Turkish, today's garden and the achievements speak Turkish", async ({ p
   await expect(page.locator("#startAchievementsBtn")).toHaveText("Başarımlar");
   await page.locator("#startAchievementsBtn").click();
   await expect(page.locator(".ach-item[data-id='world3']")).toContainText("İlkbahar Çiçekleri");
+});
+
+/* ---------- The daily streak on the menu ---------- */
+
+// A device that finished today's garden on the days up to `last`, `streak` in a row.
+const withStreak = (page, last, streak) => page.addInitScript(({ last, streak }) => {
+  localStorage.setItem("gardenEvolutionAchievements", JSON.stringify({
+    stats: { lastDailyDay: last, dailyStreak: streak, bestDailyStreak: streak, dailiesPlayed: streak, gamesFinished: streak },
+    unlocked: {}
+  }));
+}, { last, streak });
+
+test("a streak going since yesterday is shown on the button, which asks to keep it", async ({ page }) => {
+  await withStreak(page, previousDay(dayKey()), 3);
+  await openGame(page);
+  await expect(page.locator("#startDailyStreak")).toBeVisible();
+  await expect(page.locator("#startDailyStreak")).toHaveText("🔥 3");
+  await expect(page.locator("#startDailyStreak")).toHaveAttribute("aria-label", "3-day streak");
+  await expect(page.locator("#startDailySub")).toHaveText("Keep your 3-day streak going");
+  await expect(page.locator("#startDailyBtn")).toHaveClass(/streak-at-risk/);
+});
+
+test("once today's garden is played the streak stays, without the warning", async ({ page }) => {
+  await withStreak(page, dayKey(), 4);
+  await page.addInitScript(today => localStorage.setItem("gardenEvolutionDaily", JSON.stringify({ day: today, seed: 7, used: true })), dayKey());
+  await openGame(page);
+  await expect(page.locator("#startDailyStreak")).toHaveText("🔥 4");
+  await expect(page.locator("#startDailySub")).toContainText("Practice");
+  await expect(page.locator("#startDailyBtn")).not.toHaveClass(/streak-at-risk/);
+});
+
+test("a missed day ends the streak, and the Turkish button says so in Turkish", async ({ page }) => {
+  await withStreak(page, previousDay(previousDay(dayKey())), 5);
+  await openGame(page);
+  await expect(page.locator("#startDailyStreak")).toBeHidden();
+  await expect(page.locator("#startDailySub")).toHaveText("One ranked try today");
+
+  await withStreak(page, previousDay(dayKey()), 2);
+  await page.addInitScript(() => localStorage.setItem("gardenEvolutionLanguage", "tr"));
+  await openGame(page);
+  await expect(page.locator("#startDailySub")).toHaveText("2 günlük serini bozma");
 });

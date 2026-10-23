@@ -2548,3 +2548,21 @@ body.daily-run .brand .hint { display: none; }
 @media (orientation: landscape) and (max-height: 540px) {
   .ach-stats { grid-template-columns: repeat(6, minmax(0, 1fr)); margin-bottom: 8px; }
 }
+
+/* ----- The daily streak on the menu button ----- */
+.start-daily-head { display: inline-flex; align-items: center; justify-content: center; gap: 8px; max-width: 100%; }
+.start-daily-streak {
+  flex: none; padding: 3px 7px 2px; border-radius: 999px; background: #f2a33a; color: #3a1d06;
+  font: 800 .7rem/1 "Oxanium", "Trebuchet MS", sans-serif; letter-spacing: .02em; text-shadow: none;
+  box-shadow: 0 2px 0 #9a5a14, inset 0 1px 0 rgba(255,255,255,.45);
+}
+.start-daily-streak[hidden] { display: none; }
+/* Today's garden not finished yet: the streak asks to be kept. */
+.start-btn-daily.streak-at-risk .start-daily-sub { color: #ffd9a3; }
+.start-btn-daily.streak-at-risk[data-offer="ranked"] .start-daily-sub::before { content: none; }
+.start-btn-daily.streak-at-risk .start-daily-streak { animation: streakGlow 1.8s ease-in-out .8s infinite; }
+@keyframes streakGlow {
+  0%, 100% { box-shadow: 0 2px 0 #9a5a14, inset 0 1px 0 rgba(255,255,255,.45); }
+  50% { box-shadow: 0 2px 0 #9a5a14, 0 0 12px 2px rgba(255,180,70,.75), inset 0 1px 0 rgba(255,255,255,.45); }
+}
+@media (prefers-reduced-motion: reduce) { .start-btn-daily.streak-at-risk .start-daily-streak { animation: none; } }

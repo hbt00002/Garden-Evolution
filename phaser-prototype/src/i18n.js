@@ -221,6 +221,23 @@ for (const [language, copy] of Object.entries(DAILY_COPY)) {
   Object.assign(TRANSLATIONS[language], copy);
 }
 
+// The daily streak on the menu button, and the message when it grows.
+const STREAK_COPY = {
+  en: { dailyStreak:"{n}-day streak", dailyKeepStreak:"Keep your {n}-day streak going", dailyStreakToast:"🔥 {n} days in a row!" },
+  tr: { dailyStreak:"{n} günlük seri", dailyKeepStreak:"{n} günlük serini bozma", dailyStreakToast:"🔥 Üst üste {n} gün!" },
+  zh: { dailyStreak:"连续 {n} 天", dailyKeepStreak:"保持你的 {n} 天连续记录", dailyStreakToast:"🔥 连续 {n} 天！" },
+  ja: { dailyStreak:"{n}日連続", dailyKeepStreak:"{n}日連続を続けよう", dailyStreakToast:"🔥 {n}日連続！" },
+  ko: { dailyStreak:"{n}일 연속", dailyKeepStreak:"{n}일 연속 기록을 이어가세요", dailyStreakToast:"🔥 {n}일 연속!" },
+  es: { dailyStreak:"Racha de {n} días", dailyKeepStreak:"Mantén tu racha de {n} días", dailyStreakToast:"🔥 ¡{n} días seguidos!" },
+  pt: { dailyStreak:"Sequência de {n} dias", dailyKeepStreak:"Mantenha sua sequência de {n} dias", dailyStreakToast:"🔥 {n} dias seguidos!" },
+  fr: { dailyStreak:"Série de {n} jours", dailyKeepStreak:"Gardez votre série de {n} jours", dailyStreakToast:"🔥 {n} jours d’affilée !" },
+  de: { dailyStreak:"{n} Tage in Folge", dailyKeepStreak:"Halte deine Serie von {n} Tagen", dailyStreakToast:"🔥 {n} Tage in Folge!" },
+  ru: { dailyStreak:"Серия {n} дн.", dailyKeepStreak:"Не прерывайте серию в {n} дн.", dailyStreakToast:"🔥 {n} дн. подряд!" }
+};
+for (const [language, copy] of Object.entries(STREAK_COPY)) {
+  Object.assign(TRANSLATIONS[language], copy);
+}
+
 // Achievements: the panel, its stats, the message when one unlocks, each
 // achievement's name (ach_<id>) and a description for each kind of goal.
 const ACHIEVEMENT_NAMES = {
