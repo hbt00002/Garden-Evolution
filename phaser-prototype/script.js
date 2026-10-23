@@ -82,6 +82,7 @@ const startSettingsBtn = document.getElementById("startSettingsBtn");
 const startLeaderboardBtn = document.getElementById("startLeaderboardBtn");
 const startDailyBtn = document.getElementById("startDailyBtn");
 const startDailySubEl = document.getElementById("startDailySub");
+const startDailyStreakEl = document.getElementById("startDailyStreak");
 const startAchievementsBtn = document.getElementById("startAchievementsBtn");
 const settingsAchievementsBtn = document.getElementById("settingsAchievementsBtn");
 const achievementsModalEl = document.getElementById("achievementsModal");
@@ -205,12 +206,19 @@ const dayText = day => dayLabel(day, currentLanguage);
 const currentDailyOffer = () => dailyOffer(loadDailyRecord(), loadSavedGame("daily"), dayKey());
 
 // The menu button's second line: the ranked try, carrying on, or practice
-// with the time until the next garden.
+// with the time until the next garden. With a streak going, the button shows
+// it, and asks to keep it while today's garden is still to be finished.
 function updateDailyButton() {
   const text = TRANSLATIONS[currentLanguage];
   const offer = currentDailyOffer();
+  const streak = achievements.currentStreak(dayKey());
   startDailyBtn.dataset.offer = offer.kind;
-  startDailySubEl.textContent = offer.kind === "ranked" ? text.dailyRanked
+  startDailyStreakEl.hidden = streak < 1;
+  startDailyStreakEl.textContent = `🔥 ${streak}`;
+  startDailyStreakEl.setAttribute("aria-label", text.dailyStreak.replace("{n}", streak));
+  startDailyBtn.classList.toggle("streak-at-risk", offer.kind === "ranked" && streak > 0);
+  startDailySubEl.textContent = offer.kind === "ranked"
+    ? (streak > 0 ? text.dailyKeepStreak.replace("{n}", streak) : text.dailyRanked)
     : offer.kind === "continue" ? text.dailyContinue
     : text.dailyPractice.replace("{when}", untilNextGarden(currentLanguage));
 }
@@ -380,7 +388,10 @@ function move(dir) {
     const finished = endingPending === "victory" || isGameOver();
     if (finished) {
       clearSavedGame(slotOf(runMode));
-      achievements.finish({ score, maxTile: maxValueReached, combo: bestCombo, mode: runMode, day: runDay });
+      const unlocked = achievements.finish({ score, maxTile: maxValueReached, combo: bestCombo, mode: runMode, day: runDay });
+      // A streak of today's garden is worth a word, unless an achievement already has the message.
+      const streak = runMode === "daily" ? achievements.currentStreak(runDay) : 0;
+      if (streak >= 2 && !unlocked.length) toast.show(TRANSLATIONS[currentLanguage].dailyStreakToast.replace("{n}", streak));
     } else saveGame();
     if (endingPending === "victory") endCard.show("victory");
     else if (isGameOver()) endCard.show("noMoves");

@@ -57,7 +57,11 @@
         <div class="start-actions" aria-label="Main menu">
           <button class="start-btn start-btn-primary" id="startPlayBtn" type="button" data-i18n="play">Play</button>
           <button class="start-btn start-btn-daily" id="startDailyBtn" type="button" aria-describedby="startDailySub">
-            <span class="start-daily-title" data-i18n="dailyGarden">Today's Garden</span>
+            <span class="start-daily-head">
+              <span class="start-daily-title" data-i18n="dailyGarden">Today's Garden</span>
+              <!-- The daily streak: days in a row with today's garden finished. -->
+              <span class="start-daily-streak" id="startDailyStreak" role="img" hidden></span>
+            </span>
             <small class="start-daily-sub" id="startDailySub"></small>
           </button>
           <div class="start-row">
