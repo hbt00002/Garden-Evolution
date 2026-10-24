@@ -2,6 +2,8 @@
 // check that the answer really is JSON (an ad blocker or a proxy can answer with
 // a web page instead), and a client that keeps each board for 30 seconds.
 
+import { apiUrl } from "./endpoint.js";
+
 const CACHE_MS = 30_000;
 const TIMEOUT_MS = 10_000;
 
@@ -10,7 +12,7 @@ export async function leaderboardRequest(options = {}, path = "/api/leaderboard"
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const requestOptions = { ...options, signal: controller.signal };
-    const response = await fetch(path, requestOptions);
+    const response = await fetch(apiUrl(path), requestOptions);
     const type = response.headers.get("content-type") || "";
     if (!type.includes("application/json")) {
       throw new Error("Leaderboard is temporarily unavailable.");

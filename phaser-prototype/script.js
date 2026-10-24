@@ -33,6 +33,8 @@ import { currentFeatures } from "./src/features.js";
 import { DIRECTION_CHARS, createRng, drawSpawn } from "./src/game-core.js";
 import { endingForMergedValue } from "./src/game-rules.js";
 import { createInstallHint } from "./src/install.js";
+import { apiUrl } from "./src/endpoint.js";
+import { createHaptics, isNativeApp, nativeShareNav, onBackButton } from "./src/native.js";
 import { createGameSession, randomSeed, withTimeout } from "./src/game-session.js";
 import { PLAY_LABELS, TRANSLATIONS } from "./src/i18n.js";
 import { createLeaderboardApi } from "./src/leaderboard-api.js";
@@ -142,6 +144,9 @@ const restartPanel = document.getElementById("newGameConfirm");
 const cancelRestart = document.getElementById("cancelNewGame");
 const confirmRestart = document.getElementById("confirmNewGame");
 const prefs = createPreferences();
+// The store apps vibrate (src/native.js); on the website this does nothing.
+const nativeApp = isNativeApp();
+const haptics = createHaptics({ enabled: () => prefs.hapticsOn, native: nativeApp });
 
 const stageMeta = stage => stageMetaFor(stage, currentLanguage);
 let currentLanguage = "en";
@@ -379,6 +384,7 @@ function move(dir) {
       }
     });
     comboHud.pulse(merges.length);
+    if (merges.length) haptics.merge();
     updateScore();
     if (completedMoves === 1) markDailyUsed();
     achievements.progress({ score, maxTile: maxValueReached, combo: bestCombo });
@@ -498,7 +504,7 @@ const endCard = createEndCard({
     // Draw the share card now, so a tap on Share can open the share sheet at once.
     setTimeout(() => shareButton.prepare(), 250);
   },
-  playGameOver: () => audio.playGameOver()
+  playGameOver: () => { audio.playGameOver(); haptics.end(); }
 });
 
 // Sharing the run on the end card (src/share.js).
@@ -525,6 +531,8 @@ const shareButton = createShareButton({
     };
   },
   capture: () => captureBackdrop({ engine: window.gardenEngine, plate: document.getElementById("phaserWorld"), stage: currentStage }),
+  // The app's web view has no share sheet of its own on Android: use the phone's.
+  nav: nativeApp ? nativeShareNav() : navigator,
   onOutcome: outcome => {
     if (outcome === "image" || outcome === "text" || outcome === "copied") achievements.event("share");
     if (outcome === "copied") toast.show(TRANSLATIONS[currentLanguage].shareCopied);
@@ -646,6 +654,7 @@ function setEnvironmentStage(stage, immediate) {
   if (!immediate) {
     announce(`${stageKickerEl.textContent}: ${stageNameEl.textContent}`);
     audio.playStageRise(stage);
+    haptics.world();
     worldEffects.transition();
     if (previousStage && stage > previousStage) scheduleWorldReveal(stage);
   }
@@ -849,6 +858,7 @@ const settings = createSettingsPanel({
     particles: document.getElementById("particlesToggle"),
     contrast: document.getElementById("contrastToggle"),
     reveal: document.getElementById("revealToggle"),
+    haptics: document.getElementById("hapticsToggle"),
     language: languageSelect
   },
   audio,
@@ -861,12 +871,28 @@ const settings = createSettingsPanel({
   },
   syncInert
 });
-// "Add to home screen", only where it can help (see src/install.js).
-createInstallHint({
-  row: document.getElementById("installRow"),
-  button: document.getElementById("installBtn"),
-  steps: document.getElementById("installSteps")
-});
+// "Add to home screen", only where it can help (see src/install.js); the store
+// apps are already on the home screen, and have a vibration switch instead.
+if (nativeApp) {
+  document.getElementById("hapticsRow").hidden = false;
+  // The privacy policy lives on the website; the app opens it in the browser.
+  document.getElementById("privacyLink").href = apiUrl("/privacy.html");
+  document.body.classList.add("native-app");
+} else {
+  createInstallHint({
+    row: document.getElementById("installRow"),
+    button: document.getElementById("installBtn"),
+    steps: document.getElementById("installSteps")
+  });
+}
+// Android's back button closes what is open, like Escape; otherwise the app
+// goes to the background.
+onBackButton(() => {
+  const open = !restartPanel.hidden || leaderboard.isOpen() || achievementsPanel.isOpen() || settings.isOpen()
+    || Boolean(worldView?.active) || !lowerScoreConfirmEl.hidden;
+  if (open) document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  return open;
+}, nativeApp);
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && !restartPanel.hidden) { closeRestart(); return; }
   if (e.key === "Escape" && leaderboard.isOpen()) {

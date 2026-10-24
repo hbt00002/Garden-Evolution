@@ -3,6 +3,7 @@
 // finished run and accept its score. Requested when play begins so its issue
 // time reflects actual play time, not however long the submit form took to
 // open. Without one (offline, a failed request) the game is played unranked.
+import { apiUrl } from "./endpoint.js";
 import { isSessionUsable } from "./game-save.js";
 
 // Rejects if the promise takes longer than `ms`.
@@ -33,7 +34,7 @@ export function createGameSession({ getGeneration, errorMessage, onIssued = () =
     const daily = getMode() === "daily";
     pending = (async () => {
       try {
-        const response = await fetch(daily ? "/api/session?mode=daily" : "/api/session", {
+        const response = await fetch(apiUrl(daily ? "/api/session?mode=daily" : "/api/session"), {
           method: "POST",
           headers: { accept: "application/json" }
         });

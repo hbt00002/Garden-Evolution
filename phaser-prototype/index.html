@@ -233,6 +233,8 @@
       <label class="setting-row"><span class="setting-label" data-i18n="extraParticles">Extra Particles</span><button class="toggle" id="particlesToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
       <label class="setting-row"><span class="setting-label" data-i18n="highContrast">High Contrast</span><button class="toggle" id="contrastToggle" type="button" role="switch" aria-checked="false"><span class="toggle-knob"></span></button></label>
       <label class="setting-row" id="revealRow"><span class="setting-label" data-i18n="worldReveal">World reveal</span><button class="toggle" id="revealToggle" type="button" role="switch" aria-checked="false"><span class="toggle-knob"></span></button></label>
+      <!-- Only in the store apps (the website cannot vibrate an iPhone). -->
+      <label class="setting-row" id="hapticsRow" hidden><span class="setting-label" data-i18n="haptics">Vibration</span><button class="toggle" id="hapticsToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
       <!-- Shown only where it helps: Android offers a button, iPhone needs the steps. -->
       <div class="setting-row install-row" id="installRow" hidden>
         <span class="setting-label" data-i18n="installApp">Add to home screen</span>
@@ -243,6 +245,10 @@
         <span class="setting-label" data-i18n="achievements">Achievements</span>
         <span class="setting-link-arrow" aria-hidden="true">›</span>
       </button>
+      <a class="setting-row setting-link" id="privacyLink" href="/privacy.html" target="_blank" rel="noopener">
+        <span class="setting-label" data-i18n="privacy">Privacy policy</span>
+        <span class="setting-link-arrow" aria-hidden="true">↗</span>
+      </a>
       <p class="performance-note" id="performanceNote" data-i18n="performance">Performance adapts automatically.</p>
     </section>
 

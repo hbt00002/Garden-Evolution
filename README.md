@@ -198,6 +198,58 @@ game installable without one (checked in `e2e/install.spec.js`).
 - iOS reads `apple-mobile-web-app-*` tags rather than the manifest; the status bar
   is the default (not translucent), so the page needs no top inset there.
 
+## The store apps (Android and iPhone)
+
+The same game, packaged with [Capacitor](https://capacitorjs.com) as
+`com.gardenevolution.game`: the built game ships inside the app (it opens
+without a connection), and it talks to the live server for sessions, the
+leaderboards and today's garden.
+
+- `.env.app` gives the app build the server's full address (`VITE_API_BASE`);
+  the website keeps relative paths (`src/endpoint.js`).
+- The Worker accepts the apps' origins (`https://localhost` on Android,
+  `capacitor://localhost` on iPhone) next to its own, with CORS headers for
+  them only (`APP_ORIGINS` in `cloudflare/worker.js`). **Deploy the Worker
+  before releasing an app**, or the app's leaderboard will not load.
+- In the app (`src/native.js`): vibration (a switch in Settings), the phone's
+  own share sheet, and Android's back button closes what is open and then
+  sends the app to the background. "Add to home screen" is hidden; a privacy
+  policy link opens `public/privacy.html` in the browser.
+- `android/` and `ios/` are the native projects (committed). Their copy of the
+  game is not: `npm run app:build` builds it and copies it in.
+- Icons and launch screens come from `tools/make-icons.mjs`
+  (`npm run app:icons`). Store texts, form answers and pictures are in
+  [`store/`](phaser-prototype/store/listing.md).
+
+### Releasing on Google Play (Windows is fine)
+
+```bash
+cd phaser-prototype
+npm install
+npm run app:build        # build the game for the app and copy it into android/ and ios/
+npx cap open android     # opens Android Studio
+```
+
+In Android Studio: *Build › Generate Signed App Bundle*, create the upload
+key the first time (**keep the .jks file and its passwords safe and out of
+git**; Play App Signing holds the real signing key), and upload the `.aab`
+in the Play Console. Raise `versionCode` (and `versionName`) in
+`android/app/build.gradle` for every upload. A new personal developer
+account must run a closed test (12 testers, 14 days) before it can publish
+to production.
+
+### Releasing on the App Store (needs a Mac)
+
+```bash
+git pull && cd phaser-prototype && npm install
+npm run app:build
+npx cap open ios         # opens Xcode
+```
+
+In Xcode: *Signing & Capabilities* › choose your team, then *Product ›
+Archive › Distribute App › App Store Connect*. Test with TestFlight, then
+submit for review. Raise the version and build number for every upload.
+
 ## Sharing a result
 
 The end card has a Share button (`src/share.js`). It shares a 1080 x 1350 picture

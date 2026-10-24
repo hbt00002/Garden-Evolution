@@ -22,7 +22,7 @@ const shared = {
 };
 
 export default [
-  { ignores: ["dist/**", "node_modules/**", ".wrangler/**", "playwright-report/**", "test-results/**", "art-source/**", "public/**", "archive/**"] },
+  { ignores: ["dist/**", "node_modules/**", ".wrangler/**", "playwright-report/**", "test-results/**", "art-source/**", "public/**", "archive/**", "android/**", "ios/**"] },
 
   // The game in the browser.
   {

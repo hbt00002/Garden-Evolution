@@ -2566,3 +2566,7 @@ body.daily-run .brand .hint { display: none; }
   50% { box-shadow: 0 2px 0 #9a5a14, 0 0 12px 2px rgba(255,180,70,.75), inset 0 1px 0 rgba(255,255,255,.45); }
 }
 @media (prefers-reduced-motion: reduce) { .start-btn-daily.streak-at-risk .start-daily-streak { animation: none; } }
+
+/* ----- Settings: the privacy policy link (a page on the website) ----- */
+a.setting-link { color: inherit; text-decoration: none; }
+.setting-row[hidden] { display: none; }

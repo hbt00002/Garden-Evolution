@@ -175,7 +175,31 @@ async function enforceRateLimit(request, env, { scope = "score", limit = RATE_WI
 function requestIsSameOrigin(request, { required = false } = {}) {
   const origin = request.headers.get("origin");
   if (!origin) return !required;
-  return origin === new URL(request.url).origin;
+  return origin === new URL(request.url).origin || APP_ORIGINS.has(origin);
+}
+
+// The store apps (Capacitor) load the game from inside the app, so their
+// requests come from these origins (Android, iPhone) instead of the site's
+// own. Only an app on the player's own device can have them; a web page
+// cannot, so letting them in opens nothing to other sites.
+export const APP_ORIGINS = new Set(["https://localhost", "capacitor://localhost"]);
+
+function corsHeaders(origin) {
+  return {
+    "access-control-allow-origin": origin,
+    "access-control-allow-methods": "GET, POST",
+    "access-control-allow-headers": "content-type, accept",
+    "access-control-max-age": "86400",
+    vary: "Origin"
+  };
+}
+
+// The app's request, answered with the headers that let it read the answer.
+// Cached responses are immutable, so the headers go on a copy.
+function withCors(response, origin) {
+  const copy = new Response(response.body, response);
+  for (const [name, value] of Object.entries(corsHeaders(origin))) copy.headers.set(name, value);
+  return copy;
 }
 
 // Reads the body ourselves instead of trusting the Content-Length header,
@@ -693,18 +717,12 @@ async function handleScheduledCleanup(env) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    try {
-      if (url.pathname === "/api/session") {
-        return await issueSession(request, env);
-      }
-      if (url.pathname === "/api/client-error") return await handleClientError(request, env);
-      if (url.pathname === "/api/leaderboard") return await leaderboard(request, env, ctx);
-      if (url.pathname === "/api/leaderboard/me") return await handleLeaderboardMe(request, env);
-      return env.ASSETS.fetch(request);
-    } catch (error) {
-      console.error("Leaderboard worker failure", error);
-      return json(500, { error: "Leaderboard is temporarily unavailable." });
-    }
+    const origin = request.headers.get("origin");
+    const fromApp = url.pathname.startsWith("/api/") && APP_ORIGINS.has(origin);
+    // The app asks first whether it may send JSON.
+    if (fromApp && request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    const response = await route(request, env, ctx, url);
+    return fromApp ? withCors(response, origin) : response;
   },
 
   // Runs on the Cron Trigger declared in wrangler.jsonc. Moves cleanup out
@@ -713,6 +731,21 @@ export default {
     ctx.waitUntil(handleScheduledCleanup(env));
   }
 };
+
+async function route(request, env, ctx, url) {
+  try {
+    if (url.pathname === "/api/session") {
+      return await issueSession(request, env);
+    }
+    if (url.pathname === "/api/client-error") return await handleClientError(request, env);
+    if (url.pathname === "/api/leaderboard") return await leaderboard(request, env, ctx);
+    if (url.pathname === "/api/leaderboard/me") return await handleLeaderboardMe(request, env);
+    return env.ASSETS.fetch(request);
+  } catch (error) {
+    console.error("Leaderboard worker failure", error);
+    return json(500, { error: "Leaderboard is temporarily unavailable." });
+  }
+}
 
 // Keep the cache identity invariant directly testable without changing the
 // Worker's public HTTP surface.
