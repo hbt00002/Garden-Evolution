@@ -876,7 +876,7 @@ const settings = createSettingsPanel({
 if (nativeApp) {
   document.getElementById("hapticsRow").hidden = false;
   // The privacy policy lives on the website; the app opens it in the browser.
-  document.getElementById("privacyLink").href = apiUrl("/privacy.html");
+  document.getElementById("privacyLink").href = apiUrl("/privacy");
   document.body.classList.add("native-app");
 } else {
   createInstallHint({

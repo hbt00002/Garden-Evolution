@@ -214,7 +214,7 @@ leaderboards and today's garden.
 - In the app (`src/native.js`): vibration (a switch in Settings), the phone's
   own share sheet, and Android's back button closes what is open and then
   sends the app to the background. "Add to home screen" is hidden; a privacy
-  policy link opens `public/privacy.html` in the browser.
+  policy link opens `public/privacy.html` (served as `/privacy`) in the browser.
 - `android/` and `ios/` are the native projects (committed). Their copy of the
   game is not: `npm run app:build` builds it and copies it in.
 - Icons and launch screens come from `tools/make-icons.mjs`

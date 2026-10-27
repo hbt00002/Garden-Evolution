@@ -6,9 +6,9 @@ paste. Pictures are in this folder (see the end).
 - **Package / bundle id:** `com.gardenevolution.game` (cannot change once published)
 - **Category:** Games › Puzzle
 - **Price:** Free, no in-app purchases, no ads
-- **Privacy policy URL:** https://play.gardenevolution.workers.dev/privacy.html
+- **Privacy policy URL:** https://play.gardenevolution.workers.dev/privacy
 - **Support / marketing URL:** https://play.gardenevolution.workers.dev
-- **Contact email:** _fill in, and replace `REPLACE-WITH-CONTACT-EMAIL` in `public/privacy.html` before publishing_
+- **Contact email:** gardenevolution.game@gmail.com
 
 ## Texts
 
