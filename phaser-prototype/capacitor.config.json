@@ -1,0 +1,14 @@
+{
+  "appId": "com.gardenevolution.game",
+  "appName": "Garden Evolution",
+  "webDir": "dist",
+  "backgroundColor": "#eaf3df",
+  "android": {
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false
+  }
+}

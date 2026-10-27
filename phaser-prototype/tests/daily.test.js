@@ -220,3 +220,53 @@ test("the board is not offered before its table exists, and old days are trimmed
   installCache();
   assert.equal((await get(env, "/api/leaderboard?period=daily")).status, 503);
 });
+
+/* ---------- The store apps ---------- */
+
+const fromApp = (env, path, { method = "GET", body, origin = "https://localhost" } = {}) => worker.fetch(new Request(`${ORIGIN}${path}`, {
+  method,
+  headers: { origin, "content-type": "application/json", "user-agent": `app-${origin}` },
+  body: body === undefined ? undefined : JSON.stringify(body)
+}), env, ctx);
+
+test("the Android and iPhone apps may start a game, send a score and read the boards", async () => {
+  installCache();
+  const env = makeEnv();
+  for (const origin of ["https://localhost", "capacitor://localhost"]) {
+    const preflight = await fromApp(env, "/api/leaderboard", { method: "OPTIONS", origin });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get("access-control-allow-origin"), origin);
+    assert.match(preflight.headers.get("access-control-allow-headers"), /content-type/);
+
+    const session = await fromApp(env, "/api/session?mode=daily", { method: "POST", origin });
+    assert.equal(session.status, 200);
+    assert.equal(session.headers.get("access-control-allow-origin"), origin);
+
+    const sent = await fromApp(env, "/api/leaderboard", { method: "POST", origin, body: await submission(await dailySession()) });
+    assert.equal(sent.status, 201, await sent.clone().text());
+    assert.equal(sent.headers.get("access-control-allow-origin"), origin);
+
+    // Twice, so the second answer comes from the edge cache and still carries the header.
+    for (let i = 0; i < 2; i++) {
+      const board = await fromApp(env, "/api/leaderboard?period=daily", { origin });
+      assert.equal(board.status, 200);
+      assert.equal(board.headers.get("access-control-allow-origin"), origin);
+    }
+  }
+});
+
+test("other sites are still refused, and the website gets no CORS headers", async () => {
+  installCache();
+  const env = makeEnv();
+  const evil = await fromApp(env, "/api/session", { method: "POST", origin: "https://evil.example" });
+  assert.equal(evil.status, 403);
+  assert.equal(evil.headers.get("access-control-allow-origin"), null);
+  const lookalike = await fromApp(env, "/api/session", { method: "POST", origin: "https://localhost.evil.example" });
+  assert.equal(lookalike.status, 403);
+  const site = await post(env, "/api/session");
+  assert.equal(site.status, 200);
+  assert.equal(site.headers.get("access-control-allow-origin"), null);
+  // The app origins only reach the API, not the pages.
+  const page = await fromApp(env, "/", { origin: "https://localhost" });
+  assert.equal(page.headers.get("access-control-allow-origin"), null);
+});

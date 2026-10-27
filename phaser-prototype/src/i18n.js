@@ -238,6 +238,23 @@ for (const [language, copy] of Object.entries(STREAK_COPY)) {
   Object.assign(TRANSLATIONS[language], copy);
 }
 
+// The store apps: the vibration switch, and the privacy policy link (Settings).
+const APP_COPY = {
+  en: { haptics:"Vibration", privacy:"Privacy policy" },
+  tr: { haptics:"Titreşim", privacy:"Gizlilik politikası" },
+  zh: { haptics:"振动", privacy:"隐私政策" },
+  ja: { haptics:"バイブレーション", privacy:"プライバシーポリシー" },
+  ko: { haptics:"진동", privacy:"개인정보 처리방침" },
+  es: { haptics:"Vibración", privacy:"Política de privacidad" },
+  pt: { haptics:"Vibração", privacy:"Política de privacidade" },
+  fr: { haptics:"Vibration", privacy:"Politique de confidentialité" },
+  de: { haptics:"Vibration", privacy:"Datenschutzerklärung" },
+  ru: { haptics:"Вибрация", privacy:"Политика конфиденциальности" }
+};
+for (const [language, copy] of Object.entries(APP_COPY)) {
+  Object.assign(TRANSLATIONS[language], copy);
+}
+
 // Achievements: the panel, its stats, the message when one unlocks, each
 // achievement's name (ach_<id>) and a description for each kind of goal.
 const ACHIEVEMENT_NAMES = {

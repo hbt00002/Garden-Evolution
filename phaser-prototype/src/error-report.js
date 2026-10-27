@@ -5,7 +5,9 @@
 // step is wrapped, nothing is shown, and failures are ignored.
 
 const MAX_PER_PAGE = 5;
-const ENDPOINT = "/api/client-error";
+import { apiUrl } from "./endpoint.js";
+
+const ENDPOINT = apiUrl("/api/client-error");
 
 // Noise that is not ours: browser extensions, cross-origin scripts that the
 // browser hides the details of, and harmless layout notices.

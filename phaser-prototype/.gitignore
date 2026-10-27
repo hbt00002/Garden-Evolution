@@ -6,6 +6,8 @@ dist/
 .env
 .env.*
 !.dev.vars.example
+# The app build's settings (only the public server address).
+!.env.app
 
 *.log
 .codex-backups/
@@ -18,3 +20,6 @@ backup*.sql
 # Browser test output
 test-results/
 playwright-report/
+
+# Store screenshots: large, and made again by e2e/store-shots.spec.js.
+store/screenshots/

@@ -12,7 +12,7 @@ export function createSettingsPanel({ elements, audio, prefs, applyLanguage, hoo
     button: settingsBtn, startButton: startSettingsBtn, panel: settingsPanel, backdrop: settingsBackdrop,
     closeButton: settingsCloseBtn, musicVolume: musicVolumeEl, musicVolumeValue: musicVolumeValueEl,
     piano: pianoToggle, sfx: sfxToggle, motion: motionToggle, particles: particlesToggle,
-    contrast: contrastToggle, reveal: revealToggle, language: languageSelect
+    contrast: contrastToggle, reveal: revealToggle, haptics: hapticsToggle, language: languageSelect
   } = elements;
 
   function setToggle(toggle, on) {
@@ -30,6 +30,7 @@ export function createSettingsPanel({ elements, audio, prefs, applyLanguage, hoo
     setToggle(particlesToggle, prefs.particlesOn);
     setToggle(contrastToggle, prefs.contrastOn);
     setToggle(revealToggle, prefs.revealOn);
+    if (hapticsToggle) setToggle(hapticsToggle, prefs.hapticsOn);
   }
 
   // The button that opened the panel gets focus back, wherever the player is.
@@ -94,6 +95,7 @@ export function createSettingsPanel({ elements, audio, prefs, applyLanguage, hoo
     toggle.addEventListener("click", () => { prefs.toggle(name); hooks.onVisualChange(); syncToggles(); });
   }
   revealToggle.addEventListener("click", () => { prefs.toggle("reveal"); syncToggles(); });
+  hapticsToggle?.addEventListener("click", () => { prefs.toggle("haptics"); syncToggles(); });
   languageSelect.addEventListener("change", () => applyLanguage(languageSelect.value));
 
   return {
