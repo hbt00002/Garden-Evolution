@@ -8,7 +8,7 @@ paste. Pictures are in this folder (see the end).
 - **Price:** Free, no in-app purchases, no ads
 - **Privacy policy URL:** https://play.gardenevolution.workers.dev/privacy
 - **Support / marketing URL:** https://play.gardenevolution.workers.dev
-- **Contact email:** gardenevolution.game@gmail.com
+- **Contact email:** gardenevolutiongame@gmail.com
 
 ## Texts
 
