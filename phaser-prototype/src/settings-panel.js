@@ -101,7 +101,6 @@ export function createSettingsPanel({ elements, audio, prefs, applyLanguage, hoo
   return {
     sync: syncToggles,
     close,
-    isOpen: () => !settingsPanel.hidden,
-    element: settingsPanel
+    isOpen: () => !settingsPanel.hidden
   };
 }

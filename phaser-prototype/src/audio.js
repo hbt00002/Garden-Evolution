@@ -481,7 +481,6 @@ export function createAudio({ getStage, isMenu }) {
     startMusic,
     stopMusic,
     startGameplayMusic,
-    startMenuMusic,
     setMusicVolume,
     setSfxEnabled,
     setPianoEnabled,

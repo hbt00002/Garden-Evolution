@@ -118,7 +118,6 @@ export function createEndCard({ elements, prefs, text: getText, language, snapsh
     show,
     hide,
     // Re-translate the card (the language changed while it is open or closed).
-    localize,
-    element: overlayEl
+    localize
   };
 }

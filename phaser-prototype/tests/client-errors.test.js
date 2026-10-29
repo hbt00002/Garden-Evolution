@@ -1,28 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
-import { DatabaseSync } from "node:sqlite";
-import { fileURLToPath } from "node:url";
 import worker, { coarseClient } from "../cloudflare/worker.js";
 import { describe, installErrorReporting } from "../src/error-report.js";
-
-const ORIGIN = "https://play.test";
-
-function createD1() {
-  const sqlite = new DatabaseSync(":memory:");
-  const dir = fileURLToPath(new URL("../migrations/", import.meta.url));
-  for (const file of readdirSync(dir).sort()) sqlite.exec(readFileSync(dir + file, "utf8"));
-  const statement = (sql, params = []) => ({
-    sql, params,
-    bind: (...values) => statement(sql, values),
-    first: async () => sqlite.prepare(sql).get(...params) ?? null,
-    all: async () => ({ results: sqlite.prepare(sql).all(...params) }),
-    run: async () => sqlite.prepare(sql).run(...params)
-  });
-  return { sqlite, prepare: sql => statement(sql), batch: async () => {} };
-}
-
-const makeEnv = () => ({ DB: createD1(), SESSION_SECRET: "s".repeat(32), RATE_LIMIT_SALT: "r".repeat(32), ASSETS: { fetch: async () => new Response("asset") } });
+import { ORIGIN, makeEnv } from "./helpers/worker-env.js";
 
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
 

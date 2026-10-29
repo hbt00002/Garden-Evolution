@@ -301,9 +301,7 @@ export function createWorldView({
     get active() { return mode !== null; },
     get mode() { return mode; },
     enterView,
-    exitView,
     showReveal,
-    skipReveal,
     cancel() {
       if (mode === "view") exitView();
       else if (mode === "reveal") endReveal();
