@@ -818,11 +818,8 @@ function leaveMenu() {
   };
   if (prefs.reduceMotion) finish(); else setTimeout(finish, 480);
 }
-startPlayBtn.addEventListener("click", () => {
-  // The board behind the menu is the normal game unless something else was opened there.
-  if (inDailyGarden()) openNormalGame();
-  leaveMenu();
-});
+// The board behind the menu is always the normal game: today's garden leaves the menu as it opens.
+startPlayBtn.addEventListener("click", leaveMenu);
 startDailyBtn.addEventListener("click", () => {
   openDailyGarden();
   leaveMenu();

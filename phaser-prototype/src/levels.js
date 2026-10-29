@@ -58,11 +58,7 @@ export function plantName(value, language) {
 }
 
 // A tile's accessible name, in the player's language: "Young Tree, 128".
-export function tileLabel(value, language) {
-  const level = levelFor(value);
-  const name = TILE_NAMES[language]?.[LEVELS.indexOf(level)] || level.name;
-  return `${name}, ${value}`;
-}
+export const tileLabel = (value, language) => `${plantName(value, language)}, ${value}`;
 
 /* ---------- Environment stages (by highest tile value) ---------- */
 // Returns 1..5

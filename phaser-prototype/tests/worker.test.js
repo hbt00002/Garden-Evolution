@@ -1,80 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
-import { DatabaseSync } from "node:sqlite";
-import { fileURLToPath } from "node:url";
 import worker, { expectedStage, isTimingPlausible, seedForSession } from "../cloudflare/worker.js";
-import { applyMove, createGame, createRng, nextRandom, replayGame } from "../src/game-core.js";
-
-const ORIGIN = "https://play.test";
-const SESSION_SECRET = "s".repeat(32);
-const RATE_LIMIT_SALT = "r".repeat(32);
+import { applyMove, createGame, replayGame } from "../src/game-core.js";
+import { ORIGIN, SESSION_SECRET, hmacHex, installCacheStub, makeEnv, playRun } from "./helpers/worker-env.js";
 
 /* ---------- Test doubles ---------- */
-
-// Minimal D1 adapter over node:sqlite so the real migrations and the real SQL
-// in worker.js (ON CONFLICT ... WHERE, RETURNING, batch) are exercised.
-function createD1() {
-  const sqlite = new DatabaseSync(":memory:");
-  const migrationsDir = fileURLToPath(new URL("../migrations/", import.meta.url));
-  for (const file of readdirSync(migrationsDir).sort()) {
-    sqlite.exec(readFileSync(migrationsDir + file, "utf8"));
-  }
-  const statement = (sql, params = []) => ({
-    sql,
-    params,
-    bind: (...values) => statement(sql, values),
-    first: async () => sqlite.prepare(sql).get(...params) ?? null,
-    all: async () => ({ results: sqlite.prepare(sql).all(...params) }),
-    run: async () => sqlite.prepare(sql).run(...params)
-  });
-  return {
-    sqlite,
-    prepare: sql => statement(sql),
-    batch: async statements => {
-      sqlite.exec("BEGIN");
-      try {
-        for (const s of statements) sqlite.prepare(s.sql).run(...s.params);
-        sqlite.exec("COMMIT");
-      } catch (error) {
-        sqlite.exec("ROLLBACK");
-        throw error;
-      }
-    }
-  };
-}
-
-function installCacheStub() {
-  const store = new Map();
-  globalThis.caches = {
-    default: {
-      match: async request => store.get(request.url)?.clone(),
-      put: async (request, response) => { store.set(request.url, response); },
-      delete: async request => store.delete(request.url)
-    }
-  };
-  return store;
-}
-
-function makeEnv(overrides = {}) {
-  return {
-    DB: createD1(),
-    SESSION_SECRET,
-    RATE_LIMIT_SALT,
-    ASSETS: { fetch: async () => new Response("asset", { status: 200 }) },
-    ...overrides
-  };
-}
 
 function makeCtx() {
   const pending = [];
   return { waitUntil: promise => pending.push(promise), settled: () => Promise.all(pending) };
-}
-
-async function hmacHex(secret, message) {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
-  return [...new Uint8Array(signature)].map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
 // A correctly signed session that was issued `ageMs` ago.
@@ -82,20 +16,6 @@ async function signedSession(ageMs = 10 * 60 * 1000, secret = SESSION_SECRET) {
   const sid = crypto.randomUUID();
   const iat = Date.now() - ageMs;
   return { sid, iat, sig: await hmacHex(secret, `${sid}.${iat}`) };
-}
-
-// Plays a whole run with a seeded "player" so the tests submit records the
-// Worker can really replay.
-function playRun(seed, strategy = 1) {
-  const game = createGame(seed);
-  const choice = createRng((seed ^ 0x9e3779b9) + strategy);
-  const dirs = ["left", "right", "up", "down"];
-  let guard = 0;
-  while (!game.over && guard++ < 20000) {
-    const first = Math.floor(nextRandom(choice) * 4);
-    for (let i = 0; i < 4; i++) if (applyMove(game, dirs[(first + i) % 4])) break;
-  }
-  return game;
 }
 
 // A complete, honest submission for the given (or a fresh) session: the run is

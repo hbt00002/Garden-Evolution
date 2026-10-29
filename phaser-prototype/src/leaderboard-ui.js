@@ -1,11 +1,11 @@
 // The leaderboard dialog: the boards (all time, this week, the last 24 hours
-// and today's garden), the
-// player's own rank card, the tabs and keyboard handling, and opening and
-// closing. It draws from what leaderboard-api.js fetches and from the pure row
+// and today's garden), the player's own rank card, the tabs and keyboard
+// handling, and opening and closing. It draws from what leaderboard-api.js fetches and from the pure row
 // logic in leaderboard-view.js. The game gives it the dialog's elements, the
 // current language and a few hooks, and calls open().
-import { TILE_NAMES } from "./i18n.js";
 import { PERIODS, buildRows, plantIndex, topPercent } from "./leaderboard-view.js";
+import { plantName as plantNameIn } from "./levels.js";
+import { tileArtUrl } from "./tile-art.js";
 import { loadDeviceId } from "./storage.js";
 
 // elements: { modal, closeBtn, list, me, tabs, tabBar, daily, dailyWhen, dailyPlay }
@@ -25,10 +25,8 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
   let leaderboardPeriod = "all";
   let leaderboardToken = 0;
 
-  function plantName(maxTile) {
-    const index = plantIndex(maxTile);
-    return index < 0 ? "" : (TILE_NAMES[language()]?.[index] || TILE_NAMES.en[index]);
-  }
+  // A board row's plant, or nothing for a value that is not a plant.
+  const plantName = maxTile => (plantIndex(maxTile) < 0 ? "" : plantNameIn(maxTile, language()));
 
   // The plant's pixel art, so a row shows at a glance how far the run got.
   function plantIcon(maxTile) {
@@ -36,7 +34,7 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
     icon.className = "lb-plant";
     if (plantIndex(maxTile) < 0) return icon;
     const img = document.createElement("img");
-    img.src = `/assets/tiles/v3/tile-${maxTile}.png`;
+    img.src = tileArtUrl(maxTile);
     img.alt = "";
     img.width = 30;
     img.height = 30;
@@ -284,7 +282,6 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
       api.forgetAll();
       leaderboardPeriod = PERIODS.includes(period) ? period : "all";
     },
-    isOpen: () => !leaderboardModalEl.hidden,
-    element: leaderboardModalEl
+    isOpen: () => !leaderboardModalEl.hidden
   };
 }

@@ -22,6 +22,7 @@ dist/
 /three-prototype/
 /supabase-netlify version/
 /tools/
+/legacy/
 
 # Old project working files
 /project/_stage*.txt

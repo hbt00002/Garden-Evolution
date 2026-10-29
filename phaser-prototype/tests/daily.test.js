@@ -1,11 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
-import { DatabaseSync } from "node:sqlite";
-import { fileURLToPath } from "node:url";
 import worker, { seedForDay, seedForSession } from "../cloudflare/worker.js";
+import { stageFor } from "../src/levels.js";
 import { dayEnd, dayKey, dayLabel, dayStart, isDayKey, msUntilNextDay, nextDay, previousDay } from "../src/daily.js";
-import { applyMove, createGame, createRng, nextRandom } from "../src/game-core.js";
+import { ORIGIN, SESSION_SECRET, hmacHex, installCacheStub as installCache, makeEnv, playRun } from "./helpers/worker-env.js";
 
 /* ---------- What "today" is ---------- */
 
@@ -39,54 +37,7 @@ test("a day is shown in the player's language", () => {
 
 /* ---------- The Worker ---------- */
 
-const ORIGIN = "https://play.test";
-const SESSION_SECRET = "s".repeat(32);
-const RATE_LIMIT_SALT = "r".repeat(32);
-
-function createD1() {
-  const sqlite = new DatabaseSync(":memory:");
-  const dir = fileURLToPath(new URL("../migrations/", import.meta.url));
-  for (const file of readdirSync(dir).sort()) sqlite.exec(readFileSync(dir + file, "utf8"));
-  const statement = (sql, params = []) => ({
-    sql, params,
-    bind: (...values) => statement(sql, values),
-    first: async () => sqlite.prepare(sql).get(...params) ?? null,
-    all: async () => ({ results: sqlite.prepare(sql).all(...params) }),
-    run: async () => sqlite.prepare(sql).run(...params)
-  });
-  return {
-    sqlite,
-    prepare: sql => statement(sql),
-    batch: async statements => {
-      sqlite.exec("BEGIN");
-      try {
-        for (const s of statements) sqlite.prepare(s.sql).run(...s.params);
-        sqlite.exec("COMMIT");
-      } catch (error) {
-        sqlite.exec("ROLLBACK");
-        throw error;
-      }
-    }
-  };
-}
-
-function installCache() {
-  const store = new Map();
-  globalThis.caches = { default: {
-    match: async request => store.get(request.url)?.clone(),
-    put: async (request, response) => { store.set(request.url, response); },
-    delete: async request => store.delete(request.url)
-  } };
-}
-
-const makeEnv = () => ({ DB: createD1(), SESSION_SECRET, RATE_LIMIT_SALT, ASSETS: { fetch: async () => new Response("asset") } });
 const ctx = { waitUntil() {} };
-
-async function hmacHex(secret, message) {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
-  return [...new Uint8Array(signature)].map(b => b.toString(16).padStart(2, "0")).join("");
-}
 
 // A signed session for a day, issued `ageMs` ago (old enough to pass the timing checks).
 async function dailySession(day = dayKey(), ageMs = 30 * 60 * 1000) {
@@ -95,26 +46,12 @@ async function dailySession(day = dayKey(), ageMs = 30 * 60 * 1000) {
   return { sid, iat, daily: day, sig: await hmacHex(SESSION_SECRET, `${sid}.${iat}.daily.${day}`) };
 }
 
-function playRun(seed) {
-  const game = createGame(seed);
-  const choice = createRng(seed ^ 0x5bd1e995);
-  const dirs = ["left", "right", "up", "down"];
-  let guard = 0;
-  while (!game.over && guard++ < 20000) {
-    const first = Math.floor(nextRandom(choice) * 4);
-    for (let i = 0; i < 4; i++) if (applyMove(game, dirs[(first + i) % 4])) break;
-  }
-  return game;
-}
-
-const stageOf = maxTile => (maxTile <= 64 ? 1 : maxTile <= 256 ? 2 : maxTile <= 512 ? 3 : maxTile <= 1024 ? 4 : 5);
-
 async function submission(session, overrides = {}) {
   const seed = await seedForDay(SESSION_SECRET, session.daily);
   const run = playRun(seed);
   return {
     playerName: "Mira", score: run.score, maxTile: run.maxTile, bestCombo: run.bestCombo, comboRules: 2,
-    reachedStage: stageOf(run.maxTile), moves: run.moves, deviceId: crypto.randomUUID(), session, ...overrides
+    reachedStage: stageFor(run.maxTile), moves: run.moves, deviceId: crypto.randomUUID(), session, ...overrides
   };
 }
 

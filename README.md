@@ -12,8 +12,7 @@ a public leaderboard.
 | Folder | What it is |
 | --- | --- |
 | [`phaser-prototype/`](phaser-prototype) | **The live game.** The name is historical; this is the production code and the Cloudflare Worker. Everything below is about this folder. |
-| [`legacy/original-dom-version/`](legacy/original-dom-version) | The first, plain-DOM version of the game. Superseded and **not deployed**; kept for reference. |
-| `archive/`, `pixi-prototype/`, `three-prototype/`, `supabase-netlify version/`, `tools/` | Old experiments. Git-ignored and only present on the author's machine. |
+| `legacy/`, `archive/`, `pixi-prototype/`, `three-prototype/`, `supabase-netlify version/`, `tools/` | Old experiments. Git-ignored and only present on the author's machine. The first, plain-DOM version of the game is in git history (`git show 61b92a2:legacy/original-dom-version/script.js`). |
 
 Visual assets are CC0, the menu music is credited in [CREDITS.md](CREDITS.md).
 
