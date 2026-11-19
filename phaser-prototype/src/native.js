@@ -1,15 +1,33 @@
 // What the store apps (Capacitor, Android and iPhone) do differently from the
 // website: vibration, the phone's own share sheet, and the Android back button.
-// On the website none of this runs: isNativeApp() is false and the plugins are
-// never loaded (they are separate chunks, imported only inside the app).
+// On the website the plugins are never loaded (they are separate chunks,
+// imported only inside the app); a phone's browser that can vibrate does so
+// itself.
 
 export const isNativeApp = (win = globalThis.window) => Boolean(win?.Capacitor?.isNativePlatform?.());
 
+// A phone's browser that can vibrate (Android; iPhone browsers cannot). Desktop
+// Chrome has navigator.vibrate too but nothing to buzz, so only touch screens count.
+export const canVibrate = (nav = globalThis.navigator, matchMedia = query => globalThis.matchMedia?.(query)) =>
+  typeof nav?.vibrate === "function" && Boolean(matchMedia("(pointer: coarse)")?.matches);
+
 // A short buzz for what happens in the game. enabled(): the player's Settings
-// switch. Outside the app every call does nothing.
-export function createHaptics({ enabled, native = isNativeApp() }) {
+// switch. In the app the Haptics plugin buzzes; in a phone's browser,
+// vibrate(pattern) (navigator.vibrate); anywhere else every call does nothing.
+export function createHaptics({
+  enabled, native = isNativeApp(),
+  vibrate = canVibrate() ? pattern => globalThis.navigator.vibrate(pattern) : null
+}) {
   const silent = { merge() {}, world() {}, end() {} };
-  if (!native) return silent;
+  if (!native && !vibrate) return silent;
+  if (!native) {
+    // Milliseconds: a tick, a little double pulse, a firm tap.
+    const buzz = pattern => () => {
+      if (!enabled()) return;
+      try { vibrate(pattern); } catch (error) { /* the browser said no */ }
+    };
+    return { merge: buzz(12), world: buzz([25, 60, 35]), end: buzz(40) };
+  }
   const plugin = import("@capacitor/haptics").catch(() => null);
   const run = buzz => {
     if (!enabled()) return;

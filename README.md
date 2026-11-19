@@ -210,7 +210,8 @@ leaderboards and today's garden.
   `capacitor://localhost` on iPhone) next to its own, with CORS headers for
   them only (`APP_ORIGINS` in `cloudflare/worker.js`). **Deploy the Worker
   before releasing an app**, or the app's leaderboard will not load.
-- In the app (`src/native.js`): vibration (a switch in Settings), the phone's
+- In the app (`src/native.js`): vibration (a switch in Settings; Android
+  browsers vibrate too, with the same switch, while iPhone browsers cannot), the phone's
   own share sheet, and Android's back button closes what is open and then
   sends the app to the background. "Add to home screen" is hidden; a privacy
   policy link opens `public/privacy.html` (served as `/privacy`) in the browser.
