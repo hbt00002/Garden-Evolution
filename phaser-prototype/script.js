@@ -34,7 +34,7 @@ import { DIRECTION_CHARS, createRng, drawSpawn } from "./src/game-core.js";
 import { endingForMergedValue } from "./src/game-rules.js";
 import { createInstallHint } from "./src/install.js";
 import { apiUrl } from "./src/endpoint.js";
-import { createHaptics, isNativeApp, nativeShareNav, onBackButton } from "./src/native.js";
+import { canVibrate, createHaptics, isNativeApp, nativeShareNav, onBackButton } from "./src/native.js";
 import { createGameSession, randomSeed, withTimeout } from "./src/game-session.js";
 import { PLAY_LABELS, TRANSLATIONS } from "./src/i18n.js";
 import { createLeaderboardApi } from "./src/leaderboard-api.js";
@@ -144,7 +144,8 @@ const restartPanel = document.getElementById("newGameConfirm");
 const cancelRestart = document.getElementById("cancelNewGame");
 const confirmRestart = document.getElementById("confirmNewGame");
 const prefs = createPreferences();
-// The store apps vibrate (src/native.js); on the website this does nothing.
+// The store apps and phone browsers that can vibrate (Android) buzz on merges,
+// new worlds and the end of a run (src/native.js); elsewhere this does nothing.
 const nativeApp = isNativeApp();
 const haptics = createHaptics({ enabled: () => prefs.hapticsOn, native: nativeApp });
 
@@ -868,10 +869,11 @@ const settings = createSettingsPanel({
   },
   syncInert
 });
+// The vibration switch, wherever vibration is possible.
+document.getElementById("hapticsRow").hidden = !nativeApp && !canVibrate();
 // "Add to home screen", only where it can help (see src/install.js); the store
-// apps are already on the home screen, and have a vibration switch instead.
+// apps are already on the home screen.
 if (nativeApp) {
-  document.getElementById("hapticsRow").hidden = false;
   // The privacy policy lives on the website; the app opens it in the browser.
   document.getElementById("privacyLink").href = apiUrl("/privacy");
   document.body.classList.add("native-app");
