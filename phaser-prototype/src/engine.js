@@ -89,6 +89,19 @@ const boardGame = new Phaser.Game({
 });
 window.gardenBoardEngine = boardGame;
 
+// The board's size, as laid out. Phaser would read it from the board's
+// on-screen box (getBoundingClientRect), which includes the little bounce the
+// board does on every merge (a transform: scale) and the box's position: each
+// merge then looked like a resize and rebuilt the frame, about 150 ms of
+// frozen screen on a mid-range phone (Galaxy M31) while the tiles slid. A
+// ResizeObserver reports the layout size, which a transform does not change.
+let boardBox = { width: boardMount.clientWidth, height: boardMount.clientHeight };
+boardGame.scale.getParentBounds = function () {
+  if (this.parentSize.width === boardBox.width && this.parentSize.height === boardBox.height) return false;
+  this.parentSize.setSize(boardBox.width, boardBox.height);
+  return true;
+};
+
 // Phaser's RESIZE mode measures its parent when the window announces a resize.
 // Turning a phone fires that event before the new layout has settled, so the
 // board's canvas can keep an in-between size (a frame smaller than the tiles
@@ -99,21 +112,20 @@ let boardSyncFrame = 0;
 const syncBoardViewport = () => {
   cancelAnimationFrame(boardSyncFrame);
   boardSyncFrame = requestAnimationFrame(() => {
-    const bounds = boardMount.getBoundingClientRect();
-    if (bounds.width < 1 || bounds.height < 1) return;
-    // In RESIZE mode Phaser takes its size from the parent size it last measured
-    // (and only re-measures on a window resize), so resizing it by hand gets undone
-    // by the next refresh using the old measurement: the frame stayed 2px wider
-    // than its box in the last world, where the board has a border. Measure the
-    // parent again first, then let Phaser refresh itself.
+    if (boardBox.width < 1 || boardBox.height < 1) return;
+    // In RESIZE mode Phaser takes its size from the parent size it last
+    // measured, so give it the box first, then let it refresh itself.
     boardGame.scale.getParentBounds();
-    if (Math.abs(boardGame.scale.width - bounds.width) >= 1 || Math.abs(boardGame.scale.height - bounds.height) >= 1) {
+    if (Math.abs(boardGame.scale.width - boardBox.width) >= 1 || Math.abs(boardGame.scale.height - boardBox.height) >= 1) {
       boardGame.scale.refresh();
       paintBoardOnce();
     }
   });
 };
-new ResizeObserver(syncBoardViewport).observe(boardMount);
+new ResizeObserver(([entry]) => {
+  boardBox = { width: entry.contentRect.width, height: entry.contentRect.height };
+  syncBoardViewport();
+}).observe(boardMount);
 window.addEventListener("resize", syncBoardViewport, { passive: true });
 window.visualViewport?.addEventListener("resize", syncBoardViewport, { passive: true });
 window.addEventListener("orientationchange", () => [0, 150, 500, 1200].forEach(ms => setTimeout(syncBoardViewport, ms)));
@@ -131,10 +143,6 @@ const paintBoardOnce = () => {
     if (!motionAllowed || lookingAround || document.hidden) boardGame.loop.sleep();
   }, 300);
 };
-new ResizeObserver(syncBoardViewport).observe(boardMount);
-window.addEventListener("resize", syncBoardViewport, { passive: true });
-window.visualViewport?.addEventListener("resize", syncBoardViewport, { passive: true });
-window.addEventListener("orientationchange", () => [0, 150, 500, 1200].forEach(ms => setTimeout(syncBoardViewport, ms)));
 boardGame.registry.set("lowPower", lowPowerDevice);
 env.dataset.boardEngine = "";
 

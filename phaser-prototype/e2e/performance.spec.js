@@ -45,6 +45,31 @@ const machine = (page, { cores, memory }) => page.addInitScript(({ cores, memory
   Object.defineProperty(navigator, "deviceMemory", { get: () => memory });
 }, { cores, memory });
 
+// On every merge the board does a little bounce (a transform: scale). Phaser
+// used to read the board's size from its on-screen box, which the bounce
+// changes, so every merge rebuilt the frame: about 150 ms of frozen screen on a
+// Galaxy M31, while the tiles were sliding. A bounce is not a resize.
+test("the bounce on a merge does not rebuild the board's frame", async ({ page }) => {
+  await startGame(page);
+  await expect.poll(async () => (await scenes(page)).hasFrameTexture).toBe(true);
+  await page.evaluate(() => {
+    const scale = window.gardenBoardEngine.scale;
+    window.__refreshes = 0;
+    scale.on("resize", () => { window.__refreshes++; });
+  });
+  const keys = ["ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown"];
+  let merged = 0;
+  for (let i = 0; i < 40 && merged < 6; i++) {
+    const before = Number(await page.locator("#score").innerText());
+    await page.keyboard.press(keys[i % 4]);
+    // Long enough for the bounce and for Phaser's own size check (every 500 ms) to run.
+    await page.waitForTimeout(600);
+    if (Number(await page.locator("#score").innerText()) > before) merged++;
+  }
+  expect(merged, "the run merged some plants").toBeGreaterThan(2);
+  expect(await page.evaluate(() => window.__refreshes)).toBe(0);
+});
+
 test.describe("on a desktop", () => {
   test("the backdrop runs at the screen's own rate", async ({ page }) => {
     await machine(page, { cores: 8, memory: 8 });
