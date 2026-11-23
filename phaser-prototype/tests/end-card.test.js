@@ -53,7 +53,7 @@ test("a run with no moves left shows its numbers, the world reached and the name
   assert.equal(t.el.finalTile.textContent, "512");
   assert.equal(t.el.finalCombo.textContent, "6×");
   assert.equal(t.el.finalWorld.textContent, "Spring Bloom");
-  assert.equal(t.el.finalEmblem.textContent, "✿");
+  assert.match(t.el.finalEmblem.innerHTML, /data-icon="flower"/, "the third world's pixel emblem");
   assert.equal(t.el.finalTitle.dataset.i18n, "noMoves");
   assert.equal(t.el.scoreForm.hidden, false);
   assert.equal(t.el.unrankedNote.hidden, true);

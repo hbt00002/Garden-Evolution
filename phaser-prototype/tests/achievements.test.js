@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ACHIEVEMENTS, cleanState, createAchievements, nextStreak } from "../src/achievements.js";
+import { PIXEL_ICONS } from "../src/pixel-icons.js";
 import { dailyOffer, untilNextGarden } from "../src/daily-offer.js";
 import { TRANSLATIONS } from "../src/i18n.js";
 
@@ -20,7 +21,12 @@ function setup({ stored = null, initialBest = 0 } = {}) {
 test("every achievement has a unique id and a reachable goal", () => {
   const ids = ACHIEVEMENTS.map(a => a.id);
   assert.equal(new Set(ids).size, ids.length);
-  for (const a of ACHIEVEMENTS) assert.ok(a.target > 0 && a.icon && a.kind, a.id);
+  for (const a of ACHIEVEMENTS) assert.ok(a.target > 0 && a.kind, a.id);
+  // A plant's own picture (its tile value), or one of the game's pixel icons: never an emoji.
+  for (const a of ACHIEVEMENTS) {
+    if (typeof a.icon === "number") assert.ok(Number.isInteger(Math.log2(a.icon)) && a.icon >= 2 && a.icon <= 8192, a.id);
+    else assert.ok(PIXEL_ICONS.includes(a.icon), `${a.id}: ${a.icon}`);
+  }
 });
 
 test("growing a plant and scoring unlock as they happen, once", () => {

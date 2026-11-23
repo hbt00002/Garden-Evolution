@@ -168,7 +168,8 @@ test("a streak going since yesterday is shown on the button, which asks to keep 
   await withStreak(page, previousDay(dayKey()), 3);
   await openGame(page);
   await expect(page.locator("#startDailyStreak")).toBeVisible();
-  await expect(page.locator("#startDailyStreak")).toHaveText("🔥 3");
+  await expect(page.locator("#startDailyStreak")).toHaveText("3");
+  await expect(page.locator("#startDailyStreak svg")).toHaveAttribute("data-icon", "flame");
   await expect(page.locator("#startDailyStreak")).toHaveAttribute("aria-label", "3-day streak");
   await expect(page.locator("#startDailySub")).toHaveText("Keep your 3-day streak going");
   await expect(page.locator("#startDailyBtn")).toHaveClass(/streak-at-risk/);
@@ -178,7 +179,7 @@ test("once today's garden is played the streak stays, without the warning", asyn
   await withStreak(page, dayKey(), 4);
   await page.addInitScript(today => localStorage.setItem("gardenEvolutionDaily", JSON.stringify({ day: today, seed: 7, used: true })), dayKey());
   await openGame(page);
-  await expect(page.locator("#startDailyStreak")).toHaveText("🔥 4");
+  await expect(page.locator("#startDailyStreak")).toHaveText("4");
   await expect(page.locator("#startDailySub")).toContainText("Practice");
   await expect(page.locator("#startDailyBtn")).not.toHaveClass(/streak-at-risk/);
 });

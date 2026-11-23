@@ -3,6 +3,7 @@
 // top plant, offers the name form when the run can be ranked, and moves focus to
 // the right button once its entrance has settled.
 import { stageFor, stageMeta } from "./levels.js";
+import { pixelIcon } from "./pixel-icons.js";
 import { loadPlayerName } from "./storage.js";
 
 // elements: the card and its parts (see script.js).
@@ -79,7 +80,7 @@ export function createEndCard({ elements, prefs, text: getText, language, snapsh
     finalWorldEl.textContent = milestone ? text.milestoneKicker : mode === "victory" ? text.victoryKicker : stageMeta(endingStage, language()).name;
     finalTileEl.textContent = Number(run.maxValueReached || 2).toLocaleString(language());
     finalComboEl.textContent = `${run.bestCombo || 0}×`;
-    finalEmblemEl.textContent = stageMeta(endingStage, language()).emblem;
+    finalEmblemEl.innerHTML = pixelIcon(stageMeta(endingStage, language()).emblem);
     playerNameEl.value = loadPlayerName();
     const ranked = run.ranked;
     scoreFormEl.hidden = milestone || !ranked;

@@ -71,11 +71,11 @@ export function stageFor(maxValue) {
 }
 
 export const STAGE_META = [
-  { name: "Winter Beginning", next: 128, line: "A quiet beginning beneath the snow.", emblem: "❄" },
-  { name: "Snowmelt Valley", next: 512, line: "The snow begins to sing.", emblem: "◌" },
-  { name: "Spring Bloom", next: 1024, line: "Every corner wakes with life.", emblem: "✿" },
-  { name: "Alpine Sakura", next: 2048, line: "Petals rise over the alpine garden.", emblem: "❀" },
-  { name: "Moonlit Garden", next: null, line: "The completed garden glows at night.", emblem: "☾" }
+  { name: "Winter Beginning", next: 128, line: "A quiet beginning beneath the snow.", emblem: "snow" },
+  { name: "Snowmelt Valley", next: 512, line: "The snow begins to sing.", emblem: "drop" },
+  { name: "Spring Bloom", next: 1024, line: "Every corner wakes with life.", emblem: "flower" },
+  { name: "Alpine Sakura", next: 2048, line: "Petals rise over the alpine garden.", emblem: "mountain" },
+  { name: "Moonlit Garden", next: null, line: "The completed garden glows at night.", emblem: "moon" }
 ];
 
 // A world's name and line of story in the player's language.
