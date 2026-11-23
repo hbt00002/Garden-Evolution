@@ -76,11 +76,13 @@ export function createComboHud({ elements, prefs, quiet, onMerges, onTier, flow:
     scoreEl.animate([
       { transform: "scale(1)" }, { transform: "scale(1.28)", offset: .45 }, { transform: "scale(1)" }
     ], { duration: 240, easing: "cubic-bezier(.2,1.7,.35,1)" });
+    // Size only: an animated filter repaints the whole board every frame, which
+    // a mid-range phone (Galaxy M31) could not keep up with while tiles slid.
     const strong = mergeCount > 1;
     boardEl.animate([
-      { transform: "scale(1)", filter: "saturate(1)" },
-      { transform: `scale(${strong ? 1.012 : 1.006})`, filter: `saturate(${strong ? 1.08 : 1})`, offset: strong ? .42 : .48 },
-      { transform: "scale(1)", filter: "saturate(1)" }
+      { transform: "scale(1)" },
+      { transform: `scale(${strong ? 1.012 : 1.006})`, offset: strong ? .42 : .48 },
+      { transform: "scale(1)" }
     ], { duration: strong ? 250 : 220, easing: "ease-out" });
   }
 
