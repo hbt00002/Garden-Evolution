@@ -10,9 +10,10 @@ function setup({ quiet = false, reduceMotion = false, flow } = {}) {
   const hud = { hidden: true, querySelector: () => bar };
   const value = { textContent: "" };
   const animations = [];
+  const keyframes = [];
   const animated = name => ({
     getAnimations: () => [{ cancel: () => animations.push(`cancel ${name}`) }],
-    animate: (frames, options) => animations.push([name, frames.length, options.duration])
+    animate: (frames, options) => { keyframes.push([name, frames]); animations.push([name, frames.length, options.duration]); }
   });
   const calls = { merges: [], tiers: 0 };
   const state = { quiet };
@@ -24,7 +25,7 @@ function setup({ quiet = false, reduceMotion = false, flow } = {}) {
     onTier: () => { calls.tiers++; },
     ...(flow ? { flow } : {})
   });
-  return { combo, events, bar, hud, value, animations, calls, state };
+  return { combo, events, bar, hud, value, animations, keyframes, calls, state };
 }
 
 test("the counter appears from a streak of two merging moves, and a move without a merge ends it", () => {
@@ -117,4 +118,16 @@ test("merging pulses the score and the board, more for a double merge, and not w
   const calm = setup({ reduceMotion: true });
   calm.combo.pulse(3);
   assert.deepEqual(calm.animations, []);
+});
+
+// The bounce only grows and shrinks the board. An animated filter makes a
+// phone repaint the whole board every frame of it: on a Galaxy M31 that was
+// most of the frames slower than 50 ms while tiles slid.
+test("the board's bounce animates only its size, never a filter", () => {
+  const t = setup();
+  t.combo.pulse(1);
+  t.combo.pulse(2);
+  const board = t.keyframes.filter(([name]) => name === "board").flatMap(([, frames]) => frames);
+  assert.ok(board.length > 0);
+  for (const frame of board) assert.deepEqual(Object.keys(frame).filter(key => key !== "offset"), ["transform"]);
 });
