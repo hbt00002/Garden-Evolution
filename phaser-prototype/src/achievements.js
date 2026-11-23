@@ -5,27 +5,28 @@
 import { previousDay } from "./daily.js";
 
 // kind decides the description ("Reach {world}", "Score {n} points"…), stat
-// and target what has to be reached. A new achievement goes at the end of its
-// group; ids are stored, so they never change.
+// and target what has to be reached; icon is a plant's tile value (its own
+// picture) or the name of a pixel icon (src/pixel-icons.js). A new achievement
+// goes at the end of its group; ids are stored, so they never change.
 export const ACHIEVEMENTS = [
-  { id: "firstGame", icon: "🌱", kind: "firstGame", stat: "gamesFinished", target: 1 },
-  { id: "world2", icon: "💧", kind: "world", stage: 2, stat: "bestTile", target: 128 },
-  { id: "world3", icon: "🌸", kind: "world", stage: 3, stat: "bestTile", target: 512 },
-  { id: "world4", icon: "🏔", kind: "world", stage: 4, stat: "bestTile", target: 1024 },
-  { id: "sakuraCrown", icon: "👑", kind: "plant", stat: "bestTile", target: 2048 },
-  { id: "treeOfLife", icon: "🌳", kind: "plant", stat: "bestTile", target: 4096 },
-  { id: "celestial", icon: "✨", kind: "plant", stat: "bestTile", target: 8192 },
-  { id: "combo5", icon: "🔥", kind: "combo", stat: "bestCombo", target: 5 },
-  { id: "combo10", icon: "⚡", kind: "combo", stat: "bestCombo", target: 10 },
-  { id: "score10k", icon: "⭐", kind: "score", stat: "bestScore", target: 10000 },
-  { id: "score50k", icon: "🌟", kind: "score", stat: "bestScore", target: 50000 },
-  { id: "games10", icon: "🪴", kind: "games", stat: "gamesFinished", target: 10 },
-  { id: "games50", icon: "🌲", kind: "games", stat: "gamesFinished", target: 50 },
-  { id: "dailyFirst", icon: "📅", kind: "daily", stat: "dailiesPlayed", target: 1 },
-  { id: "dailyStreak3", icon: "🗓", kind: "streak", stat: "bestDailyStreak", target: 3 },
-  { id: "dailyStreak7", icon: "🏅", kind: "streak", stat: "bestDailyStreak", target: 7 },
-  { id: "sharer", icon: "💌", kind: "share", stat: "shares", target: 1 },
-  { id: "explorer", icon: "🔭", kind: "view", stat: "gardenViews", target: 1 }
+  { id: "firstGame", icon: 4, kind: "firstGame", stat: "gamesFinished", target: 1 },
+  { id: "world2", icon: 128, kind: "world", stage: 2, stat: "bestTile", target: 128 },
+  { id: "world3", icon: 512, kind: "world", stage: 3, stat: "bestTile", target: 512 },
+  { id: "world4", icon: 1024, kind: "world", stage: 4, stat: "bestTile", target: 1024 },
+  { id: "sakuraCrown", icon: 2048, kind: "plant", stat: "bestTile", target: 2048 },
+  { id: "treeOfLife", icon: 4096, kind: "plant", stat: "bestTile", target: 4096 },
+  { id: "celestial", icon: 8192, kind: "plant", stat: "bestTile", target: 8192 },
+  { id: "combo5", icon: "chain", kind: "combo", stat: "bestCombo", target: 5 },
+  { id: "combo10", icon: "longchain", kind: "combo", stat: "bestCombo", target: 10 },
+  { id: "score10k", icon: "medal", kind: "score", stat: "bestScore", target: 10000 },
+  { id: "score50k", icon: "trophy", kind: "score", stat: "bestScore", target: 50000 },
+  { id: "games10", icon: "can", kind: "games", stat: "gamesFinished", target: 10 },
+  { id: "games50", icon: "shovel", kind: "games", stat: "gamesFinished", target: 50 },
+  { id: "dailyFirst", icon: "calendar", kind: "daily", stat: "dailiesPlayed", target: 1 },
+  { id: "dailyStreak3", icon: "flame", kind: "streak", stat: "bestDailyStreak", target: 3 },
+  { id: "dailyStreak7", icon: "bigflame", kind: "streak", stat: "bestDailyStreak", target: 7 },
+  { id: "sharer", icon: "envelope", kind: "share", stat: "shares", target: 1 },
+  { id: "explorer", icon: "spyglass", kind: "view", stat: "gardenViews", target: 1 }
 ];
 
 // Counts show progress ("3 / 10"); a tile or a score is either reached or not.

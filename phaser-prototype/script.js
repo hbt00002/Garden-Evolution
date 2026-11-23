@@ -35,6 +35,7 @@ import { endingForMergedValue } from "./src/game-rules.js";
 import { createInstallHint } from "./src/install.js";
 import { apiUrl } from "./src/endpoint.js";
 import { canVibrate, createHaptics, isNativeApp, nativeShareNav, onBackButton } from "./src/native.js";
+import { pixelIcon } from "./src/pixel-icons.js";
 import { createGameSession, randomSeed, withTimeout } from "./src/game-session.js";
 import { PLAY_LABELS, TRANSLATIONS } from "./src/i18n.js";
 import { createLeaderboardApi } from "./src/leaderboard-api.js";
@@ -220,7 +221,7 @@ function updateDailyButton() {
   const streak = achievements.currentStreak(dayKey());
   startDailyBtn.dataset.offer = offer.kind;
   startDailyStreakEl.hidden = streak < 1;
-  startDailyStreakEl.textContent = `🔥 ${streak}`;
+  startDailyStreakEl.innerHTML = `${pixelIcon("flame")}${streak}`;
   startDailyStreakEl.setAttribute("aria-label", text.dailyStreak.replace("{n}", streak));
   startDailyBtn.classList.toggle("streak-at-risk", offer.kind === "ranked" && streak > 0);
   startDailySubEl.textContent = offer.kind === "ranked"
@@ -279,7 +280,7 @@ const achievements = createAchievements({
   initialBest: loadBest(),
   onUnlock: unlocked => {
     const text = TRANSLATIONS[currentLanguage];
-    toast.show(`🏅 ${text.achUnlocked.replace("{name}", unlocked.map(a => text[`ach_${a.id}`]).join(", "))}`);
+    toast.show(text.achUnlocked.replace("{name}", unlocked.map(a => text[`ach_${a.id}`]).join(", ")));
     achievementsPanel.refresh();
   }
 });

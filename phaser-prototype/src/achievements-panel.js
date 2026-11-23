@@ -2,7 +2,9 @@
 // achievement with its description and progress. It draws from
 // achievements.js; the game gives it the dialog's elements, the language and a
 // few hooks, and calls open().
-import { plantName, stageMeta } from "./levels.js";
+import { artValueFor, plantName, stageMeta } from "./levels.js";
+import { pixelIcon } from "./pixel-icons.js";
+import { tileArtUrl } from "./tile-art.js";
 import { dayKey } from "./daily.js";
 
 // elements: { modal, closeBtn, summary, stats, list }
@@ -66,7 +68,17 @@ export function createAchievementsPanel({ achievements, elements, text: getText,
       const icon = document.createElement("span");
       icon.className = "ach-icon";
       icon.setAttribute("aria-hidden", "true");
-      icon.textContent = achievement.icon;
+      // A plant's own picture, or one of the game's pixel icons.
+      if (typeof achievement.icon === "number") {
+        const img = document.createElement("img");
+        img.src = tileArtUrl(artValueFor(achievement.icon).assetValue);
+        img.alt = "";
+        img.decoding = "async";
+        img.draggable = false;
+        icon.appendChild(img);
+      } else {
+        icon.innerHTML = pixelIcon(achievement.icon);
+      }
       const body = document.createElement("div");
       body.className = "ach-body";
       const name = document.createElement("strong");
