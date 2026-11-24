@@ -1364,7 +1364,7 @@ body.page-hidden .env-sky *, body.page-hidden .env-particle { animation-play-sta
 .leaderboard-ornament { width:min(180px,72%); display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; margin-bottom:5px; color:var(--lb-a); }
 .leaderboard-ornament i { height:2px; background:linear-gradient(90deg,transparent,var(--lb-a)); box-shadow:0 1px 0 rgba(255,255,255,.72); }
 .leaderboard-ornament i:last-child { transform:scaleX(-1); }
-.leaderboard-ornament b { font-size:.72rem; line-height:1; }
+.leaderboard-ornament .ornament-ico { width:14px; height:14px; }
 .leaderboard-card h2 { margin:2px 0 0; color:var(--ink); font-family:"Oxanium","Trebuchet MS",sans-serif; font-size:clamp(1.45rem,5vw,1.8rem); line-height:1; letter-spacing:.025em; }
 .leaderboard-kicker { color:var(--lb-b); font-size:.6875rem; font-weight:800; letter-spacing:.15em; text-transform:uppercase; }
 .leaderboard-close {
@@ -1902,7 +1902,7 @@ body.score-confirm-open .env-particle { animation-play-state:paused !important; 
 .lb-me-result small { color:var(--ink-soft); font-size:.6875rem; font-weight:700; }
 .lb-me-top {
   margin-top:3px; padding:3px 7px; border-radius:6px; background:var(--lb-b); color:#fffaf0;
-  font:800 .6875rem/1 "Oxanium","Trebuchet MS",sans-serif; letter-spacing:.08em; text-transform:uppercase; text-shadow:0 1px 0 var(--lb-shadow);
+  font:800 .6875rem/1 "Oxanium","Trebuchet MS",sans-serif; letter-spacing:.08em; text-transform:uppercase;
 }
 
 /* Rows: the plant the run reached sits next to the name. */
@@ -2423,13 +2423,15 @@ body.daily-run .brand .hint { display: none; }
 }
 .start-daily-streak[hidden] { display: none; }
 .start-daily-streak svg { width: 11px; height: 11px; }
-/* Today's garden not finished yet: the streak asks to be kept. */
+/* Today's garden not finished yet: the streak asks to be kept, with a small
+   pixel hop now and then (no glow: glows are kept for the rewards). */
 .start-btn-daily.streak-at-risk .start-daily-sub { color: #ffd9a3; }
 .start-btn-daily.streak-at-risk[data-offer="ranked"] .start-daily-sub::before { content: none; }
-.start-btn-daily.streak-at-risk .start-daily-streak { animation: streakGlow 1.8s ease-in-out .8s infinite; }
-@keyframes streakGlow {
-  0%, 100% { box-shadow: 0 2px 0 #9a5a14, inset 0 1px 0 rgba(255,255,255,.45); }
-  50% { box-shadow: 0 2px 0 #9a5a14, 0 0 12px 2px rgba(255,180,70,.75), inset 0 1px 0 rgba(255,255,255,.45); }
+.start-btn-daily.streak-at-risk .start-daily-streak { animation: streakHop 2.4s steps(1, end) .8s infinite; }
+@keyframes streakHop {
+  0%, 12%, 100% { transform: none; }
+  4% { transform: translateY(-2px); }
+  8% { transform: translateY(-1px); }
 }
 @media (prefers-reduced-motion: reduce) { .start-btn-daily.streak-at-risk .start-daily-streak { animation: none; } }
 

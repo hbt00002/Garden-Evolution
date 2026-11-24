@@ -26,4 +26,7 @@ test("the gear and picture buttons in the page match the pixel icons", async () 
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   assert.ok(html.includes(pixelIcon("gear", "gear-ico")), "gear");
   assert.ok(html.includes(pixelIcon("picture", "view-ico")), "picture");
+  // The flower between the lines above the leaderboard and achievements titles.
+  assert.equal(html.split(pixelIcon("flower", "ornament-ico")).length - 1, 2, "ornaments");
+  assert.ok(!html.includes("✦"), "no sparkle glyphs");
 });
