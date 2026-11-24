@@ -34,3 +34,12 @@ test("every language names all 13 plants", () => {
     assert.ok(TILE_NAMES[language].every(name => name.length > 0), language);
   }
 });
+
+test("the settings groups are named in every language", () => {
+  for (const language of languages) {
+    for (const key of ["settingsSound", "settingsView", "settingsGeneral"]) assert.ok(TRANSLATIONS[language][key], `${language} ${key}`);
+  }
+  assert.equal(TRANSLATIONS.tr.settingsSound, "Ses");
+  assert.equal(TRANSLATIONS.tr.settingsView, "Görüntü");
+  assert.equal(TRANSLATIONS.tr.settingsGeneral, "Genel");
+});

@@ -30,3 +30,30 @@ test("the gear and picture buttons in the page match the pixel icons", async () 
   assert.equal(html.split(pixelIcon("flower", "ornament-ico")).length - 1, 2, "ornaments");
   assert.ok(!html.includes("✦"), "no sparkle glyphs");
 });
+
+// Settings: every row starts with its own pixel icon, every group heading too.
+const SETTING_ICONS = {
+  musicVolume: "note", pianoToggle: "piano", sfxToggle: "speaker", hapticsToggle: "vibrate",
+  motionToggle: "mountain", particlesToggle: "leaf", contrastToggle: "contrast", revealToggle: "picture",
+  languageSelect: "globe", installRow: "home", settingsAchievementsBtn: "medal", privacyLink: "lock"
+};
+
+test("the settings icons are pixel icons", () => {
+  for (const name of new Set(Object.values(SETTING_ICONS))) assert.ok(PIXEL_ICONS.includes(name), name);
+});
+
+test("each settings row and group carries its icon in the page", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const panel = html.slice(html.indexOf('id="settingsPanel"'), html.indexOf("</section>", html.indexOf('id="performanceNote"')));
+  for (const [id, name] of Object.entries(SETTING_ICONS)) {
+    const at = panel.indexOf(`id="${id}"`);
+    assert.ok(at > 0, `${id} in the panel`);
+    // The row (the element the id is on, or the label around it) starts with its icon.
+    const rowStart = panel.lastIndexOf('class="setting-row', at + 1);
+    assert.ok(panel.startsWith(pixelIcon(name, "setting-ico"), panel.indexOf(">", rowStart) + 1), `${id}: ${name}`);
+  }
+  for (const [key, name] of [["settingsSound", "speaker"], ["settingsView", "mountain"], ["settingsGeneral", "globe"]]) {
+    assert.ok(panel.includes(`${pixelIcon(name, "settings-group-ico")}<span data-i18n="${key}">`), key);
+  }
+});

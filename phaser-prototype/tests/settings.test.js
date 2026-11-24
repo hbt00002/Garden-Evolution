@@ -60,7 +60,7 @@ test("calm means the system asks for less movement or the player turned motion o
 class FakeElement {
   constructor() {
     this.hidden = true; this.value = ""; this.textContent = ""; this.listeners = {}; this.attributes = {}; this.classes = new Set();
-    this.style = { removeProperty: name => { delete this.style[name]; } };
+    this.style = { removeProperty: name => { delete this.style[name]; }, setProperty: (name, value) => { this.style[name] = value; } };
     this.focused = 0;
   }
   addEventListener(type, fn) { (this.listeners[type] ||= []).push(fn); }
@@ -157,6 +157,8 @@ test("the controls show and change the real settings", () => {
   t.elements.musicVolume.fire("input");
   assert.equal(t.audio.musicVolume, 35);
   assert.equal(t.elements.musicVolumeValue.textContent, "35%");
+  // The slider's ink fills up to the volume (Chrome draws the track from this).
+  assert.equal(t.elements.musicVolume.style["--fill"], "35%");
 
   t.elements.sfx.fire("click");
   assert.equal(t.audio.sfxOn, false);

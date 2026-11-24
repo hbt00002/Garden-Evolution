@@ -182,7 +182,7 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
     leaderboardListEl.removeAttribute("aria-busy");
     const retry = document.createElement("button");
     retry.type = "button";
-    retry.className = "btn lb-retry";
+    retry.className = "btn ink-btn lb-retry";
     retry.textContent = text.lbRetry;
     retry.addEventListener("click", () => { api.forget(period); fetchLeaderboard(period); });
     leaderboardListEl.replaceChildren(
