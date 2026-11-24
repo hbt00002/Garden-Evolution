@@ -255,6 +255,23 @@ for (const [language, copy] of Object.entries(APP_COPY)) {
   Object.assign(TRANSLATIONS[language], copy);
 }
 
+// Settings: the names of its three groups.
+const SETTINGS_GROUPS = {
+  en: { settingsSound:"Sound", settingsView:"Display", settingsGeneral:"General" },
+  tr: { settingsSound:"Ses", settingsView:"Görüntü", settingsGeneral:"Genel" },
+  zh: { settingsSound:"声音", settingsView:"显示", settingsGeneral:"通用" },
+  ja: { settingsSound:"サウンド", settingsView:"表示", settingsGeneral:"一般" },
+  ko: { settingsSound:"소리", settingsView:"화면", settingsGeneral:"일반" },
+  es: { settingsSound:"Sonido", settingsView:"Pantalla", settingsGeneral:"General" },
+  pt: { settingsSound:"Som", settingsView:"Tela", settingsGeneral:"Geral" },
+  fr: { settingsSound:"Son", settingsView:"Affichage", settingsGeneral:"Général" },
+  de: { settingsSound:"Ton", settingsView:"Anzeige", settingsGeneral:"Allgemein" },
+  ru: { settingsSound:"Звук", settingsView:"Экран", settingsGeneral:"Общие" }
+};
+for (const [language, copy] of Object.entries(SETTINGS_GROUPS)) {
+  Object.assign(TRANSLATIONS[language], copy);
+}
+
 // Achievements: the panel, its stats, the message when one unlocks, each
 // achievement's name (ach_<id>) and a description for each kind of goal.
 const ACHIEVEMENT_NAMES = {

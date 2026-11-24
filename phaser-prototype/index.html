@@ -28,6 +28,7 @@
          now instead of waiting for the stylesheet to reveal it. -->
     <link rel="preload" as="image" type="image/webp" href="/assets/menu/sakura-garden-menu-bg-day.webp" />
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="scroll.css" />
     <meta property="og:image" content="https://play.gardenevolution.workers.dev/assets/menu/sakura-garden-menu-bg-day.png">
     <meta property="og:image:alt" content="Garden Evolution pixel-art garden landscape">
     <meta name="twitter:card" content="summary_large_image">
@@ -102,9 +103,9 @@
         </button>
         <button class="btn leaderboard-btn" id="leaderboardBtn" type="button" data-i18n="leaderboard">Leaderboard</button>
         <button class="btn new-btn" id="newBtn" type="button" data-i18n="newGame">New Game</button>
-      <div id="newGameConfirm" class="new-game-confirm" role="dialog" aria-modal="false" aria-labelledby="newGameConfirmText" hidden>
+      <div id="newGameConfirm" class="new-game-confirm scroll scroll--small" role="dialog" aria-modal="false" aria-labelledby="newGameConfirmText" hidden>
         <p id="newGameConfirmText" data-i18n="restartWarning">Your current garden will be cleared.</p>
-        <div><button id="cancelNewGame" type="button" data-i18n="cancelRestart">Cancel</button><button id="confirmNewGame" type="button" data-i18n="confirmRestart">Start new garden</button></div>
+        <div><button class="ink-btn ink-btn--quiet" id="cancelNewGame" type="button" data-i18n="cancelRestart">Cancel</button><button class="ink-btn" id="confirmNewGame" type="button" data-i18n="confirmRestart">Start new garden</button></div>
       </div>
       </div>
 
@@ -148,16 +149,16 @@
                 <label for="playerName" data-i18n="joinLeaderboard">Join the leaderboard</label>
                 <div class="score-submit-row">
                   <input id="playerName" name="playerName" type="text" minlength="2" maxlength="16" autocomplete="nickname" placeholder="Your name" required />
-                  <button class="btn submit-score-btn" id="submitScoreBtn" type="submit" data-i18n="submit">Submit</button>
+                  <button class="btn ink-btn submit-score-btn" id="submitScoreBtn" type="submit" data-i18n="submit">Submit</button>
                 </div>
                 <span class="score-submit-status" id="scoreSubmitStatus" aria-live="polite"></span>
               </form>
               <p class="score-unranked" id="unrankedNote" data-i18n="unrankedRun" hidden>This run could not be verified, so it cannot join the leaderboard.</p>
               <div class="overlay-actions">
                 <button class="btn milestone-continue-btn overlay-btn" id="continueMilestoneBtn" type="button" data-i18n="continueGame" hidden>Continue Growing</button>
-                <button class="btn new-btn overlay-btn" id="playAgainBtn" type="button" data-i18n="playAgain">Play Again</button>
-                <button class="btn overlay-btn normal-game-btn" id="normalGameBtn" type="button" data-i18n="normalGame" hidden>Normal game</button>
-                <button class="btn share-btn overlay-btn" id="shareBtn" type="button">
+                <button class="btn ink-btn overlay-btn" id="playAgainBtn" type="button" data-i18n="playAgain">Play Again</button>
+                <button class="btn ink-btn ink-btn--quiet overlay-btn normal-game-btn" id="normalGameBtn" type="button" data-i18n="normalGame" hidden>Normal game</button>
+                <button class="btn ink-btn ink-btn--quiet share-btn overlay-btn" id="shareBtn" type="button">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
                   <span data-i18n="share">Share</span>
                 </button>
@@ -172,10 +173,10 @@
     </main>
 
     <div class="load-error" id="loadError" role="alertdialog" aria-modal="true" aria-labelledby="loadErrorTitle" aria-describedby="loadErrorText" hidden>
-      <div class="load-error-card">
+      <div class="load-error-card scroll">
         <h2 id="loadErrorTitle"></h2>
         <p id="loadErrorText"></p>
-        <button class="btn" id="loadErrorRetry" type="button"></button>
+        <button class="btn ink-btn" id="loadErrorRetry" type="button"></button>
       </div>
     </div>
 
@@ -205,54 +206,66 @@
     </div>
 
     <div class="settings-backdrop" id="settingsBackdrop" hidden></div>
-    <section class="settings-panel" id="settingsPanel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
+    <section class="settings-panel scroll" id="settingsPanel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
       <button class="settings-close" id="settingsClose" type="button" aria-label="Close settings">×</button>
+      <span class="scroll-head settings-head" aria-hidden="true"><i></i><svg class="pixel-icon" data-icon="flower" viewBox="0 0 11 11" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="4" y="0" width="3" height="1"/><rect x="3" y="1" width="5" height="1"/><rect x="1" y="2" width="2" height="1"/><rect x="4" y="2" width="3" height="1"/><rect x="8" y="2" width="2" height="1"/><rect x="0" y="3" width="4" height="1"/><rect x="4" y="3" width="3" height="1" opacity=".5"/><rect x="7" y="3" width="4" height="1"/><rect x="0" y="4" width="4" height="1"/><rect x="4" y="4" width="3" height="1" opacity=".5"/><rect x="7" y="4" width="4" height="1"/><rect x="1" y="5" width="2" height="1"/><rect x="4" y="5" width="3" height="1"/><rect x="8" y="5" width="2" height="1"/><rect x="3" y="6" width="5" height="1"/><rect x="4" y="7" width="3" height="1"/><rect x="5" y="8" width="1" height="1"/><rect x="3" y="9" width="1" height="1"/><rect x="5" y="9" width="1" height="1"/><rect x="7" y="9" width="1" height="1"/><rect x="4" y="10" width="3" height="1"/></svg><i></i></span>
       <h2 class="settings-title" id="settingsTitle" data-i18n="settings">Settings</h2>
-      <label class="setting-row language-row">
-        <span class="setting-label" data-i18n="language">Language</span>
-        <select id="languageSelect" class="language-select" aria-label="Language">
-          <option value="en">English</option><option value="tr">Türkçe</option><option value="zh">中文</option>
-          <option value="ja">日本語</option><option value="ko">한국어</option><option value="es">Español</option>
-          <option value="pt">Português</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="ru">Русский</option>
-        </select>
-      </label>
-      <label class="setting-row music-volume-row">
-        <span class="setting-label" data-i18n="music">Music</span>
-        <span class="volume-control">
-          <input class="volume-slider" id="musicVolume" type="range" min="0" max="100" step="1" value="100" aria-label="Music volume" />
-          <output class="volume-value" id="musicVolumeValue" for="musicVolume">100%</output>
-        </span>
-      </label>
-      <label class="setting-row"><span class="setting-label" data-i18n="comboPiano">Combo Piano</span><button class="toggle" id="pianoToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
-      <label class="setting-row"><span class="setting-label" data-i18n="soundEffects">Sound Effects</span><button class="toggle" id="sfxToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
-      <label class="setting-row"><span class="setting-label" data-i18n="livingBackground">Living Background</span><button class="toggle" id="motionToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
-      <label class="setting-row"><span class="setting-label" data-i18n="extraParticles">Extra Particles</span><button class="toggle" id="particlesToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
-      <label class="setting-row"><span class="setting-label" data-i18n="highContrast">High Contrast</span><button class="toggle" id="contrastToggle" type="button" role="switch" aria-checked="false"><span class="toggle-knob"></span></button></label>
-      <label class="setting-row" id="revealRow"><span class="setting-label" data-i18n="worldReveal">World reveal</span><button class="toggle" id="revealToggle" type="button" role="switch" aria-checked="false"><span class="toggle-knob"></span></button></label>
-      <!-- Only where the phone can vibrate: the store apps and Android browsers (iPhone browsers cannot). -->
-      <label class="setting-row" id="hapticsRow" hidden><span class="setting-label" data-i18n="haptics">Vibration</span><button class="toggle" id="hapticsToggle" type="button" role="switch" aria-checked="true"><span class="toggle-knob"></span></button></label>
-      <!-- Shown only where it helps: Android offers a button, iPhone needs the steps. -->
-      <div class="setting-row install-row" id="installRow" hidden>
-        <span class="setting-label" data-i18n="installApp">Add to home screen</span>
-        <button class="btn install-btn" id="installBtn" type="button" data-i18n="installBtn" hidden>Add</button>
-        <p class="install-steps" id="installSteps" data-i18n="installIos" hidden>Tap Share, then Add to Home Screen.</p>
+      <div class="settings-body">
+        <section class="settings-group" aria-labelledby="settingsSoundTitle">
+          <h3 class="settings-group-title" id="settingsSoundTitle"><svg class="settings-group-ico" data-icon="speaker" viewBox="0 0 9 8" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="3" y="0" width="1" height="1"/><rect x="2" y="1" width="2" height="1"/><rect x="6" y="1" width="1" height="1"/><rect x="0" y="2" width="4" height="1"/><rect x="7" y="2" width="1" height="1"/><rect x="0" y="3" width="4" height="1"/><rect x="5" y="3" width="1" height="1"/><rect x="7" y="3" width="1" height="1"/><rect x="0" y="4" width="4" height="1"/><rect x="5" y="4" width="1" height="1"/><rect x="7" y="4" width="1" height="1"/><rect x="0" y="5" width="4" height="1"/><rect x="7" y="5" width="1" height="1"/><rect x="2" y="6" width="2" height="1"/><rect x="6" y="6" width="1" height="1"/><rect x="3" y="7" width="1" height="1"/></svg><span data-i18n="settingsSound">Sound</span></h3>
+          <label class="setting-row music-volume-row"><svg class="setting-ico" data-icon="note" viewBox="0 0 8 7" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="2" y="0" width="6" height="1"/><rect x="2" y="1" width="6" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="7" y="2" width="1" height="1"/><rect x="2" y="3" width="1" height="1"/><rect x="7" y="3" width="1" height="1"/><rect x="2" y="4" width="1" height="1"/><rect x="7" y="4" width="1" height="1"/><rect x="0" y="5" width="3" height="1"/><rect x="5" y="5" width="3" height="1"/><rect x="0" y="6" width="3" height="1"/><rect x="5" y="6" width="3" height="1"/></svg>
+            <span class="setting-label" data-i18n="music">Music</span>
+            <span class="volume-control">
+              <input class="volume-slider" id="musicVolume" type="range" min="0" max="100" step="1" value="100" aria-label="Music volume" />
+              <output class="volume-value" id="musicVolumeValue" for="musicVolume">100%</output>
+            </span>
+          </label>
+          <label class="setting-row"><svg class="setting-ico" data-icon="piano" viewBox="0 0 9 7" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="0" y="0" width="9" height="1"/><rect x="0" y="1" width="1" height="1"/><rect x="1" y="1" width="2" height="1" opacity=".5"/><rect x="3" y="1" width="1" height="1"/><rect x="4" y="1" width="1" height="1" opacity=".5"/><rect x="5" y="1" width="1" height="1"/><rect x="6" y="1" width="2" height="1" opacity=".5"/><rect x="8" y="1" width="1" height="1"/><rect x="0" y="2" width="1" height="1"/><rect x="1" y="2" width="2" height="1" opacity=".5"/><rect x="3" y="2" width="1" height="1"/><rect x="4" y="2" width="1" height="1" opacity=".5"/><rect x="5" y="2" width="1" height="1"/><rect x="6" y="2" width="2" height="1" opacity=".5"/><rect x="8" y="2" width="1" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="1" y="3" width="2" height="1" opacity=".5"/><rect x="3" y="3" width="1" height="1"/><rect x="4" y="3" width="1" height="1" opacity=".5"/><rect x="5" y="3" width="1" height="1"/><rect x="6" y="3" width="2" height="1" opacity=".5"/><rect x="8" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="1" y="4" width="1" height="1" opacity=".5"/><rect x="2" y="4" width="1" height="1"/><rect x="3" y="4" width="1" height="1" opacity=".5"/><rect x="4" y="4" width="1" height="1"/><rect x="5" y="4" width="1" height="1" opacity=".5"/><rect x="6" y="4" width="1" height="1"/><rect x="7" y="4" width="1" height="1" opacity=".5"/><rect x="8" y="4" width="1" height="1"/><rect x="0" y="5" width="1" height="1"/><rect x="1" y="5" width="1" height="1" opacity=".5"/><rect x="2" y="5" width="1" height="1"/><rect x="3" y="5" width="1" height="1" opacity=".5"/><rect x="4" y="5" width="1" height="1"/><rect x="5" y="5" width="1" height="1" opacity=".5"/><rect x="6" y="5" width="1" height="1"/><rect x="7" y="5" width="1" height="1" opacity=".5"/><rect x="8" y="5" width="1" height="1"/><rect x="0" y="6" width="9" height="1"/></svg><span class="setting-label" data-i18n="comboPiano">Combo Piano</span><button class="toggle" id="pianoToggle" type="button" role="switch" aria-checked="true"></button></label>
+          <label class="setting-row"><svg class="setting-ico" data-icon="speaker" viewBox="0 0 9 8" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="3" y="0" width="1" height="1"/><rect x="2" y="1" width="2" height="1"/><rect x="6" y="1" width="1" height="1"/><rect x="0" y="2" width="4" height="1"/><rect x="7" y="2" width="1" height="1"/><rect x="0" y="3" width="4" height="1"/><rect x="5" y="3" width="1" height="1"/><rect x="7" y="3" width="1" height="1"/><rect x="0" y="4" width="4" height="1"/><rect x="5" y="4" width="1" height="1"/><rect x="7" y="4" width="1" height="1"/><rect x="0" y="5" width="4" height="1"/><rect x="7" y="5" width="1" height="1"/><rect x="2" y="6" width="2" height="1"/><rect x="6" y="6" width="1" height="1"/><rect x="3" y="7" width="1" height="1"/></svg><span class="setting-label" data-i18n="soundEffects">Sound Effects</span><button class="toggle" id="sfxToggle" type="button" role="switch" aria-checked="true"></button></label>
+          <!-- Only where the phone can vibrate: the store apps and Android browsers (iPhone browsers cannot). -->
+          <label class="setting-row" id="hapticsRow" hidden><svg class="setting-ico" data-icon="vibrate" viewBox="0 0 9 8" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="2" y="0" width="5" height="1"/><rect x="2" y="1" width="1" height="1"/><rect x="6" y="1" width="1" height="1"/><rect x="0" y="2" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="6" y="2" width="1" height="1"/><rect x="8" y="2" width="1" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="2" y="3" width="1" height="1"/><rect x="6" y="3" width="1" height="1"/><rect x="8" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="2" y="4" width="1" height="1"/><rect x="6" y="4" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="2" y="5" width="1" height="1"/><rect x="6" y="5" width="1" height="1"/><rect x="2" y="6" width="2" height="1"/><rect x="4" y="6" width="1" height="1" opacity=".5"/><rect x="5" y="6" width="2" height="1"/><rect x="2" y="7" width="5" height="1"/></svg><span class="setting-label" data-i18n="haptics">Vibration</span><button class="toggle" id="hapticsToggle" type="button" role="switch" aria-checked="true"></button></label>
+        </section>
+        <section class="settings-group" aria-labelledby="settingsViewTitle">
+          <h3 class="settings-group-title" id="settingsViewTitle"><svg class="settings-group-ico" data-icon="mountain" viewBox="0 0 13 9" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="6" y="0" width="1" height="1"/><rect x="5" y="1" width="3" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="5" y="2" width="3" height="1" opacity=".5"/><rect x="8" y="2" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="4" y="3" width="5" height="1" opacity=".5"/><rect x="9" y="3" width="1" height="1"/><rect x="2" y="4" width="4" height="1"/><rect x="6" y="4" width="1" height="1" opacity=".5"/><rect x="7" y="4" width="4" height="1"/><rect x="1" y="5" width="10" height="1"/><rect x="12" y="5" width="1" height="1"/><rect x="0" y="6" width="11" height="1"/><rect x="11" y="6" width="1" height="1" opacity=".5"/><rect x="12" y="6" width="1" height="1"/><rect x="0" y="7" width="13" height="1"/><rect x="0" y="8" width="13" height="1"/></svg><span data-i18n="settingsView">Display</span></h3>
+          <label class="setting-row"><svg class="setting-ico" data-icon="mountain" viewBox="0 0 13 9" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="6" y="0" width="1" height="1"/><rect x="5" y="1" width="3" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="5" y="2" width="3" height="1" opacity=".5"/><rect x="8" y="2" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/><rect x="4" y="3" width="5" height="1" opacity=".5"/><rect x="9" y="3" width="1" height="1"/><rect x="2" y="4" width="4" height="1"/><rect x="6" y="4" width="1" height="1" opacity=".5"/><rect x="7" y="4" width="4" height="1"/><rect x="1" y="5" width="10" height="1"/><rect x="12" y="5" width="1" height="1"/><rect x="0" y="6" width="11" height="1"/><rect x="11" y="6" width="1" height="1" opacity=".5"/><rect x="12" y="6" width="1" height="1"/><rect x="0" y="7" width="13" height="1"/><rect x="0" y="8" width="13" height="1"/></svg><span class="setting-label" data-i18n="livingBackground">Living Background</span><button class="toggle" id="motionToggle" type="button" role="switch" aria-checked="true"></button></label>
+          <label class="setting-row"><svg class="setting-ico" data-icon="leaf" viewBox="0 0 8 8" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="5" y="0" width="3" height="1"/><rect x="3" y="1" width="5" height="1"/><rect x="2" y="2" width="4" height="1"/><rect x="6" y="2" width="1" height="1" opacity=".5"/><rect x="7" y="2" width="1" height="1"/><rect x="1" y="3" width="3" height="1"/><rect x="4" y="3" width="1" height="1" opacity=".5"/><rect x="5" y="3" width="3" height="1"/><rect x="1" y="4" width="2" height="1"/><rect x="3" y="4" width="1" height="1" opacity=".5"/><rect x="4" y="4" width="4" height="1"/><rect x="2" y="5" width="1" height="1" opacity=".5"/><rect x="3" y="5" width="4" height="1"/><rect x="1" y="6" width="1" height="1" opacity=".5"/><rect x="4" y="6" width="2" height="1"/><rect x="0" y="7" width="1" height="1" opacity=".5"/></svg><span class="setting-label" data-i18n="extraParticles">Extra Particles</span><button class="toggle" id="particlesToggle" type="button" role="switch" aria-checked="true"></button></label>
+          <label class="setting-row"><svg class="setting-ico" data-icon="contrast" viewBox="0 0 8 8" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="2" y="0" width="4" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="4" y="1" width="3" height="1"/><rect x="0" y="2" width="1" height="1"/><rect x="4" y="2" width="4" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="4" y="3" width="4" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="4" y="4" width="4" height="1"/><rect x="0" y="5" width="1" height="1"/><rect x="4" y="5" width="4" height="1"/><rect x="1" y="6" width="1" height="1"/><rect x="4" y="6" width="3" height="1"/><rect x="2" y="7" width="4" height="1"/></svg><span class="setting-label" data-i18n="highContrast">High Contrast</span><button class="toggle" id="contrastToggle" type="button" role="switch" aria-checked="false"></button></label>
+          <label class="setting-row" id="revealRow"><svg class="setting-ico" data-icon="picture" viewBox="0 0 12 10" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="0" y="0" width="12" height="1"/><rect x="0" y="1" width="1" height="1"/><rect x="11" y="1" width="1" height="1"/><rect x="0" y="2" width="1" height="1"/><rect x="8" y="2" width="2" height="1" opacity=".5"/><rect x="11" y="2" width="1" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="8" y="3" width="2" height="1" opacity=".5"/><rect x="11" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="11" y="4" width="1" height="1"/><rect x="0" y="5" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/><rect x="11" y="5" width="1" height="1"/><rect x="0" y="6" width="1" height="1"/><rect x="4" y="6" width="3" height="1"/><rect x="9" y="6" width="1" height="1"/><rect x="11" y="6" width="1" height="1"/><rect x="0" y="7" width="1" height="1"/><rect x="3" y="7" width="9" height="1"/><rect x="0" y="8" width="1" height="1"/><rect x="2" y="8" width="10" height="1"/><rect x="0" y="9" width="12" height="1"/></svg><span class="setting-label" data-i18n="worldReveal">World reveal</span><button class="toggle" id="revealToggle" type="button" role="switch" aria-checked="false"></button></label>
+        </section>
+        <section class="settings-group" aria-labelledby="settingsGeneralTitle">
+          <h3 class="settings-group-title" id="settingsGeneralTitle"><svg class="settings-group-ico" data-icon="globe" viewBox="0 0 8 8" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="2" y="0" width="4" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="3" y="1" width="2" height="1"/><rect x="6" y="1" width="1" height="1"/><rect x="0" y="2" width="1" height="1"/><rect x="3" y="2" width="2" height="1"/><rect x="7" y="2" width="1" height="1"/><rect x="0" y="3" width="8" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="4" width="2" height="1"/><rect x="7" y="4" width="1" height="1"/><rect x="0" y="5" width="1" height="1"/><rect x="3" y="5" width="2" height="1"/><rect x="7" y="5" width="1" height="1"/><rect x="1" y="6" width="1" height="1"/><rect x="3" y="6" width="2" height="1"/><rect x="6" y="6" width="1" height="1"/><rect x="2" y="7" width="4" height="1"/></svg><span data-i18n="settingsGeneral">General</span></h3>
+          <label class="setting-row language-row"><svg class="setting-ico" data-icon="globe" viewBox="0 0 8 8" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="2" y="0" width="4" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="3" y="1" width="2" height="1"/><rect x="6" y="1" width="1" height="1"/><rect x="0" y="2" width="1" height="1"/><rect x="3" y="2" width="2" height="1"/><rect x="7" y="2" width="1" height="1"/><rect x="0" y="3" width="8" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="4" width="2" height="1"/><rect x="7" y="4" width="1" height="1"/><rect x="0" y="5" width="1" height="1"/><rect x="3" y="5" width="2" height="1"/><rect x="7" y="5" width="1" height="1"/><rect x="1" y="6" width="1" height="1"/><rect x="3" y="6" width="2" height="1"/><rect x="6" y="6" width="1" height="1"/><rect x="2" y="7" width="4" height="1"/></svg>
+            <span class="setting-label" data-i18n="language">Language</span>
+            <select id="languageSelect" class="language-select" aria-label="Language">
+              <option value="en">English</option><option value="tr">Türkçe</option><option value="zh">中文</option>
+              <option value="ja">日本語</option><option value="ko">한국어</option><option value="es">Español</option>
+              <option value="pt">Português</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="ru">Русский</option>
+            </select>
+          </label>
+          <!-- Shown only where it helps: Android offers a button, iPhone needs the steps. -->
+          <div class="setting-row install-row" id="installRow" hidden><svg class="setting-ico" data-icon="home" viewBox="0 0 9 9" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="4" y="0" width="1" height="1"/><rect x="3" y="1" width="3" height="1"/><rect x="2" y="2" width="5" height="1"/><rect x="1" y="3" width="7" height="1"/><rect x="0" y="4" width="9" height="1"/><rect x="1" y="5" width="3" height="1"/><rect x="5" y="5" width="3" height="1"/><rect x="1" y="6" width="2" height="1"/><rect x="6" y="6" width="2" height="1"/><rect x="1" y="7" width="2" height="1"/><rect x="6" y="7" width="2" height="1"/><rect x="1" y="8" width="2" height="1"/><rect x="6" y="8" width="2" height="1"/></svg>
+            <span class="setting-label" data-i18n="installApp">Add to home screen</span>
+            <button class="btn ink-btn install-btn" id="installBtn" type="button" data-i18n="installBtn" hidden>Add</button>
+            <p class="install-steps" id="installSteps" data-i18n="installIos" hidden>Tap Share, then Add to Home Screen.</p>
+          </div>
+          <button class="setting-row setting-link" id="settingsAchievementsBtn" type="button"><svg class="setting-ico" data-icon="medal" viewBox="0 0 12 12" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="2" y="0" width="2" height="1"/><rect x="8" y="0" width="2" height="1"/><rect x="2" y="1" width="3" height="1"/><rect x="7" y="1" width="3" height="1"/><rect x="3" y="2" width="2" height="1"/><rect x="7" y="2" width="2" height="1"/><rect x="4" y="3" width="4" height="1"/><rect x="3" y="4" width="6" height="1"/><rect x="2" y="5" width="2" height="1"/><rect x="4" y="5" width="4" height="1" opacity=".5"/><rect x="8" y="5" width="2" height="1"/><rect x="2" y="6" width="1" height="1"/><rect x="3" y="6" width="6" height="1" opacity=".5"/><rect x="9" y="6" width="1" height="1"/><rect x="2" y="7" width="1" height="1"/><rect x="3" y="7" width="2" height="1" opacity=".5"/><rect x="5" y="7" width="2" height="1"/><rect x="7" y="7" width="2" height="1" opacity=".5"/><rect x="9" y="7" width="1" height="1"/><rect x="2" y="8" width="1" height="1"/><rect x="3" y="8" width="6" height="1" opacity=".5"/><rect x="9" y="8" width="1" height="1"/><rect x="2" y="9" width="2" height="1"/><rect x="4" y="9" width="4" height="1" opacity=".5"/><rect x="8" y="9" width="2" height="1"/><rect x="3" y="10" width="6" height="1"/><rect x="4" y="11" width="4" height="1"/></svg>
+            <span class="setting-label" data-i18n="achievements">Achievements</span>
+            <span class="setting-link-arrow" aria-hidden="true">›</span>
+          </button>
+          <a class="setting-row setting-link" id="privacyLink" href="/privacy" target="_blank" rel="noopener"><svg class="setting-ico" data-icon="lock" viewBox="0 0 7 7" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="2" y="0" width="3" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="5" y="1" width="1" height="1"/><rect x="1" y="2" width="1" height="1"/><rect x="5" y="2" width="1" height="1"/><rect x="0" y="3" width="7" height="1"/><rect x="0" y="4" width="3" height="1"/><rect x="4" y="4" width="3" height="1"/><rect x="0" y="5" width="3" height="1"/><rect x="4" y="5" width="3" height="1"/><rect x="0" y="6" width="7" height="1"/></svg>
+            <span class="setting-label" data-i18n="privacy">Privacy policy</span>
+            <span class="setting-link-arrow" aria-hidden="true">↗</span>
+          </a>
+        </section>
+        <p class="performance-note" id="performanceNote" data-i18n="performance">Performance adapts automatically.</p>
       </div>
-      <button class="setting-row setting-link" id="settingsAchievementsBtn" type="button">
-        <span class="setting-label" data-i18n="achievements">Achievements</span>
-        <span class="setting-link-arrow" aria-hidden="true">›</span>
-      </button>
-      <a class="setting-row setting-link" id="privacyLink" href="/privacy" target="_blank" rel="noopener">
-        <span class="setting-label" data-i18n="privacy">Privacy policy</span>
-        <span class="setting-link-arrow" aria-hidden="true">↗</span>
-      </a>
-      <p class="performance-note" id="performanceNote" data-i18n="performance">Performance adapts automatically.</p>
     </section>
 
     <div class="leaderboard-modal" id="leaderboardModal" hidden>
-      <section class="leaderboard-card" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
+      <section class="leaderboard-card scroll" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
         <button class="leaderboard-close" id="leaderboardClose" type="button" aria-label="Close leaderboard">×</button>
         <header class="leaderboard-header">
-          <span class="leaderboard-ornament" aria-hidden="true"><i></i><svg class="ornament-ico" data-icon="flower" viewBox="0 0 11 11" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="4" y="0" width="3" height="1"/><rect x="3" y="1" width="5" height="1"/><rect x="1" y="2" width="2" height="1"/><rect x="4" y="2" width="3" height="1"/><rect x="8" y="2" width="2" height="1"/><rect x="0" y="3" width="4" height="1"/><rect x="4" y="3" width="3" height="1" opacity=".5"/><rect x="7" y="3" width="4" height="1"/><rect x="0" y="4" width="4" height="1"/><rect x="4" y="4" width="3" height="1" opacity=".5"/><rect x="7" y="4" width="4" height="1"/><rect x="1" y="5" width="2" height="1"/><rect x="4" y="5" width="3" height="1"/><rect x="8" y="5" width="2" height="1"/><rect x="3" y="6" width="5" height="1"/><rect x="4" y="7" width="3" height="1"/><rect x="5" y="8" width="1" height="1"/><rect x="3" y="9" width="1" height="1"/><rect x="5" y="9" width="1" height="1"/><rect x="7" y="9" width="1" height="1"/><rect x="4" y="10" width="3" height="1"/></svg><i></i></span>
+          <span class="scroll-head" aria-hidden="true"><i></i><svg class="ornament-ico" data-icon="flower" viewBox="0 0 11 11" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="4" y="0" width="3" height="1"/><rect x="3" y="1" width="5" height="1"/><rect x="1" y="2" width="2" height="1"/><rect x="4" y="2" width="3" height="1"/><rect x="8" y="2" width="2" height="1"/><rect x="0" y="3" width="4" height="1"/><rect x="4" y="3" width="3" height="1" opacity=".5"/><rect x="7" y="3" width="4" height="1"/><rect x="0" y="4" width="4" height="1"/><rect x="4" y="4" width="3" height="1" opacity=".5"/><rect x="7" y="4" width="4" height="1"/><rect x="1" y="5" width="2" height="1"/><rect x="4" y="5" width="3" height="1"/><rect x="8" y="5" width="2" height="1"/><rect x="3" y="6" width="5" height="1"/><rect x="4" y="7" width="3" height="1"/><rect x="5" y="8" width="1" height="1"/><rect x="3" y="9" width="1" height="1"/><rect x="5" y="9" width="1" height="1"/><rect x="7" y="9" width="1" height="1"/><rect x="4" y="10" width="3" height="1"/></svg><i></i></span>
           <h2 id="leaderboardTitle" data-i18n="leaderboard">Leaderboard</h2>
         </header>
         <div class="lb-tabs" role="tablist" aria-label="Leaderboard period">
@@ -264,7 +277,7 @@
         <!-- On the daily tab: which day it is, when the next garden comes, and a way to play it. -->
         <div class="lb-daily" id="leaderboardDaily" hidden>
           <span class="lb-daily-when" id="leaderboardDailyWhen"></span>
-          <button class="btn lb-daily-play" id="leaderboardDailyPlay" type="button"></button>
+          <button class="btn ink-btn lb-daily-play" id="leaderboardDailyPlay" type="button"></button>
         </div>
         <div class="lb-me" id="leaderboardMe" aria-live="polite" hidden></div>
         <div class="leaderboard-list" id="leaderboardList" role="tabpanel" aria-labelledby="lbTab-all"><p class="leaderboard-message">Loading scores…</p></div>
@@ -272,10 +285,10 @@
     </div>
 
     <div class="leaderboard-modal achievements-modal" id="achievementsModal" hidden>
-      <section class="leaderboard-card achievements-card" role="dialog" aria-modal="true" aria-labelledby="achievementsTitle" aria-describedby="achievementsSummary">
+      <section class="leaderboard-card achievements-card scroll" role="dialog" aria-modal="true" aria-labelledby="achievementsTitle" aria-describedby="achievementsSummary">
         <button class="leaderboard-close" id="achievementsClose" type="button" aria-label="Close achievements">×</button>
         <header class="leaderboard-header">
-          <span class="leaderboard-ornament" aria-hidden="true"><i></i><svg class="ornament-ico" data-icon="flower" viewBox="0 0 11 11" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="4" y="0" width="3" height="1"/><rect x="3" y="1" width="5" height="1"/><rect x="1" y="2" width="2" height="1"/><rect x="4" y="2" width="3" height="1"/><rect x="8" y="2" width="2" height="1"/><rect x="0" y="3" width="4" height="1"/><rect x="4" y="3" width="3" height="1" opacity=".5"/><rect x="7" y="3" width="4" height="1"/><rect x="0" y="4" width="4" height="1"/><rect x="4" y="4" width="3" height="1" opacity=".5"/><rect x="7" y="4" width="4" height="1"/><rect x="1" y="5" width="2" height="1"/><rect x="4" y="5" width="3" height="1"/><rect x="8" y="5" width="2" height="1"/><rect x="3" y="6" width="5" height="1"/><rect x="4" y="7" width="3" height="1"/><rect x="5" y="8" width="1" height="1"/><rect x="3" y="9" width="1" height="1"/><rect x="5" y="9" width="1" height="1"/><rect x="7" y="9" width="1" height="1"/><rect x="4" y="10" width="3" height="1"/></svg><i></i></span>
+          <span class="scroll-head" aria-hidden="true"><i></i><svg class="ornament-ico" data-icon="flower" viewBox="0 0 11 11" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><rect x="4" y="0" width="3" height="1"/><rect x="3" y="1" width="5" height="1"/><rect x="1" y="2" width="2" height="1"/><rect x="4" y="2" width="3" height="1"/><rect x="8" y="2" width="2" height="1"/><rect x="0" y="3" width="4" height="1"/><rect x="4" y="3" width="3" height="1" opacity=".5"/><rect x="7" y="3" width="4" height="1"/><rect x="0" y="4" width="4" height="1"/><rect x="4" y="4" width="3" height="1" opacity=".5"/><rect x="7" y="4" width="4" height="1"/><rect x="1" y="5" width="2" height="1"/><rect x="4" y="5" width="3" height="1"/><rect x="8" y="5" width="2" height="1"/><rect x="3" y="6" width="5" height="1"/><rect x="4" y="7" width="3" height="1"/><rect x="5" y="8" width="1" height="1"/><rect x="3" y="9" width="1" height="1"/><rect x="5" y="9" width="1" height="1"/><rect x="7" y="9" width="1" height="1"/><rect x="4" y="10" width="3" height="1"/></svg><i></i></span>
           <span class="leaderboard-kicker" id="achievementsSummary"></span>
           <h2 id="achievementsTitle" data-i18n="achievements">Achievements</h2>
         </header>
@@ -285,12 +298,12 @@
     </div>
 
     <div class="score-confirm-modal" id="lowerScoreConfirm" hidden>
-      <section class="score-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="lowerScoreTitle" aria-describedby="lowerScoreMessage">
+      <section class="score-confirm-card scroll" role="alertdialog" aria-modal="true" aria-labelledby="lowerScoreTitle" aria-describedby="lowerScoreMessage">
         <h2 id="lowerScoreTitle" data-i18n="lowerScoreTitle">Lower score</h2>
         <p id="lowerScoreMessage"></p>
         <div class="score-confirm-actions">
-          <button class="btn score-confirm-cancel" id="cancelLowerScore" type="button" data-i18n="cancelLowerScore">Cancel</button>
-          <button class="btn score-confirm-submit" id="confirmLowerScore" type="button" data-i18n="confirmLowerScore">Yes, submit</button>
+          <button class="btn ink-btn ink-btn--quiet score-confirm-cancel" id="cancelLowerScore" type="button" data-i18n="cancelLowerScore">Cancel</button>
+          <button class="btn ink-btn score-confirm-submit" id="confirmLowerScore" type="button" data-i18n="confirmLowerScore">Yes, submit</button>
         </div>
       </section>
     </div>

@@ -24,6 +24,7 @@ export function createSettingsPanel({ elements, audio, prefs, applyLanguage, hoo
     musicVolumeEl.value = String(Math.round(audio.musicVolume));
     musicVolumeValueEl.value = `${Math.round(audio.musicVolume)}%`;
     musicVolumeValueEl.textContent = `${Math.round(audio.musicVolume)}%`;
+    musicVolumeEl.style.setProperty("--fill", `${Math.round(audio.musicVolume)}%`);
     setToggle(pianoToggle, audio.pianoOn);
     setToggle(sfxToggle, audio.sfxOn);
     setToggle(motionToggle, prefs.motionOn);
