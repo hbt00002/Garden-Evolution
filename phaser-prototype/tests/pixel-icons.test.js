@@ -105,3 +105,7 @@ test("each settings row and group carries its icon in the page", async () => {
     assert.ok(panel.includes(`${pixelIcon(name, "settings-group-ico")}<span data-i18n="${key}">`), key);
   }
 });
+
+test("the streak's flower has a picture for every stage of its opening", () => {
+  for (const name of ["bud", "budOpen", "flower", "flowerPeak"]) assert.match(pixelIcon(name), new RegExp(`data-icon="${name}"`));
+});
