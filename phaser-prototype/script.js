@@ -40,7 +40,7 @@ import { createGameSession, randomSeed, withTimeout } from "./src/game-session.j
 import { PLAY_LABELS, TRANSLATIONS } from "./src/i18n.js";
 import { createLeaderboardApi } from "./src/leaderboard-api.js";
 import { createLeaderboardUi } from "./src/leaderboard-ui.js";
-import { artValueFor, plantName, stageFor, stageMeta as stageMetaFor } from "./src/levels.js";
+import { artValueFor, plantName, stageFor, stageMeta as stageMetaFor, worldProgress } from "./src/levels.js";
 import { captureBackdrop, createShareButton } from "./src/share.js";
 import { createAudio } from "./src/audio.js";
 import { createPreferences } from "./src/preferences.js";
@@ -106,6 +106,7 @@ const stageFillEl = document.getElementById("stageFill");
 const stageDots = Array.from(document.querySelectorAll(".stage-dot"));
 const comboHudEl = document.getElementById("comboHud");
 const comboValueEl = document.getElementById("comboValue");
+const comboFlowerEl = document.getElementById("comboFlower");
 const worldEventLayerEl = document.getElementById("worldEventLayer");
 const viewBtn = document.getElementById("viewBtn");
 const gardenViewEl = document.getElementById("gardenView");
@@ -189,14 +190,34 @@ function worldKicker(stage) {
   return currentLanguage === "tr" ? `${text.world} ${stage} / 5` : `${text.world} ${stage} ${text.of} 5`;
 }
 
-// The world HUD: "World 3 of 5", its name, what unlocks the next one, and the progress dots.
+// The world bar fills inside each world too, by the biggest plant so far, and
+// never shows less than the world the garden is in.
+function updateWorldBar() {
+  const progress = Math.max(worldProgress(maxValueReached), ((currentStage || 1) - 1) / 4);
+  stageFillEl.style.transform = `scaleX(${progress})`;
+}
+
+// The world HUD: "World 3 of 5", its name, the plant that opens the next one
+// (its picture and name), and the progress bar and dots.
 function updateEvolutionUI(stage) {
   const meta = stageMeta(stage);
   const text = TRANSLATIONS[currentLanguage];
   stageKickerEl.textContent = worldKicker(stage);
   stageNameEl.textContent = meta.name;
-  stageNextEl.textContent = meta.next ? `${text.nextWorld} ${meta.next}` : text.fullyEvolved;
-  stageFillEl.style.width = `${((stage - 1) / 4) * 100}%`;
+  if (meta.next) {
+    const art = document.createElement("img");
+    art.src = tileArtUrl(artValueFor(meta.next).assetValue);
+    art.alt = "";
+    art.width = 22;
+    art.height = 22;
+    art.decoding = "async";
+    const plant = document.createElement("b");
+    plant.textContent = plantName(meta.next, currentLanguage);
+    stageNextEl.replaceChildren(`${text.nextWorld}:`, art, plant);
+  } else {
+    stageNextEl.textContent = text.fullyEvolved;
+  }
+  updateWorldBar();
   stageDots.forEach((dot, index) => dot.classList.toggle("active", index <= stage - 1));
 }
 
@@ -287,7 +308,7 @@ const achievements = createAchievements({
 const worldEffects = createWorldEffects({ env: envEl, layer: worldEventLayerEl, prefs, getStage: () => currentStage });
 const audio = createAudio({ getStage: () => currentStage, isMenu: () => menuMode });
 const comboHud = createComboHud({
-  elements: { hud: comboHudEl, value: comboValueEl, score: scoreEl, board: boardEl },
+  elements: { hud: comboHudEl, flower: comboFlowerEl, value: comboValueEl, score: scoreEl, board: boardEl },
   prefs,
   quiet: () => document.hidden || dialogs.menusOpen(),
   onMerges: (streak, mergeCount) => audio.playComboPiano(streak, mergeCount),
@@ -693,6 +714,7 @@ window.addEventListener("garden:scenery-failed", () => {
 if (["localhost", "127.0.0.1"].includes(location.hostname)) window.debugSetEnvironmentStage = setEnvironmentStage;
 
 function maybeEvolveEnvironment() {
+  updateWorldBar();
   const newStage = stageFor(maxValueReached);
   if (newStage !== currentStage) {
     setEnvironmentStage(newStage);

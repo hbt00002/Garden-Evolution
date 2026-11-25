@@ -70,6 +70,21 @@ export function stageFor(maxValue) {
   return 5;
 }
 
+// How far along the world bar the garden is, 0 to 1 across all five worlds:
+// each world is a quarter, filled in doubling steps of the biggest plant from
+// where the world starts to the plant that opens the next one.
+const WORLD_SPANS = [[2, 128], [128, 512], [512, 1024], [1024, 2048]];
+export function worldProgress(maxValue) {
+  const value = Math.max(2, maxValue || 0);
+  let done = 0;
+  for (const [from, to] of WORLD_SPANS) {
+    if (value >= to) { done += 1; continue; }
+    done += (Math.log2(value) - Math.log2(from)) / (Math.log2(to) - Math.log2(from));
+    break;
+  }
+  return done / WORLD_SPANS.length;
+}
+
 export const STAGE_META = [
   { name: "Winter Beginning", next: 128, line: "A quiet beginning beneath the snow.", emblem: "snow" },
   { name: "Snowmelt Valley", next: 512, line: "The snow begins to sing.", emblem: "drop" },

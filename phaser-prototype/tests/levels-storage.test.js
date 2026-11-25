@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { LEVELS, STAGE_META, artValueFor, levelFor, stageFor, stageMeta, tileLabel } from "../src/levels.js";
+import { LEVELS, STAGE_META, artValueFor, levelFor, stageFor, stageMeta, tileLabel, worldProgress } from "../src/levels.js";
 import { TILE_NAMES, TRANSLATIONS } from "../src/i18n.js";
 import { SAVE_KEY } from "../src/game-save.js";
 
@@ -129,4 +129,17 @@ test("when storage is blocked nothing throws and the defaults apply", async () =
       store.saveLanguage("tr"); store.writeSavedGame({ seed: 1, moves: "L", session: null }); store.clearSavedGame();
     });
   });
+});
+
+test("the world bar fills inside each world by the biggest plant, in doubling steps", () => {
+  const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} is not ${b}`);
+  close(worldProgress(0), 0);
+  close(worldProgress(2), 0);
+  close(worldProgress(8), (2 / 6) / 4);
+  close(worldProgress(128), .25);
+  close(worldProgress(256), .25 + .5 / 4);
+  close(worldProgress(512), .5);
+  close(worldProgress(1024), .75);
+  close(worldProgress(2048), 1);
+  close(worldProgress(8192), 1);
 });
