@@ -504,45 +504,50 @@ body {
 .brand { display: flex; flex-direction: column; gap: 3px; }
 .title {
   margin: 0;
-  font-family: "Oxanium", "Trebuchet MS", sans-serif;
+  font-family: "Pixelify Sans", "Oxanium", "Trebuchet MS", sans-serif;
   font-size: clamp(1.35rem, 5.2vw, 1.78rem);
   font-weight: 700;
-  letter-spacing: .025em;
-  color: var(--ink);
+  letter-spacing: .01em;
+  color: var(--paper-ink);
   line-height: 1;
-  text-shadow: 0 2px 0 rgba(255,255,255,.48), 0 4px 10px rgba(48,34,22,.16);
 }
 .hint {
   margin: 0;
   max-width: 100%;
   font-size: .76rem;
   line-height: 1.24;
-  color: #315574;
+  color: var(--paper-ink-soft);
   font-weight: 700;
   letter-spacing: .005em;
   text-shadow: none;
 }
 .scores { display: flex; gap: 10px; }
+/* The title card, the scores and the world card are pieces of the scroll
+   paper (see scroll.css and DESIGN.md): opaque, chipped corners, a hard pixel
+   line along the bottom instead of a soft shadow, written in paper ink. They
+   read the same over every world's painting. */
+.brand, .score-box, .evolution {
+  border: 0;
+  border-radius: 0;
+  clip-path: polygon(4px 0,calc(100% - 4px) 0,100% 4px,100% calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,0 calc(100% - 4px),0 4px);
+  background: var(--paper);
+  box-shadow: inset 0 -4px 0 rgba(105,78,48,.22);
+}
 .score-box {
   display: flex;
   flex-direction: column;
   align-items: center;
-  border-radius: 14px;
-  background: var(--cream-deep);
-  border: 1px solid var(--cell-edge);
-  box-shadow: 0 2px 0 var(--shadow);
 }
 .score-label {
-  font-size: .6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-soft);
-  font-weight: 600;
+  font-size: .75rem;
+  color: var(--paper-ink-soft);
+  font-weight: 700;
 }
 .score-value {
+  font-family: "Oxanium", "Trebuchet MS", sans-serif;
   font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--ink);
+  font-weight: 800;
+  color: var(--paper-ink);
   font-variant-numeric: tabular-nums;
 }
 
@@ -598,25 +603,21 @@ body {
   display: grid;
   gap: 7px;
   padding: 10px 14px 13px;
-  overflow: visible;
-  border: 1px solid rgba(255,255,255,.66);
-  border-radius: 15px;
-  background: linear-gradient(145deg,rgba(255,252,240,.88),rgba(232,224,201,.82));
-  box-shadow: 0 5px 0 rgba(105,78,48,.12), 0 10px 22px rgba(49,36,23,.12), inset 0 1px 0 rgba(255,255,255,.72);
-  /* Solid translucency is much cheaper than a continuously composited backdrop blur. */
 }
 .evolution-copy { display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-rows:auto auto; grid-template-areas:"kicker next" "name name"; align-items:baseline; column-gap:12px; row-gap:2px; min-width:0; height:auto; }
 .stage-kicker,.stage-name,.stage-next { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.stage-kicker { grid-area:kicker; font-size: .75rem; font-weight: 700; color: var(--ink-soft); }
-.stage-name { grid-area:name; font-family:"Oxanium","Trebuchet MS",sans-serif; font-size: .94rem; line-height:1.1; letter-spacing:.015em; color: var(--ink); }
-.stage-next { grid-area:next; display:flex; align-items:center; justify-content:flex-end; gap:4px; font-size: .75rem; font-weight: 700; color: var(--ink-soft); text-align:right; }
+.stage-kicker { grid-area:kicker; font-size: .75rem; font-weight: 700; color: var(--paper-ink-soft); }
+.stage-name { grid-area:name; font-family:"Oxanium","Trebuchet MS",sans-serif; font-size: .94rem; line-height:1.1; letter-spacing:.015em; color: var(--paper-ink); }
+.stage-next { grid-area:next; display:flex; align-items:center; justify-content:flex-end; gap:4px; font-size: .75rem; font-weight: 700; color: var(--paper-ink-soft); text-align:right; }
 .stage-next img { flex:none; width:22px; height:22px; margin:-4px 0; image-rendering:pixelated; }
-.stage-next b { min-width:0; overflow:hidden; text-overflow:ellipsis; font-weight:800; color: var(--ink); }
-.stage-track { position: relative; height: 7px; display: flex; justify-content: space-between; background: rgba(107,82,56,.18); border:1px solid rgba(255,255,255,.58); border-radius: 999px; box-shadow:inset 0 1px 2px rgba(73,52,31,.2); }
+.stage-next b { min-width:0; overflow:hidden; text-overflow:ellipsis; font-weight:800; color: var(--paper-ink); }
+/* Flat ink, square marks: no gradient, no glow. The filled part and the
+   worlds reached are in the world's ink. */
+.stage-track { position: relative; height: 6px; display: flex; justify-content: space-between; background: var(--paper-rule); }
 /* Filled by a transform, not its width: no layout on every frame of the slide. */
-.stage-fill { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, var(--green-3), var(--gold)); transform: scaleX(0); transform-origin: left; transition: transform .65s cubic-bezier(.2,.8,.2,1); }
-.stage-dot { position: relative; width: 12px; height: 12px; margin-top: -3.5px; border: 3px solid rgba(247,241,227,.96); border-radius: 50%; background: #bdae90; box-shadow: 0 2px 5px rgba(73,57,38,.25); transition: background .4s ease, transform .4s ease, box-shadow .4s ease; }
-.stage-dot.active { background: var(--green-3); transform: scale(1.12); box-shadow:0 0 0 2px rgba(107,155,54,.16),0 2px 5px rgba(73,57,38,.25); }
+.stage-fill { position: absolute; inset: 0; background: var(--ink-accent); transform: scaleX(0); transform-origin: left; transition: transform .65s cubic-bezier(.2,.8,.2,1); }
+.stage-dot { position: relative; width: 12px; height: 12px; margin-top: -3px; border: 2px solid var(--paper); background: var(--paper-rule); box-shadow: 0 0 0 1px var(--paper-frame); transition: background .4s ease; }
+.stage-dot.active { background: var(--ink-accent); box-shadow: 0 0 0 1px var(--ink-accent); }
 
 /* ============================================================
    SETTINGS PANEL
@@ -886,20 +887,6 @@ body {
   --moon-gold: #e5c77e;
   --moon-deep: rgba(9, 17, 35, .91);
 }
-#env[data-stage="5"] ~ .game .title {
-  color: var(--moon-ink);
-  text-shadow: 0 2px 10px rgba(4,10,24,.9), 0 0 20px rgba(187,216,246,.18);
-}
-#env[data-stage="5"] ~ .game .brand { background:linear-gradient(90deg,rgba(8,17,35,.78),rgba(8,17,35,.12)); box-shadow:inset 0 1px 0 rgba(199,219,239,.12); }
-#env[data-stage="5"] ~ .game .hint { color: #91abc0; text-shadow: none; }
-#env[data-stage="5"] ~ .game .score-box {
-  color: var(--moon-ink);
-  background: linear-gradient(145deg, rgba(26,40,65,.94), rgba(8,16,32,.94));
-  border-color: rgba(182,207,231,.55);
-  box-shadow: 0 3px 0 rgba(3,8,18,.65), inset 0 1px rgba(255,255,255,.12), 0 0 18px rgba(117,164,211,.12);
-}
-#env[data-stage="5"] ~ .game .score-label { color: var(--moon-muted); }
-#env[data-stage="5"] ~ .game .score-value { color: var(--moon-ink); }
 #env[data-stage="5"] ~ .game .btn:not(:where(.ink-btn:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *)))) {
   color: #eef3f8;
   background: linear-gradient(180deg, rgba(43,59,84,.96), rgba(15,25,45,.97));
@@ -913,18 +900,6 @@ body {
   box-shadow: 0 3px 0 rgba(4,9,19,.76), inset 0 1px rgba(255,255,255,.16), 0 0 18px rgba(229,199,126,.18);
 }
 #env[data-stage="5"] ~ .game .settings-btn .ico { color: var(--moon-gold); }
-#env[data-stage="5"] ~ .game .evolution {
-  background: linear-gradient(100deg, rgba(10,20,39,.91), rgba(28,42,65,.86));
-  border-color: rgba(170,199,226,.5);
-  box-shadow: 0 7px 22px rgba(2,7,17,.42), inset 0 1px rgba(255,255,255,.1);
-}
-#env[data-stage="5"] ~ .game .stage-kicker,
-#env[data-stage="5"] ~ .game .stage-next { color: var(--moon-muted); }
-#env[data-stage="5"] ~ .game .stage-name { color: #fff3c3; }
-#env[data-stage="5"] ~ .game .stage-track { background: rgba(181,207,231,.18); }
-#env[data-stage="5"] ~ .game .stage-fill { background: linear-gradient(90deg, #719bd0, #d8e8f6 68%, var(--moon-gold)); box-shadow: 0 0 9px rgba(165,206,244,.58); }
-#env[data-stage="5"] ~ .game .stage-dot { border-color: rgba(18,31,51,.95); background: #52657c; }
-#env[data-stage="5"] ~ .game .stage-dot.active { background: #e7d08c; box-shadow: 0 0 9px rgba(242,218,148,.85); }
 #env[data-stage="5"] ~ .game .board {
   background:
     linear-gradient(135deg, rgba(255,255,255,.12), transparent 18% 82%, rgba(132,168,205,.1)),
@@ -962,7 +937,6 @@ body {
 .env.event-stage-5 .env-particle.firefly { filter: brightness(1.8); animation-duration: 3.5s !important; }
 @keyframes envBirdExcited { 50% { transform: translateY(-5px) rotate(-3deg); } }
 
-body.high-contrast .evolution { background: rgba(255,255,255,.93); }
 body.high-contrast .cell { box-shadow: inset 0 0 0 2px rgba(76,56,35,.2); }
 body.high-contrast .tile { box-shadow: 0 4px 10px rgba(30,24,16,.3), inset 0 0 0 2px rgba(255,255,255,.5); }
 body.high-contrast #phaserWorld canvas,
@@ -1331,7 +1305,7 @@ body.score-confirm-open .env-particle { animation-play-state:paused !important; 
    ============================================================ */
 .topbar { flex-wrap:nowrap; }
 .topbar { height:auto; min-height:68px; align-items:flex-start; }
-.brand { min-width:0; flex:1 1 auto; overflow:visible; padding:6px 9px 7px; border-left:3px solid var(--arc-leader-a,var(--green-3)); border-radius:4px 12px 12px 4px; background:linear-gradient(90deg,rgba(247,241,227,.66),rgba(247,241,227,.12)); box-shadow:inset 0 1px 0 rgba(255,255,255,.28); }
+.brand { min-width:0; flex:1 1 auto; overflow:visible; padding:6px 9px 7px; }
 .brand .title { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1; }
 .brand .hint { max-width:100%; min-height:2.42em; overflow:visible; white-space:normal; text-overflow:clip; }
 .scores { flex:0 0 154px; width:154px; justify-content:flex-end; }
