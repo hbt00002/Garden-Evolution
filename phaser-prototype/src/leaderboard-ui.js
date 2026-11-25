@@ -3,6 +3,7 @@
 // handling, and opening and closing. It draws from what leaderboard-api.js fetches and from the pure row
 // logic in leaderboard-view.js. The game gives it the dialog's elements, the
 // current language and a few hooks, and calls open().
+import { focusTitle } from "./focus-trap.js";
 import { PERIODS, buildRows, plantIndex, topPercent } from "./leaderboard-view.js";
 import { plantName as plantNameIn } from "./levels.js";
 import { tileArtUrl } from "./tile-art.js";
@@ -18,12 +19,14 @@ import { loadDeviceId } from "./storage.js";
 // play(): start it }.
 export function createLeaderboardUi({ api, elements, text: getText, language, onOpen, returnTarget, syncInert, daily }) {
   const {
-    modal: leaderboardModalEl, closeBtn: leaderboardCloseBtn, list: leaderboardListEl,
+    modal: leaderboardModalEl, closeBtn: leaderboardCloseBtn, title: leaderboardTitleEl, list: leaderboardListEl,
     me: leaderboardMeEl, tabs: leaderboardTabs, tabBar,
     daily: dailyBarEl, dailyWhen: dailyWhenEl, dailyPlay: dailyPlayBtn
   } = elements;
   let leaderboardPeriod = "all";
   let leaderboardToken = 0;
+  // What the rows on screen were drawn from (see fetchLeaderboard).
+  let drawnKey = null;
 
   // A board row's plant, or nothing for a value that is not a plant.
   const plantName = maxTile => (plantIndex(maxTile) < 0 ? "" : plantNameIn(maxTile, language()));
@@ -71,6 +74,7 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
     }
     leaderboardListEl.setAttribute("aria-busy", "true");
     leaderboardListEl.replaceChildren(list);
+    drawnKey = null;
   }
 
   // The pinned card: the player's own rank, always visible without scrolling.
@@ -189,6 +193,7 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
       leaderboardMessage(error?.name === "AbortError" ? text.requestTimeout : text.loadScoresError),
       retry
     );
+    drawnKey = null;
   }
 
   async function fetchLeaderboard(period = leaderboardPeriod) {
@@ -206,8 +211,17 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
       return;
     }
     const mine = me.status === "fulfilled" ? me.value : null;
+    // The same answer as the one on screen (reopened, nothing new): keep the
+    // drawn rows. Drawing them again a moment after the window appeared was a
+    // second hitch on every open on a phone.
+    const key = JSON.stringify([period, language(), list.value, me.status, mine]);
+    if (key === drawnKey) {
+      if (leaderboardListEl.scrollTop) leaderboardListEl.scrollTop = 0;
+      return;
+    }
     renderLeaderboardMe(mine, me.status === "fulfilled");
     renderLeaderboardRows(period, list.value, mine);
+    drawnKey = key;
   }
 
   // The daily tab says which day it is and when the next one comes, and
@@ -241,7 +255,8 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
     syncInert();
     document.body.style.overflow = "hidden";
     setLeaderboardPeriod(leaderboardPeriod);
-    requestAnimationFrame(() => leaderboardCloseBtn.focus());
+    // The title, not a button: see focusTitle in focus-trap.js.
+    requestAnimationFrame(() => focusTitle(leaderboardTitleEl));
   }
 
   function closeLeaderboard() {

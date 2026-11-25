@@ -78,7 +78,7 @@ function setupPanel({ menu = false } = {}) {
   const documentListeners = {};
   globalThis.document = { addEventListener: (type, fn) => { (documentListeners[type] ||= []).push(fn); } };
   globalThis.requestAnimationFrame = fn => fn();
-  const names = ["button", "startButton", "panel", "backdrop", "closeButton", "musicVolume", "musicVolumeValue", "piano", "sfx", "motion", "particles", "contrast", "reveal", "language"];
+  const names = ["button", "startButton", "panel", "backdrop", "closeButton", "title", "musicVolume", "musicVolumeValue", "piano", "sfx", "motion", "particles", "contrast", "reveal", "language"];
   const elements = Object.fromEntries(names.map(name => [name, new FakeElement()]));
   const log = { opened: 0, visual: 0, inert: 0, language: [], audio: [] };
   const state = { menu };
@@ -108,7 +108,10 @@ test("in the game the panel opens as a popover under the gear, and gives focus b
   assert.equal(t.elements.panel.style.top, "69px");
   assert.equal(t.elements.backdrop.hidden, true, "no backdrop for a popover");
   assert.equal(t.elements.button.attributes["aria-expanded"], "true");
-  assert.equal(t.elements.closeButton.focused, 1);
+  // Focus lands on the panel's title (Tab goes on to its controls): focusing a
+  // button there made the panel slow to open on a phone.
+  assert.equal(t.elements.title.focused, 1);
+  assert.equal(t.elements.closeButton.focused, 0);
   const before = t.elements.button.focused;
   t.elements.closeButton.fire("click");
   assert.equal(t.panel.isOpen(), false);

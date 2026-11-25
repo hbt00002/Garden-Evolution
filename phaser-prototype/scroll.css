@@ -397,3 +397,7 @@ body.high-contrast #env ~ * { --ink-accent: var(--ink-badge-text); }
   .leaderboard-header .scroll-head { display: none; }
   .leaderboard-list { min-height: 56px; }
 }
+
+/* A window's title takes focus when the window opens (focusTitle in
+   src/focus-trap.js); it is not a control, so it shows no focus ring. */
+.scroll h2[tabindex="-1"]:focus { outline: none; }

@@ -2,6 +2,7 @@
 // start menu it is a centred dialog with a backdrop; in the game it is a
 // popover under the gear button, kept on screen even on a short phone held
 // sideways. It shows and changes what audio.js and preferences.js know.
+import { focusTitle } from "./focus-trap.js";
 
 // elements: the panel and everything in it (see script.js for the ids).
 // hooks.onOpen(): the game cools its combo and closes the restart prompt.
@@ -10,7 +11,7 @@
 export function createSettingsPanel({ elements, audio, prefs, applyLanguage, hooks, syncInert }) {
   const {
     button: settingsBtn, startButton: startSettingsBtn, panel: settingsPanel, backdrop: settingsBackdrop,
-    closeButton: settingsCloseBtn, musicVolume: musicVolumeEl, musicVolumeValue: musicVolumeValueEl,
+    closeButton: settingsCloseBtn, title: settingsTitleEl, musicVolume: musicVolumeEl, musicVolumeValue: musicVolumeValueEl,
     piano: pianoToggle, sfx: sfxToggle, motion: motionToggle, particles: particlesToggle,
     contrast: contrastToggle, reveal: revealToggle, haptics: hapticsToggle, language: languageSelect
   } = elements;
@@ -65,7 +66,7 @@ export function createSettingsPanel({ elements, audio, prefs, applyLanguage, hoo
     settingsBackdrop.hidden = !open || inGame;
     settingsBtn.setAttribute("aria-expanded", String(open));
     startSettingsBtn.setAttribute("aria-expanded", String(open));
-    if (open) { syncToggles(); requestAnimationFrame(() => settingsCloseBtn.focus()); }
+    if (open) { syncToggles(); requestAnimationFrame(() => focusTitle(settingsTitleEl)); }
     else trigger?.focus?.();
   }
 
