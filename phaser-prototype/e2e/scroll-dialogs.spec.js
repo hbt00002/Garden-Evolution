@@ -279,7 +279,7 @@ test("in the moon garden the end card's buttons are written in its ink", async (
   await page.locator("#startPlayBtn").click();
   await reveal(page, "#overlay", "noMoves");
   await inWorld(page, 5);
-  expect(await style(page.locator("#playAgainBtn"), "background-color")).toBe("rgb(115, 86, 25)");
+  expect(await style(page.locator("#playAgainBtn"), "background-color")).toBe("rgb(28, 49, 80)");
   expect(await style(page.locator("#shareBtn"), "background-color")).toBe("rgb(228, 219, 192)");
 });
 

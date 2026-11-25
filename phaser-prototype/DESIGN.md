@@ -44,7 +44,7 @@ flower ornament, the main button, rank badges, group strips, checkboxes):
 | 2 Snowmelt Valley | `#3a7236` | `#d9ecc8` | `#254b27` |
 | 3 Spring Bloom | `#43702d` | `#f2c9d8` | `#6a2440` |
 | 4 Alpine Sakura | `#1f6f99` | `#d3eef8` | `#1b5c83` |
-| 5 Moonlit Garden | `#735619` | `#efe2b4` | `#4a3a12` |
+| 5 Moonlit Garden | `#1c3150` | `#dcd8f2` | `#2f2a5e` |
 
 Text on paper is `#3e3325`, secondary text `#6f5a3e`. Every pair must reach
 4.5:1.

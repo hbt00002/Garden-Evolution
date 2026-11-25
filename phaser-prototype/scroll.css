@@ -19,7 +19,7 @@
 #env[data-stage="2"] ~ * { --ink-accent: #3a7236; --ink-badge: #d9ecc8; --ink-badge-text: #254b27; }
 #env[data-stage="3"] ~ * { --ink-accent: #43702d; --ink-badge: #f2c9d8; --ink-badge-text: #6a2440; }
 #env[data-stage="4"] ~ * { --ink-accent: #1f6f99; --ink-badge: #d3eef8; --ink-badge-text: #1b5c83; }
-#env[data-stage="5"] ~ * { --ink-accent: #735619; --ink-badge: #efe2b4; --ink-badge-text: #4a3a12; --paper: #e4dbc0; }
+#env[data-stage="5"] ~ * { --ink-accent: #1c3150; --ink-badge: #dcd8f2; --ink-badge-text: #2f2a5e; --paper: #e4dbc0; }
 
 /* High contrast: solid, darker rules and the darkest ink. */
 body.high-contrast { --rule-style: solid; --paper-rule: #8f7a55; --paper-frame: #5e4a2e; }

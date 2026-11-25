@@ -43,3 +43,10 @@ test("the settings groups are named in every language", () => {
   assert.equal(TRANSLATIONS.tr.settingsView, "Görüntü");
   assert.equal(TRANSLATIONS.tr.settingsGeneral, "Genel");
 });
+
+// Short enough for the pixel button on a narrow phone, and what a game in that
+// language says: "Nouveau jeu" would read as a new product, not a new round.
+test("the new-game button is short and idiomatic in Spanish and French", () => {
+  assert.equal(TRANSLATIONS.es.newGame, "Nuevo juego");
+  assert.equal(TRANSLATIONS.fr.newGame, "Recommencer");
+});

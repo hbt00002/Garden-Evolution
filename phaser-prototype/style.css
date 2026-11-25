@@ -887,13 +887,13 @@ body {
   --moon-gold: #e5c77e;
   --moon-deep: rgba(9, 17, 35, .91);
 }
-#env[data-stage="5"] ~ .game .btn:not(:where(.ink-btn:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *)))) {
+#env[data-stage="5"] ~ .game .btn:not(.controls .btn):not(:where(.ink-btn:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *)))) {
   color: #eef3f8;
   background: linear-gradient(180deg, rgba(43,59,84,.96), rgba(15,25,45,.97));
   border-color: rgba(174,198,221,.62);
   box-shadow: 0 3px 0 rgba(4,9,19,.76), inset 0 1px rgba(255,255,255,.13), 0 0 14px rgba(113,159,205,.1);
 }
-#env[data-stage="5"] ~ .game .btn:not(:where(.ink-btn:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *)))):hover {
+#env[data-stage="5"] ~ .game .btn:not(.controls .btn):not(:where(.ink-btn:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *)))):hover {
   color: #fff7d7;
   background: linear-gradient(180deg, rgba(69,79,97,.98), rgba(27,36,55,.98));
   border-color: rgba(229,199,126,.88);
@@ -1312,20 +1312,27 @@ body.score-confirm-open .env-particle { animation-play-state:paused !important; 
 .score-box { flex:0 0 72px; width:72px; min-width:72px; height:50px; padding:6px 8px; overflow:hidden; justify-content:center; }
 .score-label { width:100%; overflow:hidden; text-align:center; text-overflow:ellipsis; white-space:nowrap; }
 
-.controls { display:grid; grid-template-columns:42px 42px minmax(0,1fr) 116px; gap:10px; width:100%; }
-.controls .btn { width:100%; min-width:0; height:48px; margin:0; padding-block:6px; position:relative; isolation:isolate; overflow:hidden; display:grid; place-items:center; border:2px solid rgba(255,255,255,.76); border-radius:4px; clip-path:polygon(6px 0,calc(100% - 6px) 0,calc(100% - 6px) 2px,100% 2px,100% calc(100% - 6px),calc(100% - 2px) calc(100% - 6px),calc(100% - 2px) 100%,6px 100%,6px calc(100% - 2px),0 calc(100% - 2px),0 6px,2px 6px,2px 2px,6px 2px); color:#fffaf0; font-weight:800; line-height:1.05; letter-spacing:.045em; text-transform:uppercase; text-shadow:0 2px 0 rgba(37,18,48,.58); transition:transform .18s cubic-bezier(.2,1.6,.3,1),filter .18s ease,box-shadow .18s ease; }
-.controls .btn::before { content:""; position:absolute; z-index:-1; inset:2px 3px auto; height:38%; background:linear-gradient(180deg,rgba(255,255,255,.32),rgba(255,255,255,0)); clip-path:polygon(3px 0,calc(100% - 3px) 0,100% 100%,0 100%); pointer-events:none; }
-.controls .btn::after { content:""; position:absolute; top:-70%; left:-30%; width:24%; height:240%; background:rgba(255,255,255,.34); transform:rotate(24deg); opacity:0; pointer-events:none; }
-.controls .settings-btn { background:linear-gradient(180deg,#9f65d8,#7138a7); border-color:#dfc3ff; box-shadow:0 5px 0 #3e1e68,0 8px 14px rgba(56,24,87,.3),inset 0 -2px 0 rgba(48,15,78,.35); }
-.controls .leaderboard-btn { background:linear-gradient(180deg,#2ec9c3,#168d9f); border-color:#b9fff4; box-shadow:0 5px 0 #075565,0 8px 14px rgba(4,75,85,.28),inset 0 -2px 0 rgba(0,64,73,.3); }
-.controls .new-btn { background:linear-gradient(180deg,#ff806b,#e34762); border-color:#ffd2a8; box-shadow:0 5px 0 #8f2547,0 8px 14px rgba(119,24,53,.28),inset 0 -2px 0 rgba(113,18,48,.3); }
-.controls .btn:hover { transform:translateY(-3px) rotate(-1deg) scale(1.035); filter:saturate(1.18) brightness(1.07); }
-.controls .btn:hover::after { opacity:1; animation:arcadeShine .58s ease-out both; }
-.controls .new-btn:hover { transform:translateY(-3px) rotate(1deg) scale(1.045); }
-.controls .btn:active { transform:translateY(4px) scale(.98); filter:saturate(1.05); box-shadow:0 1px 0 #38203e,inset 0 2px 3px rgba(45,12,39,.28); }
-.gear-ico { color:#fff3a6; filter:drop-shadow(0 2px 0 #4a2469); transition:transform .45s cubic-bezier(.2,1.4,.3,1); }
-.settings-btn:hover .gear-ico { transform:rotate(90deg) scale(1.1); }
-@keyframes arcadeShine { from{left:-30%;opacity:0} 20%{opacity:.8} to{left:120%;opacity:0} }
+.controls { display:grid; grid-template-columns:44px 44px minmax(0,1fr) minmax(0,1fr); gap:10px; width:100%; }
+/* The game's buttons are small pixel windows in the world's ink (DESIGN.md):
+   paper with a double ink frame, the main action (New game) filled with ink
+   and written in paper, a pointer before it. Flat: no gradient, glow or
+   shine, no capitals. Pressed, the face sinks under the frame. Long labels
+   shrink to fit (fit-label.js). */
+.controls .btn { width:100%; min-width:0; height:48px; min-height:44px; margin:0; padding:0 8px; position:relative; display:flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap; overflow:hidden;
+  border:0; border-radius:0; clip-path:polygon(4px 0,calc(100% - 4px) 0,100% 4px,100% calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,0 calc(100% - 4px),0 4px);
+  background:var(--paper); color:var(--ink-accent);
+  box-shadow:inset 0 0 0 2px var(--ink-accent), inset 0 0 0 4px var(--paper), inset 0 0 0 6px var(--ink-accent);
+  font-family:"Pixelify Sans","Oxanium",sans-serif; font-size:1rem; font-weight:700; line-height:1; letter-spacing:.01em; text-transform:none; text-shadow:none; filter:none;
+  transition:background .45s ease, color .45s ease; }
+.controls .btn svg { color:var(--ink-accent); filter:none; }
+.controls .new-btn { background:var(--ink-accent); color:var(--paper); font-size:clamp(1rem, 4.7vw, 1.25rem); padding-inline:6px; }
+.controls .new-btn::before { content:"\25B8"; font-size:.8em; }
+.controls .btn:hover { transform:none; }
+.controls .btn:active { box-shadow:inset 0 0 0 2px var(--ink-accent), inset 0 0 0 4px var(--paper), inset 0 0 0 6px var(--ink-accent), inset 0 4px 0 6px rgba(47,33,22,.18); padding-top:4px; }
+/* The corners are cut, which would cut an outline too: the focus ring is a
+   third, dark line inside the frame. */
+.controls .btn:focus-visible { outline:none; box-shadow:inset 0 0 0 2px var(--ink-accent), inset 0 0 0 4px var(--paper), inset 0 0 0 6px var(--ink-accent), inset 0 0 0 9px var(--paper-ink); }
+.controls .new-btn:focus-visible { box-shadow:inset 0 0 0 2px var(--ink-accent), inset 0 0 0 4px var(--paper), inset 0 0 0 6px var(--ink-accent), inset 0 0 0 9px var(--paper); }
 
 @media (max-width: 420px) {
   .topbar { height:auto; min-height:66px; gap:7px; }
@@ -1334,8 +1341,8 @@ body.score-confirm-open .env-particle { animation-play-state:paused !important; 
   .brand .hint { font-size:.6875rem; }
   .scores { flex-basis:126px; width:126px; }
   .score-box { flex-basis:59px; width:59px; min-width:59px; height:46px; }
-  .controls { grid-template-columns:44px 44px minmax(96px,1fr) minmax(90px,108px); gap:7px; }
-  .controls .btn { height:44px; padding-inline:7px; font-size:.7rem; letter-spacing:.02em; }
+  .controls { gap:7px; }
+  .controls .btn { height:44px; }
 }
 
 /* Keep the complete board and controls inside common short laptop screens.
@@ -1347,11 +1354,6 @@ body.score-confirm-open .env-particle { animation-play-state:paused !important; 
   .game { gap:10px; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .controls .btn:hover,.controls .new-btn:hover { transform:none; }
-  .controls .btn:hover::after { animation:none; }
-  .settings-btn:hover .gear-ico { transform:none; }
-}
 
 /* Stage-reactive arcade palettes. Geometry stays fixed; the world recolors it. */
 #env[data-stage="1"] ~ .game,
@@ -1389,29 +1391,6 @@ body.score-confirm-open .env-particle { animation-play-state:paused !important; 
   --arc-new-a:#e8d891; --arc-new-b:#aa8d48; --arc-new-edge:#fff7c9; --arc-new-shadow:#665126;
   --arc-gear:#fff0a8;
 }
-#env[data-stage] ~ .game .controls .settings-btn {
-  background:linear-gradient(180deg,var(--arc-settings-a),var(--arc-settings-b)) !important;
-  border-color:var(--arc-settings-edge) !important;
-  box-shadow:0 5px 0 var(--arc-settings-shadow),0 8px 14px color-mix(in srgb,var(--arc-settings-shadow) 45%,transparent),inset 0 -2px 0 color-mix(in srgb,var(--arc-settings-shadow) 58%,transparent);
-}
-#env[data-stage] ~ .game .controls .leaderboard-btn {
-  background:linear-gradient(180deg,var(--arc-leader-a),var(--arc-leader-b)) !important;
-  border-color:var(--arc-leader-edge) !important;
-  box-shadow:0 5px 0 var(--arc-leader-shadow),0 8px 14px color-mix(in srgb,var(--arc-leader-shadow) 45%,transparent),inset 0 -2px 0 color-mix(in srgb,var(--arc-leader-shadow) 58%,transparent);
-}
-#env[data-stage] ~ .game .controls .new-btn {
-  background:linear-gradient(180deg,var(--arc-new-a),var(--arc-new-b)) !important;
-  border-color:var(--arc-new-edge) !important;
-  box-shadow:0 5px 0 var(--arc-new-shadow),0 8px 14px color-mix(in srgb,var(--arc-new-shadow) 45%,transparent),inset 0 -2px 0 color-mix(in srgb,var(--arc-new-shadow) 58%,transparent);
-}
-#env[data-stage] ~ .game .gear-ico { color:var(--arc-gear); }
-#env[data-stage="5"] ~ .game .controls .new-btn { color:#172448; text-shadow:0 1px 0 rgba(255,255,255,.42); }
-#env[data-stage] ~ .game .controls .btn {
-  clip-path:none !important;
-  border-radius:14px !important;
-  transition:background .45s ease,border-color .45s ease,box-shadow .45s ease,transform .18s cubic-bezier(.2,1.6,.3,1),filter .18s ease;
-}
-#env[data-stage] ~ .game .controls .btn::before { border-radius:10px 10px 4px 4px; clip-path:none; }
 
 #env[data-stage="5"] ~ .game .overlay[data-mode="victory"] .submit-score-btn {
   color:#29433a; border-color:#d2e2d3; background:#aac3ad;
@@ -1777,7 +1756,7 @@ body.world-focus .game {
 }
 
 /* The new button sits next to the gear, in the same family. */
-.view-btn .view-ico { width: 24px; height: 20px; display: block; color: var(--arc-gear, #fff3a6); filter: drop-shadow(0 2px 0 rgba(40,20,60,.35)); }
+.view-btn .view-ico { width: 24px; height: 20px; display: block; }
 .controls .view-btn[hidden] { display: none; }
 
 /* ----- Garden view ----- */
@@ -1891,8 +1870,8 @@ body.world-focus .game {
   .world-reveal.show .wr-card::after { animation: none; transform: scaleX(.5); }
 }
 
-body.no-garden-view .controls { grid-template-columns: 42px minmax(0,1fr) 116px; }
-@media (max-width: 420px) { body.no-garden-view .controls { grid-template-columns: 44px minmax(116px,1fr) minmax(94px,108px); } }
+body.no-garden-view .controls { grid-template-columns: 44px minmax(0,1fr) minmax(0,1fr); }
+
 @media (orientation: landscape) and (max-height: 540px) { body.no-garden-view .controls { grid-template-columns: 1fr 1fr; } }
 
 /* ============================================================
@@ -1902,7 +1881,7 @@ body.no-garden-view .controls { grid-template-columns: 42px minmax(0,1fr) 116px;
    below a comfortable size, never huge on a tall screen.
    ============================================================ */
 @media (orientation: landscape) and (max-height: 540px) {
-  .controls .btn { height: clamp(40px, 15vh, 54px); font-size: clamp(.72rem, 3.1vh, .92rem); border-radius: 14px; }
+  .controls .btn { height: clamp(44px, 15vh, 54px); font-size: clamp(.875rem, 3.1vh, 1rem); }
   .controls { gap: clamp(8px, 2.6vh, 12px); }
   .controls .btn svg { width: clamp(20px, 7vh, 28px); height: clamp(20px, 7vh, 28px); }
   .score-box { height: clamp(48px, 17vh, 62px); }
@@ -1920,7 +1899,9 @@ body.no-garden-view .controls { grid-template-columns: 42px minmax(0,1fr) 116px;
 /* On the narrowest sideways screens (about 670 px wide, with a notch on each
    side) the columns are narrow, so the same rule stays within what fits. */
 @media (orientation: landscape) and (max-height: 540px) and (max-width: 760px) {
-  .controls .btn { height: clamp(38px, 16vh, 46px); font-size: clamp(.6875rem, 3.2vh, .8rem); }
+  .controls .btn { height: 44px; font-size: clamp(.8125rem, 3.2vh, .9rem); }
+  /* The buttons stay 44 px tall; the gaps between them give way instead. */
+  .controls { gap: clamp(6px, 2.6vh, 12px); }
   .scores { flex-basis: clamp(118px, 20vw, 150px); width: clamp(118px, 20vw, 150px); }
   .score-box { flex-basis: clamp(54px, 9vw, 70px); width: clamp(54px, 9vw, 70px); min-width: clamp(54px, 9vw, 70px); height: clamp(46px, 17vh, 58px); }
   .brand .title { font-size: clamp(1.1rem, 5.4vh, 1.4rem); }
