@@ -547,7 +547,7 @@ const leaderboard = createLeaderboardUi({
   api: leaderboardApi,
   elements: {
     modal: leaderboardModalEl,
-    closeBtn: leaderboardCloseBtn,
+    closeBtn: leaderboardCloseBtn, title: document.getElementById("leaderboardTitle"),
     list: document.getElementById("leaderboardList"),
     me: document.getElementById("leaderboardMe"),
     tabs: Array.from(document.querySelectorAll(".lb-tab")),
@@ -584,6 +584,7 @@ const achievementsPanel = createAchievementsPanel({
   elements: {
     modal: achievementsModalEl,
     closeBtn: document.getElementById("achievementsClose"),
+    title: document.getElementById("achievementsTitle"),
     summary: document.getElementById("achievementsSummary"),
     stats: document.getElementById("achievementsStats"),
     list: document.getElementById("achievementsList")
@@ -848,7 +849,7 @@ const settings = createSettingsPanel({
     startButton: startSettingsBtn,
     panel: settingsPanel,
     backdrop: document.getElementById("settingsBackdrop"),
-    closeButton: settingsCloseBtn,
+    closeButton: settingsCloseBtn, title: document.getElementById("settingsTitle"),
     musicVolume: musicVolumeEl,
     musicVolumeValue: document.getElementById("musicVolumeValue"),
     piano: document.getElementById("pianoToggle"),
@@ -864,7 +865,8 @@ const settings = createSettingsPanel({
   prefs,
   applyLanguage,
   hooks: {
-    onOpen: () => { closeRestart(false); comboHud.cool(); queuedDirection = null; },
+    // The achievements are reached from here: draw their list ahead if it changed.
+    onOpen: () => { closeRestart(false); comboHud.cool(); queuedDirection = null; achievementsPanel.prepare(); },
     onVisualChange: applyVisualPrefs,
     startMenuShowing: () => !startScreenEl.hidden
   },

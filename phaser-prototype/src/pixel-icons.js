@@ -321,20 +321,23 @@ const ICONS = {
   ]
 };
 
-// One <rect> per run of same-coloured pixels in a row: a few dozen elements an icon.
+// One shape for the icon's colour and one for its softer shade, each a square
+// per run of same-coloured pixels in a row. One element per run (a few dozen an
+// icon) made every window slower to open on a phone.
 function draw(rows) {
-  const rects = [];
+  const runs = { "#": "", "+": "" };
   rows.forEach((row, y) => {
     for (let x = 0; x < row.length;) {
       const ch = row[x];
-      if (ch === ".") { x++; continue; }
+      if (!(ch in runs)) { x++; continue; }
       let end = x;
       while (row[end + 1] === ch) end++;
-      rects.push(`<rect x="${x}" y="${y}" width="${end - x + 1}" height="1"${ch === "+" ? ' opacity=".5"' : ""}/>`);
+      const width = end - x + 1;
+      runs[ch] += `M${x} ${y}h${width}v1h-${width}z`;
       x = end + 1;
     }
   });
-  return rects.join("");
+  return (runs["#"] ? `<path d="${runs["#"]}"/>` : "") + (runs["+"] ? `<path d="${runs["+"]}" opacity=".5"/>` : "");
 }
 
 export const PIXEL_ICONS = Object.keys(ICONS);

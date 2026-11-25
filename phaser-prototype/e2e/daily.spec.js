@@ -125,7 +125,7 @@ test("achievements: shown from the menu and Settings, unlocked by playing, kept 
   await expect(page.locator("#achievementsModal")).toBeVisible();
   await expect(page.locator("#achievementsSummary")).toHaveText("0 of 18 unlocked");
   await expect(page.locator(".ach-item")).toHaveCount(18);
-  await expect(page.locator("#achievementsClose")).toBeFocused();
+  await expect(page.locator("#achievementsTitle")).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.locator("#achievementsModal")).toBeHidden();
   await expect(page.locator("#startAchievementsBtn")).toBeFocused();

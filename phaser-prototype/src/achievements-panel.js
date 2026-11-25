@@ -2,6 +2,7 @@
 // achievement with its description and progress. It draws from
 // achievements.js; the game gives it the dialog's elements, the language and a
 // few hooks, and calls open().
+import { focusTitle } from "./focus-trap.js";
 import { artValueFor, plantName, stageMeta } from "./levels.js";
 import { pixelIcon } from "./pixel-icons.js";
 import { tileArtUrl } from "./tile-art.js";
@@ -12,7 +13,7 @@ import { dayKey } from "./daily.js";
 // onOpen(): the game cools its combo; returnTarget(): the button that gets
 // focus back; syncInert(): makes the game behind the dialog unreachable.
 export function createAchievementsPanel({ achievements, elements, text: getText, language, onOpen, returnTarget, syncInert }) {
-  const { modal, closeBtn, summary, stats: statsEl, list: listEl } = elements;
+  const { modal, closeBtn, title, summary, stats: statsEl, list: listEl } = elements;
   let opener = null;
 
   const number = value => Number(value).toLocaleString(language());
@@ -109,9 +110,33 @@ export function createAchievementsPanel({ achievements, elements, text: getText,
     }));
   }
 
+  // The list shows the language and where each achievement stands; it is drawn
+  // again only when one of those has changed. Rebuilding it on every open made
+  // the window slow to appear on a phone.
+  let drawnKey = null;
+  let pending = 0;
+  const listKey = () => `${language()}|${achievements.list().map(a => `${a.unlocked ? 1 : 0}${a.value}`).join(",")}`;
+
+  function renderListIfStale() {
+    const key = listKey();
+    if (key === drawnKey) return;
+    renderList();
+    drawnKey = key;
+  }
+
   function render() {
     renderStats();
-    renderList();
+    renderListIfStale();
+  }
+
+  // Draws a stale list in the phone's spare time, while the window is closed
+  // (the game calls this when the way to the window, the settings, opens).
+  const whenIdle = window.requestIdleCallback
+    ? fn => window.requestIdleCallback(fn, { timeout: 500 })
+    : fn => setTimeout(fn, 50);
+  function prepare() {
+    if (pending || !modal.hidden || listKey() === drawnKey) return;
+    pending = whenIdle(() => { pending = 0; if (modal.hidden) renderListIfStale(); });
   }
 
   function open(event) {
@@ -121,7 +146,8 @@ export function createAchievementsPanel({ achievements, elements, text: getText,
     modal.hidden = false;
     syncInert();
     document.body.style.overflow = "hidden";
-    requestAnimationFrame(() => closeBtn.focus());
+    // The title, not a button: see focusTitle in focus-trap.js.
+    requestAnimationFrame(() => focusTitle(title));
   }
 
   function close() {
@@ -138,6 +164,7 @@ export function createAchievementsPanel({ achievements, elements, text: getText,
   return {
     open,
     close,
+    prepare,
     isOpen: () => !modal.hidden,
     // Re-draw (the language changed, or something unlocked while it is open).
     refresh: () => { if (!modal.hidden) render(); },
