@@ -250,13 +250,10 @@ html, body {
   image-rendering: pixelated;
 }
 
-/* Keep the final world's full-scene plate tied to the browser viewport.
-   Phaser stays transparent above it for the animated light/water details. */
-.env[data-stage="5"] .phaser-world {
-  --s5-focus-x: 50%;
-  background: #07111c url("/assets/stage5-v2/quiet-moon-garden.png") var(--s5-focus-x) top / cover no-repeat;
-  image-rendering: pixelated;
-}
+/* The final world's night blue while its painting loads. The painting itself
+   is drawn by the world (MoonlitFinaleScene): a copy here, under the world's
+   opaque canvas, was never seen but the phone kept it in memory. */
+.env[data-stage="5"] .phaser-world { background: #07111c; }
 
 /* Lightweight scene change: opacity-only, no text/layout/reflow work. */
 .env::after {
@@ -272,19 +269,6 @@ html, body {
 @keyframes stageSoftVeil {
   0%,100% { opacity:0; }
   42%,58% { opacity:.36; }
-}
-
-/* Stage 5 art direction: progressively bias the crop toward the moon/pond on
-   narrower screens. The image still covers edge-to-edge; only its focal point
-   changes, so portrait devices do not lose the moon outside the crop. */
-@media (max-aspect-ratio: 1 / 1) {
-  .env[data-stage="5"] .phaser-world { --s5-focus-x: 62%; }
-}
-@media (max-aspect-ratio: 3 / 4) {
-  .env[data-stage="5"] .phaser-world { --s5-focus-x: 68%; }
-}
-@media (max-aspect-ratio: 10 / 18) {
-  .env[data-stage="5"] .phaser-world { --s5-focus-x: 72%; }
 }
 
 .env[data-phaser-active] .env-sky,

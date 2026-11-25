@@ -211,10 +211,9 @@ export class MoonlitFinaleScene extends Phaser.Scene {
     const aspect = width / Math.max(height, 1);
     const focusX = aspect <= (10 / 18) ? .72 : aspect <= .75 ? .68 : aspect <= 1 ? .62 : .5;
     this.cameras.main.setViewport(0, 0, width, height).setZoom(zoom);
-    // Match CSS background-position exactly: horizontal focal crop + top edge.
-    // This keeps Phaser's lantern/water overlays registered with the artwork.
-    // cameraScroll accounts for Phaser zooming about the viewport's centre; the
-    // top of the painting is pinned to the top of the screen (as the CSS plate is).
+    // A horizontal focal crop (the moon and pond on narrow screens), with the
+    // top of the painting pinned to the top of the screen. cameraScroll
+    // accounts for Phaser zooming about the viewport's centre.
     const scroll = cameraScroll(W, H, width, height, zoom, this.panFocus, focusX);
     this.cameras.main.setScroll(scroll.x, -(height - height / zoom) / 2);
   }
