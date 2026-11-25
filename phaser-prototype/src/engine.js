@@ -175,9 +175,6 @@ const applyPan = () => {
   panFrame = 0;
   const fraction = pendingPan;
   game.scene.getScenes(true).forEach(scene => scene.setPan?.(fraction));
-  // The last world is a flat plate behind a transparent canvas; its focus is a CSS variable.
-  if (fraction === null) mount.style.removeProperty("--s5-focus-x");
-  else mount.style.setProperty("--s5-focus-x", `${(fraction * 100).toFixed(2)}%`);
 };
 window.addEventListener("garden:world-pan", event => {
   pendingPan = event.detail?.fraction ?? null;
