@@ -54,6 +54,7 @@ import { createTileArt, tileArtUrl } from "./src/tile-art.js";
 import { createToast } from "./src/toast.js";
 import { createWorldEffects } from "./src/world-effects.js";
 import { createWorldView } from "./src/world-view.js";
+import { fitLabels } from "./src/fit-label.js";
 
 const SIZE = BOARD_SIZE;
 const SLIDE_MS = 115;
@@ -182,7 +183,17 @@ function applyLanguage(language) {
   updateModeBadge();
   updateDailyButton();
   saveLanguage(currentLanguage);
+  fitControlLabels();
 }
+
+// The two worded buttons keep their labels on one line in every language: a
+// long word shrinks to fit (on a narrow phone, "Clasificación"). Again when
+// the buttons change width, and once the pixel font has arrived.
+function fitControlLabels() {
+  fitLabels([document.getElementById("leaderboardBtn"), document.getElementById("newBtn")]);
+}
+new ResizeObserver(() => fitControlLabels()).observe(document.querySelector(".controls"));
+document.fonts?.ready.then(fitControlLabels);
 
 // "World 3 of 5" in the player's language.
 function worldKicker(stage) {
