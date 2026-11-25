@@ -23,6 +23,12 @@ no sparkles.
   Windows: leaderboard, achievements, settings (full and in-game), the
   new-game prompt, the lower-score prompt, the connection error, the
   no-moves card.
+- **The title card, the scores and the world card** are the same paper, as
+  small cards: opaque `--paper`, 4 px chipped corners, a hard 4 px line along
+  the bottom instead of a soft shadow, every text in paper ink (title, scores
+  and world name `#3e3325`, the rest `#6f5a3e`). The world bar is flat
+  `--paper-rule` filled with the world's ink, its marks square. They read the
+  same over every world's painting.
 - **Reward moments keep their own look**: the 2048 milestone and the 8192
   victory cards (dark wood, glow). They are meant to feel different.
 
