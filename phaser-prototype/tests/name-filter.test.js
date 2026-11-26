@@ -46,3 +46,33 @@ test("normalisation strips accents, separators and stretched letters", () => {
   assert.equal(normalizeName("Fuuuck"), "fuck");
   assert.equal(normalizeName("Zoë"), "zoe");
 });
+
+// From the review of 26 Nov 2026: what slipped through, and real names that
+// were refused.
+test("Turkish insults that slipped through are refused", () => {
+  for (const name of ["emreninsiki", "Ahmetinsiki", "amına koyim", "s.i.k.i.s", "yavşak", "kahpe", "gavat", "şerefsiz", "kaltak", "phuck"]) {
+    assert.equal(isNameAllowed(name), false, name);
+  }
+});
+
+test("short words are refused as a word of their own, not inside another word", () => {
+  for (const name of ["aq", "fck", "Ali Amk", "Ali aq", "sik kafa", "göt", "Ece Pıç"]) {
+    assert.equal(isNameAllowed(name), false, name);
+  }
+  for (const name of ["Kamkar", "Picnic", "Gotham", "Mustafa Got", "got", "Sikorsky"]) {
+    assert.equal(isNameAllowed(name), true, name);
+  }
+});
+
+test("Latin names disguised with look-alike letters of another script are refused", () => {
+  for (const name of ["аdmin", "оfficial", "ѕhit", "fսck"]) {
+    assert.equal(isNameAllowed(name), false, name);
+  }
+  assert.equal(isNameAllowed("Анна"), true, "a name wholly in Cyrillic is a name");
+});
+
+test("real names that contain a blocked word are allowed", () => {
+  for (const name of ["Nazım", "Nazife", "Nazif", "Dickinson", "Mishit", "Musiki"]) {
+    assert.equal(isNameAllowed(name), true, name);
+  }
+});

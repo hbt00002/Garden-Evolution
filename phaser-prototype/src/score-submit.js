@@ -6,6 +6,7 @@ import { LOWER_SCORE_COPY } from "./i18n.js";
 import { leaderboardRequest } from "./leaderboard-api.js";
 import { stageFor } from "./levels.js";
 import { loadDeviceId, savePlayerName } from "./storage.js";
+import { cleanName } from "./player-name.js";
 
 // elements: the end card's form and the confirmation dialog.
 // getRun(): { ranked, session, score, maxValueReached, bestCombo, moves } for the run on screen.
@@ -58,7 +59,7 @@ export function createScoreSubmit({ elements, text: getText, language, getRun, s
   async function submitScore(event) {
     event.preventDefault();
     if (scoreSubmitted) return;
-    const playerName = playerNameEl.value.normalize("NFKC").replace(/\s+/g, " ").trim().slice(0, 16);
+    const playerName = cleanName(playerNameEl.value);
     const text = getText();
     if (playerName.length < 2) {
       scoreSubmitStatusEl.textContent = text.nameTooShort;

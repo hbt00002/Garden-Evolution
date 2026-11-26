@@ -1,5 +1,6 @@
 import { MAX_MOVES, replayGame } from "../src/game-core.js";
 import { isNameAllowed } from "./name-filter.js";
+import { cleanName } from "../src/player-name.js";
 import { dayEnd, dayKey, isDayKey } from "../src/daily.js";
 
 const JSON_HEADERS = {
@@ -96,17 +97,6 @@ function isMissingScoreLog(error) {
 
 function isMissingDaily(error) {
   return /no such table:?\s*daily_scores/i.test(String(error?.message || error));
-}
-
-function cleanName(value) {
-  return String(value || "")
-    .normalize("NFKC")
-    // Control characters are exactly what is being removed here.
-    // eslint-disable-next-line no-control-regex
-    .replace(/[<>\u0000-\u001f\u007f]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 16);
 }
 
 export function expectedStage(maxTile) {

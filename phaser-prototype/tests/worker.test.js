@@ -661,6 +661,18 @@ test("submit: names that are not allowed are refused with a code", async () => {
   assert.equal((await submit(env, await validScore({ playerName: "山田太郎" }))).status, 201);
 });
 
+test("submit: invisible characters are removed, an emoji is never cut, and the review's names are judged", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const hidden = await submit(env, await validScore({ playerName: "Player" + String.fromCharCode(0x200B) + "01" }));
+  assert.equal(hidden.status, 201);
+  assert.equal((await hidden.json()).playerName, "Player01");
+  const long = await submit(env, await validScore({ playerName: "abcdefghijklmno" + String.fromCodePoint(0x1F338) }));
+  assert.equal((await long.json()).playerName, "abcdefghijklmno" + String.fromCodePoint(0x1F338));
+  assert.equal((await submit(env, await validScore({ playerName: "emreninsiki" }))).status, 400);
+  assert.equal((await submit(env, await validScore({ playerName: "Nazım" }))).status, 201);
+});
+
 test("migration gap: scores are still accepted before score_log exists", async () => {
   installCacheStub();
   const env = makeEnv();
