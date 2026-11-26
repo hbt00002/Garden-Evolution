@@ -491,6 +491,9 @@ export function createAudio({ getStage, isMenu }) {
     }
     if (!audioUnlocked || !musicOn) {
       if (audioCtx) audioCtx.resume().catch(() => {});
+      // The menu track may have autoplayed before the first tap; it checks the
+      // menu and the music setting itself.
+      startMenuMusic();
       return;
     }
     if (isMenu()) {
