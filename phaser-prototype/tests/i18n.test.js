@@ -50,3 +50,20 @@ test("the new-game button is short and idiomatic in Spanish and French", () => {
   assert.equal(TRANSLATIONS.es.newGame, "Nuevo juego");
   assert.equal(TRANSLATIONS.fr.newGame, "Recommencer");
 });
+
+// A new player meets the game in their phone's language, when the game has it.
+test("the game picks the device's language when it has it, and English otherwise", async () => {
+  const { deviceLanguage } = await import("../src/i18n.js");
+  assert.equal(deviceLanguage(["tr-TR"]), "tr");
+  assert.equal(deviceLanguage(["de-AT", "en-US"]), "de");
+  assert.equal(deviceLanguage(["pt-BR"]), "pt");
+  assert.equal(deviceLanguage(["zh-Hans-CN"]), "zh");
+  assert.equal(deviceLanguage(["nl-NL", "fr-FR"]), "fr", "the first language the game has");
+  assert.equal(deviceLanguage(["nl-NL"]), "en");
+  assert.equal(deviceLanguage([]), "en");
+  assert.equal(deviceLanguage(undefined), "en");
+});
+
+test("the Portuguese settings label is the short one phones use, so it fits the menu", () => {
+  assert.equal(TRANSLATIONS.pt.settings, "Ajustes");
+});

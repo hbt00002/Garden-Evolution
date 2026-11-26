@@ -88,7 +88,7 @@ test("preferences, the best score, the name and the language are remembered", as
     store.savePlayerName("Mira");
     assert.equal(store.loadPlayerName(), "Mira");
 
-    assert.equal(store.loadLanguage(), "en");
+    assert.equal(store.loadLanguage(), null, "never chosen: the game uses the phone's language");
     store.saveLanguage("tr");
     assert.equal(store.loadLanguage(), "tr");
   });
@@ -121,7 +121,7 @@ test("when storage is blocked nothing throws and the defaults apply", async () =
     assert.equal(store.loadBest(), 0);
     assert.equal(store.loadPref("x", true), true);
     assert.equal(store.loadPlayerName(), "");
-    assert.equal(store.loadLanguage(), "en");
+    assert.equal(store.loadLanguage(), null);
     assert.equal(store.loadDeviceId(), null);
     assert.equal(store.loadSavedGame(), null);
     assert.doesNotThrow(() => {

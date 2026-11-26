@@ -37,7 +37,8 @@ export const savePref = (key, value) => write(key, value);
 export const loadPlayerName = () => read(KEYS.playerName) || "";
 export const savePlayerName = name => write(KEYS.playerName, name);
 
-export const loadLanguage = () => read(KEYS.language) || "en";
+// The language the player chose in the settings, or null if they never did.
+export const loadLanguage = () => read(KEYS.language) || null;
 export const saveLanguage = language => write(KEYS.language, language);
 
 // Stable per-browser id so the leaderboard can keep one "best score" row

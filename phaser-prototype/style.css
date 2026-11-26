@@ -702,7 +702,6 @@ body {
 .env[data-board-engine] ~ .game .cell { background:transparent; border-color:transparent; box-shadow:none; }
 .env[data-board-engine] ~ .game .grid { z-index:1; }
 .env[data-board-engine] ~ .game .tiles { z-index:2; }
-.env[data-board-engine] ~ .game .overlay { z-index:3; }
 .board.celebrate {
   box-shadow:
     0 0 0 4px rgba(244, 215, 110, 0.6),
@@ -860,17 +859,34 @@ body {
 /* ============================================================
    OVERLAY
    ============================================================ */
+/* The end card is a window over the whole screen, like the others: the
+   board behind it is dimmed, the card sits in the middle, and when it is
+   taller than the screen (a small phone, the name form, the keyboard) it
+   scrolls with its buttons kept in view at the bottom. Other windows (the
+   leaderboard, z-index 70) still open above it. */
 .overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(247, 241, 227, 0.82);
-  border-radius: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(18px + var(--safe-top, 0px)) 16px 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: rgba(13, 24, 24, .64);
   opacity: 0;
   transition: opacity 0.35s ease;
-  z-index: 5;
+  z-index: 60;
 }
+.overlay > .overlay-card { flex: none; width: min(100%, 380px); margin: auto 0; }
+:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-actions {
+  position: sticky; bottom: 0; z-index: 2; align-self: stretch;
+  margin-inline: -16px; padding: 10px 16px calc(12px + var(--safe-bottom, 0px));
+  background: var(--paper); box-shadow: 0 -2px 0 var(--paper-rule);
+}
+/* While it is open, a toast (an achievement unlocked by this very game) shows
+   at the top of the screen, never on the card's form or buttons. */
+body:has(#overlay.show) .toast { top: calc(12px + var(--safe-top, 0px)); bottom: auto; z-index: 75; }
 .overlay[hidden] { display: none; }
 .overlay, .overlay * { touch-action: manipulation; }
 .overlay input, .overlay textarea { user-select: text; -webkit-user-select: text; touch-action: manipulation; }
@@ -1936,8 +1952,11 @@ body.no-garden-view .controls { grid-template-columns: 44px minmax(0,1fr) minmax
 .start-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
 .start-btn.start-btn-small {
   height: 50px; min-height: 50px; padding: 6px 8px;
-  font-size: clamp(.6875rem, 1.7vw, .76rem); letter-spacing: .05em; line-height: 1.1;
-  overflow-wrap: anywhere; hyphens: auto;
+  font-size: clamp(.6875rem, 1.7vw, .76rem); letter-spacing: .01em; line-height: 1.1;
+  padding-inline: 4px;
+  /* Lines break between words only; a word too long for the button shrinks
+     a little instead (fit-label.js), never "ACHIEVEMENT/S". */
+  overflow-wrap: normal; hyphens: manual;
   clip-path: polygon(10px 0, calc(100% - 4px) 0, 100% 7px, 100% calc(100% - 10px), calc(100% - 9px) 100%, 4px 100%, 0 calc(100% - 7px), 0 9px);
 }
 .start-btn-daily { animation-delay: .21s; }
@@ -1946,7 +1965,7 @@ body.no-garden-view .controls { grid-template-columns: 44px minmax(0,1fr) minmax
 .start-row .start-btn:nth-child(3) { animation-delay: .38s; }
 @media (max-width: 420px) {
   .start-row { gap: 7px; }
-  .start-btn.start-btn-small { height: 48px; min-height: 48px; padding: 5px 6px; }
+  .start-btn.start-btn-small { height: 48px; min-height: 48px; padding: 5px 4px; }
 }
 @media (orientation: landscape) and (max-height: 540px) {
   .start-actions { gap: clamp(7px, 2.2vh, 10px); }

@@ -127,47 +127,49 @@
           <div class="board-engine" id="boardEngine" aria-hidden="true"></div>
           <div class="grid" id="grid" aria-hidden="true"></div>
           <div class="tiles" id="tiles"></div>
-          <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="finalTitle" aria-describedby="finalExplanation" hidden>
-            <div class="overlay-card">
-              <div class="milestone-art" id="milestoneArt" aria-hidden="true">
-                <img src="/assets/tiles/v3/tile-2048.png" alt="" draggable="false" loading="lazy" decoding="async" />
-              </div>
-              <div class="victory-art" id="victoryArt" aria-hidden="true">
-                <img src="/assets/tiles/v3/tile-8192-victory-green.png" alt="" draggable="false" loading="lazy" decoding="async" />
-              </div>
-              <div class="overlay-emblem" id="finalEmblem">❄</div>
-              <span class="overlay-world" id="finalWorld">Winter Beginning</span>
-              <h2 class="overlay-title" id="finalTitle" data-i18n="noMoves">No Moves Left</h2>
-              <p class="overlay-explanation" id="finalExplanation" data-i18n="noMovesText">The board is full and no plants can merge.</p>
-              <div class="overlay-scores">
-                <div><span data-i18n="final">Final</span><strong id="finalScore">0</strong></div>
-                <div><span data-i18n="best">Best</span><strong id="finalBest">0</strong></div>
-                <div><span data-i18n="topPlant">Top Plant</span><strong id="finalTile">2</strong></div>
-                <div><span data-i18n="bestCombo">Best Combo</span><strong id="finalCombo">—</strong></div>
-              </div>
-              <form class="score-submit" id="scoreForm">
-                <label for="playerName" data-i18n="joinLeaderboard">Join the leaderboard</label>
-                <div class="score-submit-row">
-                  <input id="playerName" name="playerName" type="text" minlength="2" maxlength="16" autocomplete="nickname" placeholder="Your name" required />
-                  <button class="btn ink-btn submit-score-btn" id="submitScoreBtn" type="submit" data-i18n="submit">Submit</button>
-                </div>
-                <span class="score-submit-status" id="scoreSubmitStatus" aria-live="polite"></span>
-              </form>
-              <p class="score-unranked" id="unrankedNote" data-i18n="unrankedRun" hidden>This run could not be verified, so it cannot join the leaderboard.</p>
-              <div class="overlay-actions">
-                <button class="btn milestone-continue-btn overlay-btn" id="continueMilestoneBtn" type="button" data-i18n="continueGame" hidden>Continue Growing</button>
-                <button class="btn ink-btn overlay-btn" id="playAgainBtn" type="button" data-i18n="playAgain">Play Again</button>
-                <button class="btn ink-btn ink-btn--quiet overlay-btn normal-game-btn" id="normalGameBtn" type="button" data-i18n="normalGame" hidden>Normal game</button>
-                <button class="btn ink-btn ink-btn--quiet share-btn overlay-btn" id="shareBtn" type="button">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
-                  <span data-i18n="share">Share</span>
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
+      <!-- The end card: a window over the whole screen (not inside the board, which
+           is too small for it on a small phone). -->
+      <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="finalTitle" aria-describedby="finalExplanation" hidden>
+        <div class="overlay-card">
+          <div class="milestone-art" id="milestoneArt" aria-hidden="true">
+            <img src="/assets/tiles/v3/tile-2048.png" alt="" draggable="false" loading="lazy" decoding="async" />
+          </div>
+          <div class="victory-art" id="victoryArt" aria-hidden="true">
+            <img src="/assets/tiles/v3/tile-8192-victory-green.png" alt="" draggable="false" loading="lazy" decoding="async" />
+          </div>
+          <div class="overlay-emblem" id="finalEmblem">❄</div>
+          <span class="overlay-world" id="finalWorld">Winter Beginning</span>
+          <h2 class="overlay-title" id="finalTitle" data-i18n="noMoves">No Moves Left</h2>
+          <p class="overlay-explanation" id="finalExplanation" data-i18n="noMovesText">The board is full and no plants can merge.</p>
+          <div class="overlay-scores">
+            <div><span data-i18n="final">Final</span><strong id="finalScore">0</strong></div>
+            <div><span data-i18n="best">Best</span><strong id="finalBest">0</strong></div>
+            <div><span data-i18n="topPlant">Top Plant</span><strong id="finalTile">2</strong></div>
+            <div><span data-i18n="bestCombo">Best Combo</span><strong id="finalCombo">—</strong></div>
+          </div>
+          <form class="score-submit" id="scoreForm">
+            <label for="playerName" data-i18n="joinLeaderboard">Join the leaderboard</label>
+            <div class="score-submit-row">
+              <input id="playerName" name="playerName" type="text" minlength="2" maxlength="16" autocomplete="nickname" placeholder="Your name" required />
+              <button class="btn ink-btn submit-score-btn" id="submitScoreBtn" type="submit" data-i18n="submit">Submit</button>
+            </div>
+            <span class="score-submit-status" id="scoreSubmitStatus" aria-live="polite"></span>
+          </form>
+          <p class="score-unranked" id="unrankedNote" data-i18n="unrankedRun" hidden>This run could not be verified, so it cannot join the leaderboard.</p>
+          <div class="overlay-actions">
+            <button class="btn milestone-continue-btn overlay-btn" id="continueMilestoneBtn" type="button" data-i18n="continueGame" hidden>Continue Growing</button>
+            <button class="btn ink-btn overlay-btn" id="playAgainBtn" type="button" data-i18n="playAgain">Play Again</button>
+            <button class="btn ink-btn ink-btn--quiet overlay-btn normal-game-btn" id="normalGameBtn" type="button" data-i18n="normalGame" hidden>Normal game</button>
+            <button class="btn ink-btn ink-btn--quiet share-btn overlay-btn" id="shareBtn" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
+              <span data-i18n="share">Share</span>
+            </button>
+          </div>
+        </div>
+      </div>
       <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
       <div class="sr-only" id="a11yAnnouncer" role="status" aria-live="polite"></div>
     </main>
