@@ -37,7 +37,7 @@ import { apiUrl } from "./src/endpoint.js";
 import { canVibrate, createHaptics, isNativeApp, nativeShareNav, onBackButton } from "./src/native.js";
 import { pixelIcon } from "./src/pixel-icons.js";
 import { createGameSession, randomSeed, withTimeout } from "./src/game-session.js";
-import { PLAY_LABELS, TRANSLATIONS } from "./src/i18n.js";
+import { PLAY_LABELS, TRANSLATIONS, deviceLanguage } from "./src/i18n.js";
 import { createLeaderboardApi } from "./src/leaderboard-api.js";
 import { createLeaderboardUi } from "./src/leaderboard-ui.js";
 import { artValueFor, plantName, stageFor, stageMeta as stageMetaFor, worldProgress } from "./src/levels.js";
@@ -156,7 +156,9 @@ const stageMeta = stage => stageMetaFor(stage, currentLanguage);
 let currentLanguage = "en";
 // Show the whole page in a language: every labelled piece of text, the play
 // button, the aria-labels, the end card, the tiles' names and the world HUD.
-function applyLanguage(language) {
+// remember: the player chose it (the settings); the phone's own language is
+// not written down, so a later change of the phone's language still follows.
+function applyLanguage(language, { remember = true } = {}) {
   currentLanguage = TRANSLATIONS[language] ? language : "en";
   const text = TRANSLATIONS[currentLanguage];
   document.documentElement.lang = currentLanguage;
@@ -182,7 +184,7 @@ function applyLanguage(language) {
   document.getElementById("achievementsClose").setAttribute("aria-label", text.closeAchievements);
   updateModeBadge();
   updateDailyButton();
-  saveLanguage(currentLanguage);
+  if (remember) saveLanguage(currentLanguage);
   fitControlLabels();
 }
 
@@ -191,8 +193,12 @@ function applyLanguage(language) {
 // the buttons change width, and once the pixel font has arrived.
 function fitControlLabels() {
   fitLabels([document.getElementById("leaderboardBtn"), document.getElementById("newBtn")]);
+  // The start menu's three small buttons: a long word shrinks rather than
+  // breaks. On the narrowest phones (320 px) down to 10 px, else 11 px.
+  fitLabels([...document.querySelectorAll(".start-btn-small")], { min: window.innerWidth < 340 ? 10 : 11 });
 }
 new ResizeObserver(() => fitControlLabels()).observe(document.querySelector(".controls"));
+new ResizeObserver(() => fitControlLabels()).observe(document.querySelector(".start-row"));
 document.fonts?.ready.then(fitControlLabels);
 
 // "World 3 of 5" in the player's language.
@@ -963,7 +969,9 @@ window.addEventListener("pageshow", () => audio.setBackground(document.hidden));
 /* ---------- Boot ---------- */
 best = loadBest();
 bestEl.textContent = best;
-applyLanguage(loadLanguage());
+// The language the player chose, or else the phone's own.
+const chosenLanguage = loadLanguage();
+applyLanguage(chosenLanguage || deviceLanguage(navigator.languages || [navigator.language]), { remember: Boolean(chosenLanguage) });
 applyVisualPrefs();
 settings.sync();
 boardView.buildGrid();
