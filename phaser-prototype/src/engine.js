@@ -245,6 +245,70 @@ const warmedWorlds = new Set();
 const pendingWorldWarms = new Set();
 const pendingSceneStarts = new Set();
 const pendingSceneDisposals = new Map();
+// A world whose pictures did not all arrive (a dropped connection on a phone)
+// is never shown: Phaser would draw a black world full of green "missing"
+// squares. The world the player was in stays on screen, or, when there is
+// none, the game's own drawn scenery; the new world is tried again when the
+// connection comes back and every few seconds until it loads.
+const failedWorlds = new Set();
+let drawnScenery = false;
+let worldRetryTimer = 0;
+let worldRetryDelay = 4000;
+const watchWorldLoading = () => SCENE_KEYS.forEach(key => {
+  const scene = game.scene.getScene(key);
+  if (!scene?.events || scene.loadWatched) return;
+  scene.loadWatched = true;
+  // A scene's create() cannot build a world from pictures that are missing
+  // (it stops halfway, the scene stuck): skip it this time; the world is
+  // closed again as soon as it reports being created (see worldFailedToLoad).
+  const failed = () => {
+    failedWorlds.add(key);
+    scene.create = () => {};
+  };
+  // Every start begins afresh. Phaser drops a loader's listeners when its scene
+  // shuts down, so the loader is watched again on each start (the scene's own
+  // events last).
+  scene.events.on(Phaser.Scenes.Events.START, () => {
+    failedWorlds.delete(key);
+    delete scene.create;   // its own create() again
+    scene.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR, failed);
+    scene.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, failed);
+  });
+});
+const showDrawnScenery = on => {
+  if (drawnScenery === on) return;
+  drawnScenery = on;
+  env.toggleAttribute("data-phaser-active", !on);
+  mount.hidden = on;
+  if (on) window.dispatchEvent(new CustomEvent("garden:scenery-failed"));
+};
+const retryWorld = () => {
+  clearTimeout(worldRetryTimer);
+  worldRetryTimer = 0;
+  const key = sceneKeyForStage(Number(env.dataset.stage || 1));
+  if (!key || !failedWorlds.has(key) || game.scene.isActive(key) || pendingSceneStarts.has(key)) return;
+  syncScene();
+};
+const scheduleWorldRetry = () => {
+  clearTimeout(worldRetryTimer);
+  worldRetryTimer = setTimeout(retryWorld, worldRetryDelay);
+  worldRetryDelay = Math.min(worldRetryDelay * 2, 30000);
+};
+window.addEventListener("online", retryWorld);
+const worldFailedToLoad = key => {
+  const scene = game.scene.getScene(key);
+  scene?.cameras?.main?.setVisible(false);
+  game.scene.stop(key);
+  if (key !== sceneKeyForStage(Number(env.dataset.stage || 1))) return;
+  const anotherShown = SCENE_KEYS.some(other => other !== key && !failedWorlds.has(other) &&
+    game.scene.isActive(other) && game.scene.getScene(other)?.cameras?.main?.visible);
+  if (!anotherShown) showDrawnScenery(true);
+  scheduleWorldRetry();
+};
+const worldLoaded = () => {
+  worldRetryDelay = 4000;
+  showDrawnScenery(false);
+};
 const cancelSceneDisposal = key => {
   const timer = pendingSceneDisposals.get(key);
   if (timer) clearTimeout(timer);
@@ -270,6 +334,12 @@ const warmWorldScene = stage => {
       if (!createdScene?.cameras?.main) {
         warmedWorlds.delete(stage);
         requestAnimationFrame(syncScene);
+        return;
+      }
+      // Never keep a half-loaded world asleep to wake it later.
+      if (failedWorlds.has(sceneKey)) {
+        warmedWorlds.delete(stage);
+        worldFailedToLoad(sceneKey);
         return;
       }
       // The player may reach this world while its hidden warm-up is still
@@ -303,6 +373,7 @@ const warmWorldScene = stage => {
     // hidden warm-up frame.
     pendingWorldWarms.delete(stage);
     warmedWorlds.add(stage);
+    watchWorldLoading();
     pendingSceneStarts.add(sceneKey);
     target.events.once(Phaser.Scenes.Events.SHUTDOWN, () => pendingSceneStarts.delete(sceneKey));
     try {
@@ -359,8 +430,9 @@ const releaseOtherScenes = activeKey => {
 const syncScene = () => {
   const stage = Number(env.dataset.stage || 1);
   const sceneKey = sceneKeyForStage(stage);
-  mount.hidden = !sceneKey;
-  env.toggleAttribute("data-phaser-active", Boolean(sceneKey));
+  mount.hidden = !sceneKey || drawnScenery;
+  env.toggleAttribute("data-phaser-active", Boolean(sceneKey) && !drawnScenery);
+  watchWorldLoading();
   const targetScene = game.scene.getScene(sceneKey);
   // The local ?stage=N art-review helper can update the DOM a frame before
   // Phaser has registered every configured scene. Retry after registration
@@ -388,6 +460,11 @@ const syncScene = () => {
         requestAnimationFrame(syncScene);
         return;
       }
+      if (failedWorlds.has(sceneKey)) {
+        worldFailedToLoad(sceneKey);
+        return;
+      }
+      worldLoaded();
       createdScene.cameras.main.setVisible(true);
       releaseOtherScenes(sceneKey);
     });

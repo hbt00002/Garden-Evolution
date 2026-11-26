@@ -953,7 +953,12 @@ document.body.classList.toggle("perf-low", Boolean(lowPowerDevice));
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) { comboHud.cool(); queuedDirection = null; }
   document.body.classList.toggle("page-hidden", document.hidden);
+  // Another app or tab: no garden music playing over it.
+  audio.setBackground(document.hidden);
 });
+// Leaving the page (or the browser freezing it for later) silences it too.
+window.addEventListener("pagehide", () => audio.setBackground(true));
+window.addEventListener("pageshow", () => audio.setBackground(document.hidden));
 
 /* ---------- Boot ---------- */
 best = loadBest();

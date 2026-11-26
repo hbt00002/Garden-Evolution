@@ -476,8 +476,34 @@ export function createAudio({ getStage, isMenu }) {
     else audioCtx?.resume().then(startMusic).catch(() => {});
   }
 
+  // The game in the background (another app, the home screen, another tab):
+  // the music stops and the audio sleeps, so nothing plays over everything
+  // else, and the game picks up where it was when the player comes back.
+  let backgrounded = false;
+  function setBackground(hidden) {
+    if (hidden === backgrounded) return;
+    backgrounded = hidden;
+    if (hidden) {
+      stopMenuMusic();
+      stopMusic();
+      audioCtx?.suspend?.().catch(() => {});
+      return;
+    }
+    if (!audioUnlocked || !musicOn) {
+      if (audioCtx) audioCtx.resume().catch(() => {});
+      return;
+    }
+    if (isMenu()) {
+      audioCtx?.resume().catch(() => {});
+      startMenuMusic();
+    } else {
+      audioCtx?.resume().then(() => { if (!backgrounded) startMusic(); }).catch(() => {});
+    }
+  }
+
   return {
     ensure: ensureAudio,
+    setBackground,
     startMusic,
     stopMusic,
     startGameplayMusic,
