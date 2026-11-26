@@ -53,6 +53,12 @@ for (const [language, labels] of Object.entries(BLOOM_LABELS)) {
     ["restartWarning", "cancelRestart", "confirmRestart", "combo", "bestCombo"].map((key, i) => [key, labels[i]])
   ));
 }
+// The end card's way to the leaderboard (the game's own button is behind it).
+const VIEW_LEADERBOARD_LABELS = {
+  en: "View leaderboard", tr: "Sıralamayı gör", zh: "查看排行榜", ja: "ランキングを見る", ko: "순위표 보기",
+  es: "Ver clasificación", pt: "Ver classificação", fr: "Voir le classement", de: "Bestenliste ansehen", ru: "Таблица лидеров"
+};
+for (const [language, label] of Object.entries(VIEW_LEADERBOARD_LABELS)) TRANSLATIONS[language].viewLeaderboard = label;
 const COMBO_PIANO_LABELS = {
   en:"Combo Piano", tr:"Kombo Piyanosu", zh:"连击钢琴", ja:"コンボピアノ", ko:"콤보 피아노",
   es:"Piano de combo", pt:"Piano de combo", fr:"Piano de combo", de:"Combo-Klavier", ru:"Комбо-пианино"
