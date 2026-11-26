@@ -67,3 +67,10 @@ test("the game picks the device's language when it has it, and English otherwise
 test("the Portuguese settings label is the short one phones use, so it fits the menu", () => {
   assert.equal(TRANSLATIONS.pt.settings, "Ajustes");
 });
+
+test("every language can name the way from the end card to the leaderboard", () => {
+  for (const [language, text] of Object.entries(TRANSLATIONS)) {
+    assert.ok(text.viewLeaderboard && text.viewLeaderboard.length > 2, language);
+  }
+  assert.equal(TRANSLATIONS.tr.viewLeaderboard, "Sıralamayı gör");
+});

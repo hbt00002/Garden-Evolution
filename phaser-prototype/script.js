@@ -64,6 +64,7 @@ const boardEl = document.getElementById("board");
 const gridEl = document.getElementById("grid");
 const tilesEl = document.getElementById("tiles");
 const overlayEl = document.getElementById("overlay");
+const endLeaderboardBtn = document.getElementById("endLeaderboardBtn");
 const scoreEl = document.getElementById("score");
 const bestEl = document.getElementById("best");
 const newBtn = document.getElementById("newBtn");
@@ -200,6 +201,8 @@ function fitControlLabels() {
 new ResizeObserver(() => fitControlLabels()).observe(document.querySelector(".controls"));
 new ResizeObserver(() => fitControlLabels()).observe(document.querySelector(".start-row"));
 document.fonts?.ready.then(fitControlLabels);
+// A web font that arrives later changes the labels' width but not the buttons'.
+document.fonts?.addEventListener?.("loadingdone", fitControlLabels);
 
 // "World 3 of 5" in the player's language.
 function worldKicker(stage) {
@@ -597,7 +600,8 @@ const leaderboard = createLeaderboardUi({
   text: () => TRANSLATIONS[currentLanguage],
   language: () => currentLanguage,
   onOpen: () => { closeRestart(false); comboHud.cool(); queuedDirection = null; },
-  returnTarget: () => (!startScreenEl.hidden ? startLeaderboardBtn : leaderboardBtn),
+  // Back to whatever opened it: the menu, the end card's link, or the game's button.
+  returnTarget: () => (!startScreenEl.hidden ? startLeaderboardBtn : !overlayEl.hidden ? endLeaderboardBtn : leaderboardBtn),
   syncInert,
   daily: {
     when: () => `${dayText(dayKey())} · ${TRANSLATIONS[currentLanguage].dailyNext.replace("{when}", untilNextGarden(currentLanguage))}`,
@@ -870,6 +874,7 @@ startLeaderboardBtn.addEventListener("click", leaderboard.open);
 startAchievementsBtn.addEventListener("click", achievementsPanel.open);
 settingsAchievementsBtn.addEventListener("click", achievementsPanel.open);
 leaderboardBtn.addEventListener("click", leaderboard.open);
+endLeaderboardBtn.addEventListener("click", leaderboard.open);
 
 // Settings panel
 function applyVisualPrefs() {
@@ -971,7 +976,9 @@ best = loadBest();
 bestEl.textContent = best;
 // The language the player chose, or else the phone's own.
 const chosenLanguage = loadLanguage();
-applyLanguage(chosenLanguage || deviceLanguage(navigator.languages || [navigator.language]), { remember: Boolean(chosenLanguage) });
+// Some app views report an empty list of languages: then the one language.
+const phoneLanguages = navigator.languages?.length ? navigator.languages : [navigator.language];
+applyLanguage(chosenLanguage || deviceLanguage(phoneLanguages), { remember: Boolean(chosenLanguage) });
 applyVisualPrefs();
 settings.sync();
 boardView.buildGrid();

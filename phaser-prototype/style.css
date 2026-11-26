@@ -884,6 +884,17 @@ body {
   margin-inline: -16px; padding: 10px 16px calc(12px + var(--safe-bottom, 0px));
   background: var(--paper); box-shadow: 0 -2px 0 var(--paper-rule);
 }
+/* The end card's way to the leaderboard: a quiet link under the score form
+   (the game's own Leaderboard button is behind the card). */
+.end-leaderboard-link {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px; padding: 6px 10px; border: 0; background: none; cursor: pointer;
+  color: var(--ink-accent); font: 700 .9rem/1.2 "Quicksand", system-ui, sans-serif;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.end-leaderboard-link .pixel-icon { width: 16px; height: 16px; flex: none; }
+.end-leaderboard-link:focus-visible { outline: 3px solid var(--paper-ink); outline-offset: 2px; }
+:where(.overlay[data-mode="milestone"], .overlay[data-mode="victory"]) .end-leaderboard-link { color: inherit; }
 /* While it is open, a toast (an achievement unlocked by this very game) shows
    at the top of the screen, never on the card's form or buttons. */
 body:has(#overlay.show) .toast { top: calc(12px + var(--safe-top, 0px)); bottom: auto; z-index: 75; }
