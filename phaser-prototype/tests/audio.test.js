@@ -19,6 +19,7 @@ function fakeBrowser({ context = true, autoplayRefused = true } = {}) {
     createBuffer(channels, length) { return { getChannelData: () => new Float32Array(length) }; }
     createBufferSource() { return { ...node(), buffer: null }; }
     resume() { log.resumed++; this.state = "running"; return Promise.resolve(); }
+    suspend() { log.suspended = (log.suspended || 0) + 1; this.state = "suspended"; return Promise.resolve(); }
   }
   class FakeAudio {
     constructor(src) { this.src = src; this.volume = 1; FakeAudio.last = this; }
@@ -128,4 +129,52 @@ test("a browser without Web Audio still lets the game run", async () => {
     audio.startGameplayMusic();
     audio.stopMusic();
   });
+});
+
+// Leaving the game (another app, the home screen, another tab) must not leave
+// its music playing over everything else.
+test("when the game goes to the background the music stops and the audio sleeps, and it comes back after", async t => {
+  const { audio, log, state, FakeContext } = await loadAudio({ autoplayRefused: false });
+  t.after(() => audio.stopMusic());
+  await log.listeners.pointerdown[0]({ target: {} });
+  state.menu = false;
+  audio.startGameplayMusic();
+  await Promise.resolve();
+  const before = log.oscillators;
+  audio.setBackground(true);
+  assert.equal(log.suspended, 1, "the audio context is put to sleep");
+  assert.equal(FakeContext.last.state, "suspended");
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(log.oscillators, before, "no new notes are scheduled while away");
+  audio.setBackground(false);
+  await Promise.resolve();
+  assert.equal(FakeContext.last.state, "running", "back: the audio wakes");
+  assert.ok(log.oscillators > before, "and the garden's music carries on");
+});
+
+test("on the menu the menu track pauses in the background and plays again on return", async () => {
+  const { audio, log } = await loadAudio({ autoplayRefused: false });
+  await log.listeners.pointerdown[0]({ target: {} });
+  const played = log.played;
+  const paused = log.paused;
+  audio.setBackground(true);
+  assert.ok(log.paused > paused, "the menu track is paused");
+  audio.setBackground(false);
+  await Promise.resolve();
+  assert.ok(log.played > played, "and plays again");
+});
+
+test("coming back does not start music the player turned off", async t => {
+  const { audio, log, state } = await loadAudio({ autoplayRefused: false });
+  t.after(() => audio.stopMusic());
+  await log.listeners.pointerdown[0]({ target: {} });
+  state.menu = false;
+  audio.setMusicVolume(0);
+  audio.setBackground(true);
+  const played = log.played;
+  const before = log.oscillators;
+  audio.setBackground(false);
+  await Promise.resolve();
+  assert.equal(log.played, played);
+  assert.equal(log.oscillators, before);
 });
