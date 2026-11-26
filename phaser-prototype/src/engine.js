@@ -25,6 +25,14 @@ const ambientFps = lowPowerDevice || window.matchMedia("(pointer: coarse)").matc
 const ambientFpsConfig = { target: ambientFps, limit: ambientFps === 30 ? 30 : 0 };
 
 
+// Phaser starts the first scene of its list by itself, before anything here
+// can watch that scene's pictures load. An empty scene goes first, so every
+// world, the first one too, is started by syncScene below and its loading is
+// watched (a failed first world then falls back like any other).
+class RestingScene extends Phaser.Scene {
+  constructor() { super("RestingScene"); }
+}
+
 const game = new Phaser.Game({
   type: Phaser.WEBGL,
   parent: mount,
@@ -43,7 +51,7 @@ const game = new Phaser.Game({
     pixelArt: true
   },
   fps: { ...ambientFpsConfig, forceSetTimeOut: lowPowerDevice },
-  scene: [WinterMountainScene, SnowmeltValleyScene, SpringBloomScene, SakuraGardenScene, MoonlitFinaleScene]
+  scene: [RestingScene, WinterMountainScene, SnowmeltValleyScene, SpringBloomScene, SakuraGardenScene, MoonlitFinaleScene]
 });
 
 // Phaser's RESIZE mode can miss viewport width changes caused by browser
@@ -444,6 +452,7 @@ const syncScene = () => {
   }
   cancelSceneDisposal(sceneKey);
   if (game.scene.isSleeping(sceneKey) || game.scene.isPaused(sceneKey)) {
+    worldLoaded();
     targetScene.cameras?.main?.setVisible(true);
     game.scene.wake(sceneKey);
     releaseOtherScenes(sceneKey);
@@ -481,6 +490,11 @@ const syncScene = () => {
       requestAnimationFrame(syncScene);
       return;
     }
+    if (failedWorlds.has(sceneKey)) {
+      worldFailedToLoad(sceneKey);
+      return;
+    }
+    worldLoaded();
     targetScene.cameras.main.setVisible(true);
     releaseOtherScenes(sceneKey);
   }

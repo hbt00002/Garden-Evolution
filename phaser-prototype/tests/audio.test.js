@@ -178,3 +178,13 @@ test("coming back does not start music the player turned off", async t => {
   assert.equal(log.played, played);
   assert.equal(log.oscillators, before);
 });
+
+test("a menu track that autoplayed before the first tap plays again after a trip to the background", async () => {
+  const { audio, log } = await loadAudio({ autoplayRefused: false });
+  await Promise.resolve();
+  const played = log.played;
+  audio.setBackground(true);
+  audio.setBackground(false);
+  await Promise.resolve();
+  assert.ok(log.played > played, "the menu track is asked to play again");
+});
