@@ -9,6 +9,7 @@ import { SakuraGardenScene } from "./scenes/SakuraGardenScene.js";
 import { MoonlitFinaleScene } from "./scenes/MoonlitFinaleScene.js";
 import { LivingBoardScene } from "./scenes/LivingBoardScene.js";
 import { setFrameLimit } from "./frame-rate.js";
+import { decodeImagesOffThread } from "./bitmap-images.js";
 
 const mount = document.getElementById("phaserWorld");
 const env = document.getElementById("env");
@@ -29,6 +30,8 @@ const ambientFpsConfig = { target: ambientFps, limit: ambientFps === 30 ? 30 : 0
 // can watch that scene's pictures load. An empty scene goes first, so every
 // world, the first one too, is started by syncScene below and its loading is
 // watched (a failed first world then falls back like any other).
+decodeImagesOffThread(Phaser);
+
 class RestingScene extends Phaser.Scene {
   constructor() { super("RestingScene"); }
 }
