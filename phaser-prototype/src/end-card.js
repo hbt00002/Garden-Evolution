@@ -12,13 +12,13 @@ import { loadPlayerName } from "./storage.js";
 // (mode: "classic", or "daily" / "practice" for today's garden).
 // onShow(): called as the card opens (the game cools its combo).
 // playGameOver(): the sound for a finished run.
-export function createEndCard({ elements, prefs, text: getText, language, snapshot, onShow, playGameOver }) {
+export function createEndCard({ elements, text: getText, language, snapshot, onShow, playGameOver }) {
   const {
     overlay: overlayEl, finalScore: finalScoreEl, finalBest: finalBestEl, finalTitle: finalTitleEl,
     finalExplanation: finalExplanationEl, scoreForm: scoreFormEl, playerName: playerNameEl,
     submitBtn: submitScoreBtn, status: scoreSubmitStatusEl, continueBtn: continueMilestoneBtn,
     playAgainBtn, finalWorld: finalWorldEl, finalTile: finalTileEl, finalCombo: finalComboEl,
-    finalEmblem: finalEmblemEl, unrankedNote: unrankedNoteEl, milestoneArt: milestoneArtEl, victoryArt: victoryArtEl,
+    finalEmblem: finalEmblemEl, unrankedNote: unrankedNoteEl,
     normalGameBtn
   } = elements;
   const finalScoreLabelEl = finalScoreEl.previousElementSibling;
@@ -42,24 +42,6 @@ export function createEndCard({ elements, prefs, text: getText, language, snapsh
           : stageMeta(overlayStage, language()).name;
     }
   }
-  function emitEndingParticles(artEl) {
-    artEl.querySelectorAll(".milestone-mote").forEach(node => node.remove());
-    if (prefs.reduceMotion || !prefs.particlesOn) return;
-    const kinds = ["leaf", "spark", "firefly"];
-    for (let index = 0; index < 18; index++) {
-      const mote = document.createElement("i");
-      const angle = (Math.PI * 2 * index) / 18 + Math.random() * .22;
-      const distance = 58 + Math.random() * 42;
-      mote.className = `milestone-mote milestone-mote--${kinds[index % kinds.length]}`;
-      mote.style.setProperty("--mote-x", `${Math.cos(angle) * distance}px`);
-      mote.style.setProperty("--mote-y", `${Math.sin(angle) * distance - 14}px`);
-      mote.style.setProperty("--mote-delay", `${(index % 6) * 34}ms`);
-      mote.style.setProperty("--mote-spin", `${90 + Math.random() * 240}deg`);
-      artEl.appendChild(mote);
-      mote.addEventListener("animationend", () => mote.remove(), { once:true });
-    }
-  }
-
   function show(mode) {
     onShow();
     const text = getText();
@@ -73,6 +55,8 @@ export function createEndCard({ elements, prefs, text: getText, language, snapsh
     unrankedNoteEl.dataset.i18n = run.mode === "practice" ? "dailyPracticeNote" : "unrankedRun";
     finalScoreLabelEl.dataset.i18n = milestone ? "currentScore" : "final";
     overlayEl.dataset.mode = mode;
+    // 2048 names its tree on a ribbon in the world's ink.
+    finalTitleEl.classList.toggle("overlay-title--ribbon", milestone);
     localize();
     const endingStage = stageFor(Math.max(2, run.maxValueReached));
     finalScoreEl.textContent = Number(run.score).toLocaleString(language());
@@ -96,11 +80,7 @@ export function createEndCard({ elements, prefs, text: getText, language, snapsh
     overlayEl.dataset.stage = endingStage;
     overlayEl.hidden = false;
     overlayEl.classList.remove("ready");
-    requestAnimationFrame(() => {
-      overlayEl.classList.add("show");
-      if (milestone) emitEndingParticles(milestoneArtEl);
-      else if (mode === "victory") emitEndingParticles(victoryArtEl);
-    });
+    requestAnimationFrame(() => overlayEl.classList.add("show"));
     clearTimeout(readyTimer);
     readyTimer = setTimeout(() => {
       overlayEl.classList.add("ready");

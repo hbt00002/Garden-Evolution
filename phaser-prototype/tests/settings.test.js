@@ -99,14 +99,14 @@ function setupPanel({ menu = false } = {}) {
   return { elements, panel, log, state, audio, prefs, documentListeners };
 }
 
-test("in the game the panel opens as a popover under the gear, and gives focus back when it closes", () => {
+test("in the game the panel opens in the middle over a backdrop, and gives focus back when it closes", () => {
   const t = setupPanel();
   t.elements.button.fire("click");
   assert.equal(t.panel.isOpen(), true);
   assert.equal(t.log.opened, 1);
-  assert.ok(t.elements.panel.classes.has("settings-panel--popover"));
-  assert.equal(t.elements.panel.style.top, "69px");
-  assert.equal(t.elements.backdrop.hidden, true, "no backdrop for a popover");
+  assert.equal(t.elements.panel.classes.has("settings-panel--popover"), false);
+  assert.equal(t.elements.panel.style.top, undefined, "no position from the gear");
+  assert.equal(t.elements.backdrop.hidden, false, "the game behind is dimmed");
   assert.equal(t.elements.button.attributes["aria-expanded"], "true");
   // Focus lands on the panel's title (Tab goes on to its controls): focusing a
   // button there made the panel slow to open on a phone.
@@ -139,12 +139,14 @@ test("a click outside closes it, a click inside does not", () => {
   assert.equal(t.panel.isOpen(), true);
 });
 
-test("a panel taller than the screen is kept on it", () => {
+test("no position is left on the panel: the stylesheet centres it and caps its height", () => {
   const t = setupPanel();
   globalThis.window.innerHeight = 360;
+  t.elements.panel.style.top = "52px"; t.elements.panel.style.left = "8px"; t.elements.panel.style.setProperty("max-height", "344px");
   t.elements.button.fire("click");
-  assert.equal(t.elements.panel.style.maxHeight, "344px");
-  assert.equal(t.elements.panel.style.top, "52px", "moved up so the 300 px panel fits above the bottom edge");
+  assert.equal(t.elements.panel.style.top, undefined);
+  assert.equal(t.elements.panel.style.left, undefined);
+  assert.equal(t.elements.panel.style["max-height"], undefined);
 });
 
 test("the controls show and change the real settings", () => {

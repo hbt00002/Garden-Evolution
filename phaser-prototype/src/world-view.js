@@ -218,6 +218,7 @@ export function createWorldView({
     if (mode !== "reveal") return false;
     const pannable = extent.maxOffset > 0 && !reduced;
     reveal.querySelector("#wrKicker").textContent = copy.kicker;
+    reveal.querySelector("#wrEmblem").innerHTML = copy.emblem ?? "";
     reveal.querySelector("#wrName").textContent = copy.name;
     reveal.querySelector("#wrLine").textContent = copy.line;
     const path = revealPath(focus, { pannable });

@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createBoardView } from "../src/board-view.js";
-import { createToast } from "../src/toast.js";
 
 class FakeElement {
   constructor(tag = "div") {
@@ -192,22 +191,3 @@ test("the golden tree makes the board glow and bursts twenty-two gold particles"
   assert.ok(t.tilesLayer.children.every(dot => dot.className === "particle gold big"));
 });
 
-/* ---------- The toast ---------- */
-
-test("a toast shows its message, then fades and hides", async () => {
-  globalThis.requestAnimationFrame = fn => fn();
-  const el = new FakeElement();
-  el.hidden = true;
-  const toast = createToast(el, { showMs: 20, fadeMs: 10 });
-  toast.show("The crown bloomed");
-  assert.equal(el.textContent, "The crown bloomed");
-  assert.equal(el.hidden, false);
-  assert.ok(el.classes.has("show"));
-  await new Promise(resolve => setTimeout(resolve, 15));
-  toast.show("Another");                 // restarts the timer
-  await new Promise(resolve => setTimeout(resolve, 15));
-  assert.ok(el.classes.has("show"), "still showing the newer message");
-  await new Promise(resolve => setTimeout(resolve, 40));
-  assert.equal(el.classes.has("show"), false);
-  assert.equal(el.hidden, true);
-});

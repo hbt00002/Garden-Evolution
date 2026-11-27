@@ -64,16 +64,6 @@ function cover(context, image, focusX = 0.5) {
   context.drawImage(image, (CARD_WIDTH - width) * focusX, (CARD_HEIGHT - height) / 2, width, height);
 }
 
-function roundedRect(context, x, y, width, height, radius) {
-  context.beginPath();
-  context.moveTo(x + radius, y);
-  context.arcTo(x + width, y, x + width, y + height, radius);
-  context.arcTo(x + width, y + height, x, y + height, radius);
-  context.arcTo(x, y + height, x, y, radius);
-  context.arcTo(x, y, x + width, y, radius);
-  context.closePath();
-}
-
 // Shrinks the font until the text fits `maxWidth`.
 function fitText(context, value, font, size, maxWidth, minSize = 20) {
   let current = size;
@@ -89,9 +79,36 @@ function fitText(context, value, font, size, maxWidth, minSize = 20) {
 // result: { mode, score, worldName, worldKicker, plantName, plantArt (an image URL), language, daily }
 // (daily: today's garden, whose kicker names the day and replaces the ending's)
 // backdrop: what captureBackdrop returned (or null for a plain garden-green card)
-export async function drawShareCard({ result, text, backdrop, doc = document }) {
+// The chipped corners every paper card in the game has, as a canvas path.
+function chippedRect(context, x, y, width, height, cut) {
+  context.beginPath();
+  context.moveTo(x + cut, y);
+  context.lineTo(x + width - cut, y);
+  context.lineTo(x + width, y + cut);
+  context.lineTo(x + width, y + height - cut);
+  context.lineTo(x + width - cut, y + height);
+  context.lineTo(x + cut, y + height);
+  context.lineTo(x, y + height - cut);
+  context.lineTo(x, y + cut);
+  context.closePath();
+}
+
+// The world's inks when the page has none to give (the first world's).
+export const DEFAULT_INK = { accent: "#205b9c", badge: "#d7e9f7", badgeText: "#1d4f86" };
+const PAPER = "#efe6d0";
+const PAPER_INK = "#3b2f22";
+const PAPER_INK_SOFT = "#6f624c";
+const WOOD = "#7a5534";
+const WOOD_LIP = "#2f2116";
+
+// The card in the game's own language: the world behind, the title in the
+// pixel font, the ending on a chip in the world's ink, the plant, and the score
+// on a strip of paper between two wooden rods.
+// ink: { accent, badge, badgeText }, the world's inks (see createShareButton).
+export async function drawShareCard({ result, text, backdrop, ink = DEFAULT_INK, doc = document }) {
   try {
     await Promise.all([
+      doc.fonts?.load?.('700 96px "Pixelify Sans"'),
       doc.fonts?.load?.('700 96px "Oxanium"'),
       doc.fonts?.load?.('700 36px "Quicksand"')
     ]);
@@ -116,76 +133,88 @@ export async function drawShareCard({ result, text, backdrop, doc = document }) 
 
   // Shade top and bottom so the writing reads over any world.
   const top = context.createLinearGradient(0, 0, 0, 360);
-  top.addColorStop(0, "rgba(8,16,16,.62)");
+  top.addColorStop(0, "rgba(8,16,16,.6)");
   top.addColorStop(1, "rgba(8,16,16,0)");
   context.fillStyle = top;
   context.fillRect(0, 0, CARD_WIDTH, 360);
-  const bottom = context.createLinearGradient(0, CARD_HEIGHT - 640, 0, CARD_HEIGHT);
+  const bottom = context.createLinearGradient(0, CARD_HEIGHT - 520, 0, CARD_HEIGHT);
   bottom.addColorStop(0, "rgba(8,16,16,0)");
-  bottom.addColorStop(1, "rgba(8,16,16,.7)");
+  bottom.addColorStop(1, "rgba(8,16,16,.6)");
   context.fillStyle = bottom;
-  context.fillRect(0, CARD_HEIGHT - 640, CARD_WIDTH, 640);
+  context.fillRect(0, CARD_HEIGHT - 520, CARD_WIDTH, 520);
 
   context.textBaseline = "alphabetic";
-  context.shadowColor = "rgba(0,0,0,.45)";
-  context.shadowBlur = 12;
-  context.shadowOffsetY = 3;
-
-  // The game's name and the world reached.
-  context.fillStyle = "#fffaf0";
   context.textAlign = "center";
-  fitText(context, "Garden Evolution", '700 {size}px "Oxanium", "Trebuchet MS", sans-serif', 96, CARD_WIDTH - 120);
+
+  // The game's name: the pixel font with a hard shadow in the world's ink.
+  context.shadowColor = ink.accent;
+  context.shadowBlur = 0;
+  context.shadowOffsetX = 0;
+  context.shadowOffsetY = 6;
+  context.fillStyle = "#fffaf0";
+  fitText(context, "Garden Evolution", '700 {size}px "Pixelify Sans", "Oxanium", sans-serif', 96, CARD_WIDTH - 120);
   context.fillText("Garden Evolution", CARD_WIDTH / 2, 150);
-  const headline = result.daily ? result.worldKicker : result.mode === "victory" ? text.victoryKicker : result.mode === "milestone" ? text.milestoneKicker : result.worldKicker;
-  context.fillStyle = "rgba(255,250,240,.86)";
-  fitText(context, headline.toUpperCase(), '800 {size}px "Quicksand", system-ui, sans-serif', 34, CARD_WIDTH - 160);
-  context.fillText(headline.toUpperCase(), CARD_WIDTH / 2, 214);
-
-  // The result panel.
-  context.shadowColor = "rgba(0,0,0,.35)";
-  context.shadowBlur = 30;
-  context.shadowOffsetY = 10;
-  const panel = { x: 70, y: CARD_HEIGHT - 520, width: CARD_WIDTH - 140, height: 380 };
-  roundedRect(context, panel.x, panel.y, panel.width, panel.height, 42);
-  context.fillStyle = "rgba(255,250,240,.95)";
-  context.fill();
   context.shadowColor = "transparent";
+  context.shadowOffsetY = 0;
 
-  // The top plant's picture.
+  // The ending (or the day) on a chip in the world's ink badge.
+  const headline = result.daily ? result.worldKicker : result.mode === "victory" ? text.victoryKicker : result.mode === "milestone" ? text.milestoneKicker : result.worldKicker;
+  // (Quicksand: the pixel font's 5 reads as an S, and the headline has numbers.)
+  fitText(context, headline, '700 {size}px "Quicksand", system-ui, sans-serif', 40, CARD_WIDTH - 220);
+  const chipWidth = Math.min(CARD_WIDTH - 160, context.measureText(headline).width + 64);
+  const chip = { x: (CARD_WIDTH - chipWidth) / 2, y: 182, width: chipWidth, height: 64 };
+  context.fillStyle = ink.badge;
+  chippedRect(context, chip.x, chip.y, chip.width, chip.height, 8);
+  context.fill();
+  context.fillStyle = ink.badgeText;
+  context.fillText(headline, CARD_WIDTH / 2, chip.y + 46);
+
+  // The top plant, standing in the world.
   if (result.plantArt) {
     try {
       const art = await loadImage(result.plantArt);
-      roundedRect(context, panel.x + 40, panel.y + 40, 300, 300, 34);
-      context.fillStyle = "#f4ead8";
-      context.fill();
-      context.drawImage(art, panel.x + 52, panel.y + 52, 276, 276);
-    } catch (error) { /* the panel still has the numbers */ }
+      context.drawImage(art, (CARD_WIDTH - 440) / 2, 300, 440, 440);
+    } catch (error) { /* the paper still has the numbers */ }
   }
 
-  const textLeft = panel.x + 380;
-  const textWidth = panel.x + panel.width - 40 - textLeft;
-  context.textAlign = "left";
-  context.fillStyle = "#7a6a52";
-  fitText(context, text.score.toUpperCase(), '800 {size}px "Quicksand", system-ui, sans-serif', 32, textWidth);
-  context.fillText(text.score.toUpperCase(), textLeft, panel.y + 92);
-  context.fillStyle = "#3f2f1f";
+  // The score on paper between two wooden rods.
+  const panel = { x: 90, y: CARD_HEIGHT - 500, width: CARD_WIDTH - 180, height: 320 };
+  context.shadowColor = "rgba(0,0,0,.35)";
+  context.shadowBlur = 28;
+  context.shadowOffsetY = 12;
+  context.fillStyle = PAPER;
+  context.fillRect(panel.x, panel.y, panel.width, panel.height);
+  context.shadowColor = "transparent";
+  context.shadowBlur = 0;
+  context.shadowOffsetY = 0;
+  context.fillStyle = "rgba(120,95,60,.06)";
+  for (let y = panel.y + 4; y < panel.y + panel.height; y += 12) context.fillRect(panel.x, y, panel.width, 4);
+  for (const rodY of [panel.y - 12, panel.y + panel.height - 12]) {
+    context.fillStyle = WOOD;
+    context.fillRect(panel.x - 24, rodY, panel.width + 48, 24);
+    context.fillStyle = WOOD_LIP;
+    context.fillRect(panel.x - 24, rodY + 24, panel.width + 48, 6);
+  }
+
+  const textWidth = panel.width - 80;
+  context.fillStyle = PAPER_INK_SOFT;
+  fitText(context, text.score, '700 {size}px "Quicksand", system-ui, sans-serif', 34, textWidth);
+  context.fillText(text.score, CARD_WIDTH / 2, panel.y + 74);
+  context.fillStyle = PAPER_INK;
   const points = Number(result.score).toLocaleString(result.language);
-  fitText(context, points, '700 {size}px "Oxanium", "Trebuchet MS", sans-serif', 128, textWidth, 48);
-  context.fillText(points, textLeft, panel.y + 212);
-  context.fillStyle = "#4c6b2c";
-  fitText(context, result.plantName, '700 {size}px "Quicksand", system-ui, sans-serif', 44, textWidth);
-  context.fillText(result.plantName, textLeft, panel.y + 278);
-  context.fillStyle = "#7a6a52";
-  fitText(context, result.worldName, '600 {size}px "Quicksand", system-ui, sans-serif', 32, textWidth);
-  context.fillText(result.worldName, textLeft, panel.y + 326);
+  fitText(context, points, '800 {size}px "Oxanium", "Trebuchet MS", sans-serif', 128, textWidth, 48);
+  context.fillText(points, CARD_WIDTH / 2, panel.y + 196);
+  const line = [result.plantName, result.worldName].filter(Boolean).join(" · ");
+  context.fillStyle = ink.accent;
+  fitText(context, line, '700 {size}px "Pixelify Sans", "Oxanium", sans-serif', 44, textWidth, 24);
+  context.fillText(line, CARD_WIDTH / 2, panel.y + 266);
 
   // Where to play.
-  context.textAlign = "center";
-  context.fillStyle = "rgba(255,250,240,.92)";
-  context.shadowColor = "rgba(0,0,0,.45)";
-  context.shadowBlur = 10;
+  context.fillStyle = "#fffaf0";
+  context.shadowColor = ink.accent;
+  context.shadowOffsetY = 3;
   context.font = '700 34px "Quicksand", system-ui, sans-serif';
-  context.fillText(GAME_URL.replace("https://", ""), CARD_WIDTH / 2, CARD_HEIGHT - 70);
+  context.fillText(GAME_URL.replace("https://", ""), CARD_WIDTH / 2, CARD_HEIGHT - 60);
 
   return new Promise((resolve, reject) => canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error("no picture"))), "image/png"));
 }
@@ -223,11 +252,22 @@ export async function shareResult({ card, message, url = GAME_URL, nav = navigat
   }
 }
 
+// The world's inks as the page has them now (scroll.css sets them per world).
+function pageInk() {
+  try {
+    const css = getComputedStyle(document.getElementById("overlay") || document.documentElement);
+    const read = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+    return { accent: read("--ink-accent", DEFAULT_INK.accent), badge: read("--ink-badge", DEFAULT_INK.badge), badgeText: read("--ink-badge-text", DEFAULT_INK.badgeText) };
+  } catch (error) {
+    return DEFAULT_INK;
+  }
+}
+
 // The Share button on the end card.
 // getResult(): the run on screen (see drawShareCard), or null when there is none.
 // capture(): captureBackdrop for the current world.
 // onOutcome(outcome): tell the player what happened ("copied", "unavailable").
-export function createShareButton({ button, text, getResult, capture, onOutcome, nav = navigator }) {
+export function createShareButton({ button, text, getResult, capture, onOutcome, nav = navigator, inkOf = pageInk }) {
   let prepared = null;           // { key, card: Promise<Blob|null> }
 
   const keyOf = result => JSON.stringify([result.mode, result.score, result.worldName, result.plantName, result.language]);
@@ -241,7 +281,7 @@ export function createShareButton({ button, text, getResult, capture, onOutcome,
     const card = (async () => {
       try {
         const backdrop = await capture();
-        return await drawShareCard({ result, text: text(), backdrop });
+        return await drawShareCard({ result, text: text(), backdrop, ink: inkOf() });
       } catch (error) {
         return null;               // sharing still works without the picture
       }
