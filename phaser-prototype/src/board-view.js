@@ -19,6 +19,9 @@ const STAGE_PARTICLES = ["stage-snow", "stage-leaf", "stage-pollen", "stage-peta
 // language(): the current language code. getStage(): the world showing (1-5).
 export function createBoardView({ board, grid: gridEl, tiles: tilesEl, prefs, tileArt, language, getStage }) {
   const tiles = new Map();      // id -> { value, r, c, el }
+  // Tiles that merged into another: they finish sliding underneath the new
+  // tile and are then removed. Not on the board any more as far as the game knows.
+  const ghosts = new Map();     // el -> removal timer
   let nextId = 1;
   let cellSize = 0;
   let gap = 10;
@@ -44,6 +47,7 @@ export function createBoardView({ board, grid: gridEl, tiles: tilesEl, prefs, ti
 
   // Lay every tile out again for the board's current size, without animating.
   function relayout() {
+    dropGhosts();
     measure();
     for (const t of tiles.values()) {
       const p = cellPos(t.r, t.c);
@@ -112,6 +116,7 @@ export function createBoardView({ board, grid: gridEl, tiles: tilesEl, prefs, ti
 
   // Removes every tile and particle (a new game, or a restored board is about to be dealt).
   function reset() {
+    dropGhosts();
     tiles.clear();
     nextId = 1;
     tilesEl.innerHTML = "";
@@ -119,8 +124,10 @@ export function createBoardView({ board, grid: gridEl, tiles: tilesEl, prefs, ti
     tilesEl.querySelectorAll(".particle").forEach(p => p.remove());
   }
 
-  // Puts a new tile on a cell and returns its id.
-  function create(r, c, value, isNew) {
+  // Puts a new tile on a cell and returns its id. delay: how long the new
+  // tile waits before it grows in (it stays invisible meanwhile): the slide
+  // that made room for it.
+  function create(r, c, value, isNew, { delay = 0 } = {}) {
     const id = nextId++;
     const el = document.createElement("div");
     el.className = "tile";
@@ -132,9 +139,10 @@ export function createBoardView({ board, grid: gridEl, tiles: tilesEl, prefs, ti
     el.style.width = cellSize + "px";
     el.style.height = cellSize + "px";
     el.style.transform = tx;
+    if (isNew && delay && !prefs.reduceMotion) el.style.animationDelay = delay + "ms";
     tilesEl.appendChild(el);
     if (isNew && !prefs.reduceMotion) {
-      el.addEventListener("animationend", () => el.classList.remove("spawn"), { once: true });
+      el.addEventListener("animationend", () => { el.classList.remove("spawn"); el.style.animationDelay = ""; }, { once: true });
     } else {
       el.classList.remove("spawn");
     }
@@ -170,6 +178,45 @@ export function createBoardView({ board, grid: gridEl, tiles: tilesEl, prefs, ti
     t.el.classList.add("merge");
     setTimeout(() => t.el && t.el.classList.remove("merge"), MERGE_MS);
     return true;
+  }
+
+  // Tiles meet: sources slide on to the cell (already placed there) and a new
+  // tile with the merged value takes their place, invisible until the slide
+  // ends (delay) and then popping. Returns the new tile's id.
+  function mergeInto(sourceIds, r, c, value, delay) {
+    for (const id of sourceIds) {
+      const t = tiles.get(id);
+      if (!t) continue;
+      tiles.delete(id);
+      ghosts.set(t.el, setTimeout(() => { t.el.remove(); ghosts.delete(t.el); }, delay));
+    }
+    const id = create(r, c, value, false);
+    const { el } = tiles.get(id);
+    if (!prefs.reduceMotion) {
+      el.style.animationDelay = delay + "ms";
+      el.classList.add("merged-in");
+      el.addEventListener("animationend", () => { el.classList.remove("merged-in"); el.style.animationDelay = ""; }, { once: true });
+    }
+    return id;
+  }
+
+  function dropGhosts() {
+    for (const [el, timer] of ghosts) { clearTimeout(timer); el.remove(); }
+    ghosts.clear();
+  }
+
+  // A new key arrived before the last slide landed: finish it at once. Every
+  // tile stands on its cell, the merged tiles that were sliding underneath are
+  // gone, and the delayed pops and new tiles show as they will end.
+  function settle() {
+    dropGhosts();
+    for (const t of tiles.values()) {
+      t.el.style.transition = "none";
+      t.el.classList.remove("merged-in", "spawn", "merge");
+      t.el.style.animationDelay = "";
+    }
+    void tilesEl.offsetWidth;
+    for (const t of tiles.values()) t.el.style.transition = "";
   }
 
   const valueOf = id => tiles.get(id).value;
@@ -222,5 +269,5 @@ export function createBoardView({ board, grid: gridEl, tiles: tilesEl, prefs, ti
     }
   }
 
-  return { buildGrid, measure, relayout, watchSize, reset, create, place, remove, merge, valueOf, relabel, puff, celebrate };
+  return { buildGrid, measure, relayout, watchSize, reset, create, place, remove, merge, mergeInto, settle, valueOf, relabel, puff, celebrate };
 }

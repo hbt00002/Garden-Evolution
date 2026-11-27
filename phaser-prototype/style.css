@@ -808,6 +808,19 @@ body {
   100% { transform: var(--tx) scale(1);   opacity: 1; }
 }
 
+/* A merged tile waits, invisible, for the slide to land (animation-delay is
+   set from script), then pops like .merge. */
+.tile.merged-in {
+  animation: mergeIn 210ms cubic-bezier(0.22, 1.5, 0.36, 1) both;
+}
+@keyframes mergeIn {
+  0%   { transform: var(--tx) scale(1);    filter: brightness(1); opacity: 0; }
+  1%   { transform: var(--tx) scale(.995); filter: brightness(1); opacity: 1; }
+  35%  { transform: var(--tx) scale(0.82); filter: brightness(1.1); opacity: 1; }
+  70%  { transform: var(--tx) scale(1.12); filter: brightness(1.18); opacity: 1; }
+  100% { transform: var(--tx) scale(1);    filter: brightness(1); opacity: 1; }
+}
+
 /* Merge: scale inward, bounce up with brightness pop */
 .tile.merge {
   animation: merge 210ms cubic-bezier(0.22, 1.5, 0.36, 1) both;
@@ -1107,7 +1120,7 @@ body.score-confirm-open .env-particle { animation-play-state:paused !important; 
   .env-turtle-walk, .env-bird-peck, .env-bird-perch { animation: none !important; }
   .env-butterfly, .env-bee { animation: none !important; }
   .tile { transition: transform 80ms linear !important; }
-  .tile.spawn, .tile.merge { animation: none !important; }
+  .tile.spawn, .tile.merge, .tile.merged-in { animation: none !important; }
   .particle { display: none; }
   .board.celebrate { transition: none; }
   .overlay, .overlay-card, .toast { transition: opacity 0.1s linear !important; }

@@ -124,8 +124,8 @@ let score;
 let best;
 let goldenAchieved;
 let victoryAchieved;
-let busy;
-let queuedDirection = null;
+let busy = false;
+let endingAhead = false;         // an ending's card is about to show
 let currentStage = 0;
 let maxValueReached = 0;
 let bestCombo = 0;
@@ -370,8 +370,8 @@ const announce = dialogs.announce;
 const inputBlocked = () => menuMode || runPending || dialogs.blocking();
 
 // A tile on the board: the view draws it, the grid below remembers where it is.
-function addTile(r, c, value, isNew) {
-  const id = boardView.create(r, c, value, isNew);
+function addTile(r, c, value, isNew, options) {
+  const id = boardView.create(r, c, value, isNew, options);
   grid[r][c] = id;
   return id;
 }
@@ -379,96 +379,120 @@ function addTile(r, c, value, isNew) {
 /* ---------- Game logic (unchanged 2048 rules) ---------- */
 // Deals the next tile from the run's seeded stream, so the Worker can
 // replay the same game from the recorded moves.
-function spawn() {
+function spawn(options) {
   const next = drawSpawn(valueGrid().flat(), runRng);
   if (!next) return null;
   maxValueReached = Math.max(maxValueReached, next.value);
-  return addTile(Math.floor(next.index / SIZE), next.index % SIZE, next.value, true);
+  return addTile(Math.floor(next.index / SIZE), next.index % SIZE, next.value, true, options);
 }
 
+// What a move does on screen once its slide lands: particles, the merge
+// sound, the board's bump, the Golden Tree, the end card. Pending until the
+// slide ends, or run at once when the next key arrives first.
+let pendingLand = null;
+let landTimer = null;
+function runPendingLand() {
+  clearTimeout(landTimer);
+  landTimer = null;
+  const land = pendingLand;
+  pendingLand = null;
+  busy = false;
+  if (land) land();
+}
+// A new game or a restored board: what the old board had pending is dropped.
+function cancelPendingLand() {
+  clearTimeout(landTimer);
+  landTimer = null;
+  pendingLand = null;
+  busy = false;
+}
+
+// A move happens the moment its key arrives: the rules, the score, the new
+// tile and the save. On screen the tiles slide; the merged tiles and the new
+// one wait (by CSS) for the slide to land, and the rest follows it then. A key
+// that arrives during the slide first finishes it, so no key is ever lost.
 function move(dir) {
-  if (inputBlocked()) return;
-  if (busy) {
-    // Keep the newest intention so fast key presses and mobile swipes never feel lost.
-    queuedDirection = dir;
-    return;
-  }
+  if (inputBlocked() || endingAhead) return;
   const plan = planMove(valueGrid(), dir);
   if (!plan.moved) return;
+  if (pendingLand) {
+    boardView.settle();
+    runPendingLand();
+    if (inputBlocked() || endingAhead) return;
+  }
+  const delay = prefs.reduceMotion ? 0 : SLIDE_MS;
   const idAt = ({ r, c }) => grid[r][c];
   const newGrid = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
   const slides = plan.slides.map(slide => ({ id: idAt(slide.from), r: slide.to.r, c: slide.to.c, absorbed: slide.absorbed }));
   slides.forEach(slide => { if (!slide.absorbed) newGrid[slide.r][slide.c] = slide.id; });
   const merges = plan.merges.map(m => ({ survivor: idAt(m.survivor), absorbed: idAt(m.absorbed), value: m.value, r: m.to.r, c: m.to.c }));
-  busy = true;
   grid = newGrid;
-
   slides.forEach(s => boardView.place(s.id, s.r, s.c));
 
-  const generation = gameGeneration;
-  const finalize = () => {
-    if (generation !== gameGeneration) {
-      return;
+  completedMoves++;
+  moveLog += DIRECTION_CHARS[dir];
+  let stageAdvancePending = false;
+  let endingPending = null;
+  let goldenNow = false;
+  bestCombo = comboHud.update(merges.length).best;
+  merges.forEach(m => {
+    grid[m.r][m.c] = boardView.mergeInto([m.survivor, m.absorbed], m.r, m.c, m.value, delay);
+    score += m.value;
+    if (m.value > maxValueReached) {
+      maxValueReached = m.value;
+      stageAdvancePending = true;
     }
-    completedMoves++;
-    moveLog += DIRECTION_CHARS[dir];
-    let stageAdvancePending = false;
-    let endingPending = null;
-    bestCombo = comboHud.update(merges.length).best;
+    const ending = endingForMergedValue(m.value);
+    if (ending === "milestone" && !goldenAchieved) {
+      goldenAchieved = true;
+      endingPending = "milestone";
+      goldenNow = true;
+    }
+    if (ending === "victory" && !victoryAchieved) {
+      victoryAchieved = true;
+      endingPending = "victory";
+    }
+  });
+  updateScore();
+  if (completedMoves === 1) markDailyUsed();
+  achievements.progress({ score, maxTile: maxValueReached, combo: bestCombo });
+  // 8192 is the official ending. Do not add another random tile after the
+  // winning merge; freeze the exact completed board behind the final card.
+  if (endingPending !== "victory") spawn({ delay });
+  const over = isGameOver();
+  const finished = endingPending === "victory" || over;
+  let streakToast = null;
+  if (finished) {
+    clearSavedGame(slotOf(runMode));
+    keepFinishedRun();
+    const unlocked = achievements.finish({ score, maxTile: maxValueReached, combo: bestCombo, mode: runMode, day: runDay });
+    // A streak of today's garden is worth a word, unless an achievement already has the message.
+    const streak = runMode === "daily" ? achievements.currentStreak(runDay) : 0;
+    if (streak >= 2 && !unlocked.length) streakToast = TRANSLATIONS[currentLanguage].dailyStreakToast.replace("{n}", streak);
+  } else saveGame();
+  const ending = endingPending === "victory" ? "victory" : over ? "noMoves" : endingPending;
+  // Until its card is up, an ending takes no more keys.
+  endingAhead = Boolean(ending);
+
+  const generation = gameGeneration;
+  busy = true;
+  pendingLand = () => {
+    if (generation !== gameGeneration) return;
     merges.forEach(m => {
-      boardView.remove(m.absorbed);
-      if (!boardView.merge(m.survivor, m.value)) return;
       boardView.puff(m.r, m.c, m.value);
-      score += m.value;
       audio.playMerge(m.value);
-      if (m.value > maxValueReached) {
-        maxValueReached = m.value;
-        stageAdvancePending = true;
-      }
-      const ending = endingForMergedValue(m.value);
-      if (ending === "milestone" && !goldenAchieved) {
-        goldenAchieved = true;
-        endingPending = "milestone";
-        celebrate();
-      }
-      if (ending === "victory" && !victoryAchieved) {
-        victoryAchieved = true;
-        endingPending = "victory";
-      }
     });
     comboHud.pulse(merges.length);
     if (merges.length) haptics.merge();
-    updateScore();
-    if (completedMoves === 1) markDailyUsed();
-    achievements.progress({ score, maxTile: maxValueReached, combo: bestCombo });
-    // 8192 is the official ending. Do not add another random tile after the
-    // winning merge; freeze the exact completed board behind the final card.
-    if (endingPending !== "victory") spawn();
-    const finished = endingPending === "victory" || isGameOver();
-    if (finished) {
-      clearSavedGame(slotOf(runMode));
-      keepFinishedRun();
-      const unlocked = achievements.finish({ score, maxTile: maxValueReached, combo: bestCombo, mode: runMode, day: runDay });
-      // A streak of today's garden is worth a word, unless an achievement already has the message.
-      const streak = runMode === "daily" ? achievements.currentStreak(runDay) : 0;
-      if (streak >= 2 && !unlocked.length) toast.show(TRANSLATIONS[currentLanguage].dailyStreakToast.replace("{n}", streak), { icon: pixelIcon("flame") });
-    } else saveGame();
-    if (endingPending === "victory") endCard.show("victory");
-    else if (isGameOver()) endCard.show("noMoves");
-    else if (endingPending === "milestone") endCard.show("milestone");
-    // Keep scene creation/theme work off the merge-finalization frame. The
-    // tile update and its forced animation layouts finish first.
+    if (goldenNow) celebrate();
+    if (streakToast) toast.show(streakToast, { icon: pixelIcon("flame") });
+    endingAhead = false;
+    if (ending) endCard.show(ending);
+    // Keep scene creation/theme work off this frame.
     if (stageAdvancePending) requestAnimationFrame(maybeEvolveEnvironment);
-    busy = false;
-    const nextMove = queuedDirection;
-    queuedDirection = null;
-    if (nextMove && !overlayEl.classList.contains("show") && !victoryAchieved) {
-      requestAnimationFrame(() => move(nextMove));
-    }
   };
-
-  if (prefs.reduceMotion) finalize();
-  else setTimeout(finalize, SLIDE_MS);
+  if (delay) landTimer = setTimeout(runPendingLand, delay);
+  else runPendingLand();
 }
 
 function valueGrid() {
@@ -607,7 +631,7 @@ const leaderboard = createLeaderboardUi({
   },
   text: () => TRANSLATIONS[currentLanguage],
   language: () => currentLanguage,
-  onOpen: () => { closeRestart(false); comboHud.cool(); queuedDirection = null; },
+  onOpen: () => { closeRestart(false); comboHud.cool(); },
   // Back to whatever opened it: the menu, the end card's link, or the game's button.
   returnTarget: () => (!startScreenEl.hidden ? startLeaderboardBtn : !overlayEl.hidden ? endLeaderboardBtn : leaderboardBtn),
   syncInert,
@@ -641,7 +665,7 @@ const achievementsPanel = createAchievementsPanel({
   },
   text: () => TRANSLATIONS[currentLanguage],
   language: () => currentLanguage,
-  onOpen: () => { closeRestart(false); comboHud.cool(); queuedDirection = null; if (settings.isOpen()) settings.close(); },
+  onOpen: () => { closeRestart(false); comboHud.cool(); if (settings.isOpen()) settings.close(); },
   returnTarget: () => (!startScreenEl.hidden ? startAchievementsBtn : settingsBtn),
   syncInert
 });
@@ -857,8 +881,9 @@ function newGame(saved = null, start = { mode: "classic" }) {
   score = saved ? saved.score : 0;
   goldenAchieved = saved ? saved.goldenAchieved : false;
   victoryAchieved = false;
-  busy = false;
-  queuedDirection = null;
+  cancelPendingLand();
+  endingAhead = false;
+ 
   maxValueReached = saved ? saved.maxValueReached : 0;
   bestCombo = saved ? saved.bestCombo : 0;
   scoreSubmit.reset();
@@ -913,7 +938,7 @@ newBtn.addEventListener("click", () => {
   audio.ensure();
   if (!completedMoves && !busy) { restartSameGarden(); return; }
   if (!restartPanel.hidden) { closeRestart(); return; }
-  queuedDirection = null;
+ 
   comboHud.cool();
   restartWarningEl.textContent = TRANSLATIONS[currentLanguage][runMode === "daily" ? "dailyRestartWarning" : "restartWarning"];
   restartPanel.hidden = false;
@@ -1007,7 +1032,7 @@ const settings = createSettingsPanel({
   applyLanguage,
   hooks: {
     // The achievements are reached from here: draw their list ahead if it changed.
-    onOpen: () => { closeRestart(false); comboHud.cool(); queuedDirection = null; achievementsPanel.prepare(); },
+    onOpen: () => { closeRestart(false); comboHud.cool(); achievementsPanel.prepare(); },
     onVisualChange: applyVisualPrefs,
     startMenuShowing: () => !startScreenEl.hidden
   },
@@ -1059,7 +1084,7 @@ boardView.watchSize();
 const lowPowerDevice = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
 document.body.classList.toggle("perf-low", Boolean(lowPowerDevice));
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) { comboHud.cool(); queuedDirection = null; }
+  if (document.hidden) { comboHud.cool(); }
   document.body.classList.toggle("page-hidden", document.hidden);
   // Another app or tab: no garden music playing over it.
   audio.setBackground(document.hidden);
@@ -1092,7 +1117,7 @@ worldView = createWorldView({
   announce,
   text: key => TRANSLATIONS[currentLanguage][key],
   onChange: active => {
-    if (active) { queuedDirection = null; comboHud.cool(); }
+    if (active) { comboHud.cool(); }
     syncInert();
   }
 });
