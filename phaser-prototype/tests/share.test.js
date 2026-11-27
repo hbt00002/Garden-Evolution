@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { GAME_URL, shareMessage, shareResult } from "../src/share.js";
+import { GAME_URL, drawShareCard, shareMessage, shareResult } from "../src/share.js";
 import { TRANSLATIONS } from "../src/i18n.js";
 import { plantName } from "../src/levels.js";
 
@@ -102,4 +102,56 @@ test("a desktop without a share sheet copies the words and the address", async (
 test("with neither a share sheet nor a clipboard the player is told", async () => {
   const { nav } = fakeNavigator({ share: false, clipboard: false });
   assert.equal(await shareResult({ card, message: "m", nav }), "unavailable");
+});
+
+/* ---------- The picture: the game's paper, pixel title and the world's inks ---------- */
+
+// A canvas that writes down what is drawn: each fillText with the font and
+// colour it used, and each filled rectangle with its colour.
+function recordingDoc() {
+  const log = { texts: [], rects: [], fonts: [] };
+  const ctx = new Proxy({ font: "", fillStyle: "", shadowColor: "", shadowBlur: 0, shadowOffsetX: 0, shadowOffsetY: 0 }, {
+    get(target, key) {
+      if (key in target) return target[key];
+      if (key === "fillText") return (value, x, y) => log.texts.push({ value, font: target.font, color: target.fillStyle, x, y });
+      if (key === "fillRect") return (x, y, w, h) => log.rects.push({ color: target.fillStyle, x, y, w, h });
+      if (key === "fill") return () => log.rects.push({ color: target.fillStyle, path: true });
+      if (key === "measureText") return value => ({ width: String(value).length * (parseFloat(/(\d+)px/.exec(target.font)?.[1]) || 10) * 0.55 });
+      if (key === "createLinearGradient") return () => ({ addColorStop() {} });
+      return () => {};
+    },
+    set(target, key, value) { target[key] = value; return true; }
+  });
+  const doc = {
+    fonts: { load: font => { log.fonts.push(font); return Promise.resolve(); } },
+    createElement: () => ({ width: 0, height: 0, getContext: () => ctx, toBlob: done => done(new Blob(["png"])) })
+  };
+  return { doc, log };
+}
+const shareText = { score: "Score", victoryKicker: "8192 · Final", milestoneKicker: "2048 · Milestone" };
+const victory = { mode: "victory", score: 32768, worldName: "Moonlit Garden", worldKicker: "World 5", plantName: "Sakura Crown", language: "en" };
+
+test("the share picture's title is in the pixel font with a hard ink shadow", async () => {
+  const { doc, log } = recordingDoc();
+  await drawShareCard({ result: victory, text: shareText, backdrop: null, ink: { accent: "#1c3150", badge: "#dcd8f2", badgeText: "#2f2a5e" }, doc });
+  const title = log.texts.find(t => t.value === "Garden Evolution");
+  assert.match(title.font, /Pixelify Sans/);
+  assert.ok(log.fonts.some(f => /Pixelify Sans/.test(f)), "the pixel font is loaded first");
+});
+
+test("the share picture's headline sits on a chip in the world's ink badge", async () => {
+  const { doc, log } = recordingDoc();
+  await drawShareCard({ result: victory, text: shareText, backdrop: null, ink: { accent: "#1c3150", badge: "#dcd8f2", badgeText: "#2f2a5e" }, doc });
+  const headline = log.texts.find(t => t.value === "8192 · Final");
+  assert.ok(headline, "the headline is written as is, not upper-cased");
+  assert.equal(headline.color, "#2f2a5e");
+  assert.ok(log.rects.some(r => r.color === "#dcd8f2"), "a chip in the badge colour");
+});
+
+test("the share picture's score sits on paper between two wooden rods", async () => {
+  const { doc, log } = recordingDoc();
+  await drawShareCard({ result: victory, text: shareText, backdrop: null, doc });
+  assert.ok(log.rects.some(r => r.color === "#efe6d0" && r.w > 800), "the paper");
+  assert.equal(log.rects.filter(r => r.color === "#7a5534").length, 2, "two rods");
+  assert.ok(log.texts.some(t => t.value === "32,768"));
 });

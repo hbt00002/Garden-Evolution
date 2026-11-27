@@ -103,10 +103,6 @@
         </button>
         <button class="btn leaderboard-btn" id="leaderboardBtn" type="button" data-i18n="leaderboard">Leaderboard</button>
         <button class="btn new-btn" id="newBtn" type="button" data-i18n="newGame">New Game</button>
-      <div id="newGameConfirm" class="new-game-confirm scroll scroll--small" role="dialog" aria-modal="false" aria-labelledby="newGameConfirmText" hidden>
-        <p id="newGameConfirmText" data-i18n="restartWarning">Your current garden will be cleared.</p>
-        <div><button class="ink-btn ink-btn--quiet" id="cancelNewGame" type="button" data-i18n="cancelRestart">Cancel</button><button class="ink-btn" id="confirmNewGame" type="button" data-i18n="confirmRestart">Start new garden</button></div>
-      </div>
       </div>
 
       <section class="evolution" aria-label="World evolution progress">
@@ -123,6 +119,7 @@
 
       <div class="board-wrap">
         <div class="combo-hud" id="comboHud" hidden aria-hidden="true"><span class="combo-flower" id="comboFlower"></span><strong id="comboValue">×2</strong></div>
+        <div class="toast" id="toast" role="status" aria-live="polite" hidden><span class="toast-icon" aria-hidden="true"></span><span class="toast-text"><small class="toast-label"></small><b class="toast-name"></b></span></div>
         <div class="board" id="board" tabindex="0" aria-label="Garden board">
           <div class="board-engine" id="boardEngine" aria-hidden="true"></div>
           <div class="grid" id="grid" aria-hidden="true"></div>
@@ -132,12 +129,18 @@
 
       <!-- The end card: a window over the whole screen (not inside the board, which
            is too small for it on a small phone). -->
+      <div class="dialog-dim" id="newGameDim" hidden></div>
+      <div id="newGameConfirm" class="new-game-confirm scroll scroll--small" role="dialog" aria-modal="false" aria-labelledby="newGameConfirmText" hidden>
+        <p id="newGameConfirmText" data-i18n="restartWarning">Your current garden will be cleared.</p>
+        <div><button class="ink-btn ink-btn--quiet" id="cancelNewGame" type="button" data-i18n="cancelRestart">Cancel</button><button class="ink-btn" id="confirmNewGame" type="button" data-i18n="confirmRestart">Start new garden</button></div>
+      </div>
       <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="finalTitle" aria-describedby="finalExplanation" hidden>
         <div class="overlay-card">
-          <div class="milestone-art" id="milestoneArt" aria-hidden="true">
-            <img src="/assets/tiles/v3/tile-2048.png" alt="" draggable="false" loading="lazy" decoding="async" />
+          <div class="milestone-art ending-harvest" id="milestoneArt" aria-hidden="true">
+            <img src="/assets/tiles/v3/tile-2048.png" alt="" draggable="false" loading="lazy" decoding="async" /><i class="ground"></i>
           </div>
-          <div class="victory-art" id="victoryArt" aria-hidden="true">
+          <div class="victory-art ending-window" id="victoryArt" aria-hidden="true">
+            <span class="ending-window-scene"></span>
             <img src="/assets/tiles/v3/tile-8192-victory-green.png" alt="" draggable="false" loading="lazy" decoding="async" />
           </div>
           <div class="overlay-emblem" id="finalEmblem">❄</div>
@@ -161,7 +164,7 @@
           <button class="end-leaderboard-link" id="endLeaderboardBtn" type="button"><svg class="pixel-icon" data-icon="podium" viewBox="0 0 12 12" fill="currentColor" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><path d="M4 3h3v1h-3zM4 4h3v1h-3zM4 5h3v1h-3zM9 5h3v1h-3zM4 6h3v1h-3zM9 6h3v1h-3zM0 7h3v1h-3zM4 7h3v1h-3zM9 7h3v1h-3zM0 8h3v1h-3zM4 8h3v1h-3zM9 8h3v1h-3zM0 9h3v1h-3zM4 9h3v1h-3zM9 9h3v1h-3zM0 10h3v1h-3zM4 10h3v1h-3zM9 10h3v1h-3zM0 11h3v1h-3zM4 11h3v1h-3zM9 11h3v1h-3z"/></svg><span data-i18n="viewLeaderboard">View leaderboard</span></button>
           <p class="score-unranked" id="unrankedNote" data-i18n="unrankedRun" hidden>This run could not be verified, so it cannot join the leaderboard.</p>
           <div class="overlay-actions">
-            <button class="btn milestone-continue-btn overlay-btn" id="continueMilestoneBtn" type="button" data-i18n="continueGame" hidden>Continue Growing</button>
+            <button class="btn ink-btn overlay-btn" id="continueMilestoneBtn" type="button" data-i18n="continueGame" hidden>Continue Growing</button>
             <button class="btn ink-btn overlay-btn" id="playAgainBtn" type="button" data-i18n="playAgain">Play Again</button>
             <button class="btn ink-btn ink-btn--quiet overlay-btn normal-game-btn" id="normalGameBtn" type="button" data-i18n="normalGame" hidden>Normal game</button>
             <button class="btn ink-btn ink-btn--quiet share-btn overlay-btn" id="shareBtn" type="button">
@@ -171,7 +174,6 @@
           </div>
         </div>
       </div>
-      <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
       <div class="sr-only" id="a11yAnnouncer" role="status" aria-live="polite"></div>
     </main>
 
@@ -200,7 +202,7 @@
       </div>
       <div class="world-reveal" id="worldReveal" hidden role="status" aria-live="polite">
         <div class="wr-card">
-          <span class="wr-kicker" id="wrKicker"></span>
+          <span class="wr-kicker"><span class="wr-badge"><span class="wr-emblem" id="wrEmblem" aria-hidden="true"></span><span id="wrKicker"></span></span></span>
           <strong class="wr-name" id="wrName"></strong>
           <span class="wr-line" id="wrLine"></span>
           <span class="wr-skip" data-i18n="wrSkip">Tap to continue</span>

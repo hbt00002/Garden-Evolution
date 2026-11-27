@@ -38,32 +38,15 @@ export function createSettingsPanel({ elements, audio, prefs, applyLanguage, hoo
   // The button that opened the panel gets focus back, wherever the player is.
   const closeTrigger = () => (hooks.startMenuShowing() ? startSettingsBtn : settingsBtn);
 
+  // In the game and on the start menu alike, the panel is a window in the
+  // middle of the screen over a dim; the stylesheet centres it and lets it
+  // scroll when it is taller than the screen.
   function setSettingsOpen(open, trigger = settingsBtn) {
     if (open) hooks.onOpen();
-    const inGame = !hooks.startMenuShowing();
-    settingsPanel.classList.toggle("settings-panel--popover", inGame);
-    settingsPanel.style.removeProperty("top");
-    settingsPanel.style.removeProperty("left");
-    if (open && inGame) {
-      const rect = settingsBtn.getBoundingClientRect();
-      const panelWidth = Math.min(320, window.innerWidth - 24);
-      const left = Math.max(8, Math.min(rect.left, window.innerWidth - panelWidth - 8));
-      settingsPanel.style.left = `${left}px`;
-      settingsPanel.style.top = `${rect.bottom + 9}px`;
-    }
+    for (const property of ["top", "left", "max-height"]) settingsPanel.style.removeProperty(property);
     settingsPanel.hidden = !open;
     syncInert();
-    if (open && inGame) {
-      // On a short screen (a phone held sideways) the panel would hang below the
-      // bottom edge: keep it on screen and let it scroll if it is still taller.
-      settingsPanel.style.maxHeight = `${window.innerHeight - 16}px`;
-      const panelHeight = settingsPanel.getBoundingClientRect().height;
-      const top = Math.max(8, Math.min(parseFloat(settingsPanel.style.top) || 8, window.innerHeight - panelHeight - 8));
-      settingsPanel.style.top = `${top}px`;
-    } else {
-      settingsPanel.style.removeProperty("max-height");
-    }
-    settingsBackdrop.hidden = !open || inGame;
+    settingsBackdrop.hidden = !open;
     settingsBtn.setAttribute("aria-expanded", String(open));
     startSettingsBtn.setAttribute("aria-expanded", String(open));
     if (open) { syncToggles(); requestAnimationFrame(() => focusTitle(settingsTitleEl)); }

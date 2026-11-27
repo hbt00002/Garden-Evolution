@@ -72,3 +72,51 @@ test("new game asks before throwing a game away", async ({ page }) => {
   await expect(page.locator("#score")).toHaveText("0");
   await expect(page.locator("#tiles .tile")).toHaveCount(2);
 });
+
+// The new-game question and the in-game settings open in the middle of the
+// screen over a dim, like the leaderboard, instead of hanging from their
+// buttons; nothing makes the page scroll, sideways included.
+const centreOff = async (page, selector) => {
+  const r = await page.locator(selector).boundingBox();
+  const { w, h } = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
+  return Math.max(Math.abs(r.x + r.width / 2 - w / 2), Math.abs(r.y + r.height / 2 - h / 2));
+};
+const noPageScroll = page => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1 && document.documentElement.scrollWidth <= innerWidth + 1);
+
+for (const [width, height] of [[390, 844], [844, 390]]) {
+  test(`${width}x${height}: the new-game question is a centred window over a dim`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await startGame(page);
+    expect(await playMoves(page, 2)).toBe(2);
+    await page.locator("#newBtn").click();
+    await expect(page.locator("#newGameConfirm")).toBeVisible();
+    await expect(page.locator("#newGameDim")).toBeVisible();
+    expect(await centreOff(page, "#newGameConfirm")).toBeLessThanOrEqual(4);
+    expect(await noPageScroll(page)).toBe(true);
+    await page.mouse.click(8, height - 8);                  // a tap on the dim
+    await expect(page.locator("#newGameConfirm")).toBeHidden();
+    await expect(page.locator("#newGameDim")).toBeHidden();
+  });
+
+  test(`${width}x${height}: the in-game settings are a centred window over a dim`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await startGame(page);
+    await page.locator("#settingsBtn").click();
+    await expect(page.locator("#settingsPanel")).toBeVisible();
+    await expect(page.locator("#settingsBackdrop")).toBeVisible();
+    expect(await centreOff(page, "#settingsPanel")).toBeLessThanOrEqual(4);
+    const r = await page.locator("#settingsPanel").boundingBox();
+    expect(r.y + r.height).toBeLessThanOrEqual(height + 0.5);
+    expect(await noPageScroll(page)).toBe(true);
+  });
+}
+
+test("the new-game question stays centred when the phone turns", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await startGame(page);
+  expect(await playMoves(page, 2)).toBe(2);
+  await page.locator("#newBtn").click();
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.waitForTimeout(300);
+  expect(await centreOff(page, "#newGameConfirm")).toBeLessThanOrEqual(4);
+});

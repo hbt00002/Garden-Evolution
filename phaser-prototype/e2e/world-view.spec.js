@@ -387,3 +387,51 @@ test.describe("with reduced motion", () => {
     await expectBackInGame(page);
   });
 });
+
+// The showcase and the garden view speak the game's language: paper, wooden
+// rods, the pixel title, the world's inks, the double-framed ink button.
+const paperOf = page => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--paper").trim());
+const rgb = hex => { const h = hex.replace("#", ""); return `rgb(${[0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)).join(", ")})`; };
+
+test.describe("in the game's paper language", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("the showcase card is paper with the world's emblem and a pixel title", async ({ page }) => {
+    await showcaseOn(page);
+    await startGame(page);
+    await unlock(page, 2);
+    await expect(page.locator("#worldReveal.show")).toBeVisible({ timeout: 8000 });
+    await expect(page.locator("#wrEmblem svg")).toHaveCount(1);
+    const card = page.locator(".wr-card");
+    expect(await card.evaluate(el => getComputedStyle(el).backgroundColor)).toBe(rgb(await paperOf(page)));
+    expect(await page.locator("#wrName").evaluate(el => getComputedStyle(el).fontFamily)).toMatch(/^"?Pixelify Sans/);
+    expect(await page.locator(".wr-skip").evaluate(el => getComputedStyle(el).textTransform)).toBe("none");
+  });
+
+  test("the garden view's labels are paper and its way back is the ink button", async ({ page }) => {
+    await startGame(page);
+    await page.locator("#viewBtn").click();
+    await expect(page.locator("#gardenView")).toBeVisible();
+    const back = page.locator("#gvBack");
+    const [transform, bg, ink] = await back.evaluate(el => [getComputedStyle(el).textTransform, getComputedStyle(el).backgroundColor,
+      getComputedStyle(el).getPropertyValue("--ink-accent").trim()]);
+    expect(transform).toBe("none");
+    expect(bg).toBe(rgb(ink));
+    const caption = page.locator(".gv-caption");
+    expect(await caption.evaluate(el => getComputedStyle(el).backdropFilter)).toBe("none");
+    expect(await caption.evaluate(el => getComputedStyle(el).backgroundColor)).toBe(rgb(await paperOf(page)));
+    const box = await back.boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  });
+
+  test("the garden view shows a long world name whole (Turkish)", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("gardenEvolutionLanguage", "tr"));
+    await startGame(page);
+    await unlock(page, 2);
+    await page.waitForTimeout(1500);
+    await page.locator("#viewBtn").click();
+    await expect(page.locator("#gardenView")).toBeVisible();
+    const name = page.locator("#gvName");
+    expect(await name.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  });
+});

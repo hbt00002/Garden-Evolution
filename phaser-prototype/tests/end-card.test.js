@@ -8,7 +8,7 @@ class FakeElement {
     this.name = name; this.hidden = false; this.textContent = ""; this.value = ""; this.disabled = false; this.placeholder = "";
     this.dataset = new Proxy({}, { set: (target, key, value) => { target[key] = String(value); return true; } }); this.classes = new Set(); this.focused = 0; this.children = []; this.previousElementSibling = null;
   }
-  get classList() { return { add: n => this.classes.add(n), remove: n => this.classes.delete(n), contains: n => this.classes.has(n) }; }
+  get classList() { return { add: n => this.classes.add(n), remove: n => this.classes.delete(n), contains: n => this.classes.has(n), toggle: (n, on) => (on ? this.classes.add(n) : this.classes.delete(n)) }; }
   focus() { this.focused++; }
   querySelector() { return this.label ?? null; }
   querySelectorAll(selector) { return selector === "[data-i18n]" ? this.i18n ?? [] : this.children; }
@@ -18,12 +18,11 @@ class FakeElement {
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-function setup({ language = "en", ranked = true, particlesOn = true, reduceMotion = false, savedName = "Mira" } = {}) {
+function setup({ language = "en", ranked = true, savedName = "Mira" } = {}) {
   globalThis.requestAnimationFrame = fn => fn();
   globalThis.localStorage = { getItem: key => (key === "gardenEvolutionPlayerName" ? savedName : null), setItem() {}, removeItem() {} };
-  globalThis.document = { createElement: () => Object.assign(new FakeElement("mote"), { style: { setProperty() {} }, addEventListener() {}, remove() {} }) };
   const el = {};
-  for (const name of ["overlay", "finalScore", "finalBest", "finalTitle", "finalExplanation", "scoreForm", "playerName", "submitBtn", "status", "continueBtn", "playAgainBtn", "finalWorld", "finalTile", "finalCombo", "finalEmblem", "unrankedNote", "milestoneArt", "victoryArt", "normalGameBtn"]) {
+  for (const name of ["overlay", "finalScore", "finalBest", "finalTitle", "finalExplanation", "scoreForm", "playerName", "submitBtn", "status", "continueBtn", "playAgainBtn", "finalWorld", "finalTile", "finalCombo", "finalEmblem", "unrankedNote", "normalGameBtn"]) {
     el[name] = new FakeElement(name);
   }
   el.finalScore.previousElementSibling = new FakeElement("scoreLabel");
@@ -32,7 +31,6 @@ function setup({ language = "en", ranked = true, particlesOn = true, reduceMotio
   const state = { run: { score: 5120, best: 8000, maxValueReached: 512, bestCombo: 6, ranked, currentStage: 3 }, language, cooled: 0, sounds: 0 };
   const card = createEndCard({
     elements: el,
-    prefs: { reduceMotion, particlesOn },
     text: () => TRANSLATIONS[state.language],
     language: () => state.language,
     snapshot: () => state.run,
@@ -87,27 +85,18 @@ test("the 2048 milestone lets the player play on, and is quicker to become ready
   assert.equal(t.el.scoreForm.hidden, true, "no score is saved at a milestone");
   assert.equal(t.el.finalWorld.textContent, t.text.milestoneKicker);
   assert.equal(t.state.sounds, 0, "no game-over sound for a milestone");
-  assert.equal(t.el.milestoneArt.children.length, 18, "a burst of motes around the art");
+  assert.ok(t.el.finalTitle.classes.has("overlay-title--ribbon"), "the Golden Tree is named on a ribbon");
   await wait(400);
   assert.equal(t.el.continueBtn.focused, 1);
 });
 
-test("the 8192 victory saves the final score and bursts around its own art", () => {
+test("the 8192 victory saves the final score, without the 2048 ribbon", () => {
   const t = setup();
   t.card.show("victory");
   assert.equal(t.el.finalTitle.dataset.i18n, "victoryTitle");
   assert.equal(t.el.scoreForm.label.dataset.i18n, "saveFinalScore");
   assert.equal(t.el.finalWorld.textContent, t.text.victoryKicker);
-  assert.equal(t.el.victoryArt.children.length, 18);
-  assert.equal(t.el.milestoneArt.children.length, 0);
-});
-
-test("no motes when particles are off or motion is reduced", () => {
-  for (const options of [{ particlesOn: false }, { reduceMotion: true }]) {
-    const t = setup(options);
-    t.card.show("milestone");
-    assert.equal(t.el.milestoneArt.children.length, 0, JSON.stringify(options));
-  }
+  assert.equal(t.el.finalTitle.classes.has("overlay-title--ribbon"), false);
 });
 
 test("hiding the card clears it, and a late focus does not follow", async () => {

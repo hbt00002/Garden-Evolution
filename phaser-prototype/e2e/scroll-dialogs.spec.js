@@ -130,7 +130,7 @@ test("long labels do not push the checkbox out on a narrow phone", async ({ page
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
 });
 
-test("the in-game settings popover stays on screen", async ({ page }) => {
+test("the in-game settings window stays on screen", async ({ page }) => {
   for (const [width, height] of [[320, 568], [568, 320]]) {
     await page.setViewportSize({ width, height });
     await openGame(page);
@@ -193,15 +193,14 @@ test("the actions are flat ink buttons", async ({ page }) => {
   expect(await style(page.locator("#finalWorld"), "text-transform")).toBe("none");
 });
 
-test("the milestone and victory cards keep their own look", async ({ page }) => {
+test("the milestone and victory cards are the same paper scroll as the end card", async ({ page }) => {
   await openGame(page);
   await page.locator("#startPlayBtn").click();
-  for (const [mode, radius] of [["milestone", "9px"], ["victory", "10px"]]) {
+  for (const mode of ["milestone", "victory"]) {
     await reveal(page, "#overlay", mode);
     const card = page.locator("#overlay .overlay-card");
-    expect(await style(card, "background-image"), mode).toContain("linear-gradient");
-    expect(await style(card, "border-top-left-radius"), mode).toBe(radius);
-    expect(await style(page.locator("#playAgainBtn"), "background-color"), mode).not.toBe("rgb(58, 114, 54)");
+    expect(await style(card, "background-image"), mode).toContain("repeating-linear-gradient");
+    expect(await style(card, "border-top-left-radius"), mode).toBe("0px");
   }
 });
 

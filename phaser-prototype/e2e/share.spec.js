@@ -87,7 +87,8 @@ test.describe("on a phone", () => {
     await finishRun(page);
     await page.locator("#shareBtn").click();
     await page.waitForTimeout(800);
-    await expect(page.locator("#toast")).toBeHidden();
+    // (The run's own achievements may still be taking their turn in the toast.)
+    await expect(page.locator("#toast .toast-name")).not.toHaveText(/Copied|not available/);
     expect(page.problems).toEqual([]);
   });
 });

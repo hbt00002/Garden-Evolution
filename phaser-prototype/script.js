@@ -51,7 +51,7 @@ import {
   saveBest, saveDailyRecord, saveLanguage, writeSavedGame
 } from "./src/storage.js";
 import { createTileArt, tileArtUrl } from "./src/tile-art.js";
-import { createToast } from "./src/toast.js";
+import { createToast, achievementLabel } from "./src/toast.js";
 import { createWorldEffects } from "./src/world-effects.js";
 import { createWorldView } from "./src/world-view.js";
 import { fitLabels } from "./src/fit-label.js";
@@ -145,6 +145,7 @@ let practiceSeed = null;
 const slotOf = mode => (mode === "classic" ? "classic" : "daily");
 const inDailyGarden = () => runMode !== "classic";
 const restartPanel = document.getElementById("newGameConfirm");
+const restartDim = document.getElementById("newGameDim");
 const cancelRestart = document.getElementById("cancelNewGame");
 const confirmRestart = document.getElementById("confirmNewGame");
 const prefs = createPreferences();
@@ -312,7 +313,9 @@ const boardView = createBoardView({
   language: () => currentLanguage,
   getStage: () => currentStage
 });
-const toast = createToast(toastEl);
+// The toast waits for the combo badge (they share a spot under the board),
+// unless the end card covers the board: then the toast shows at the top.
+const toast = createToast(toastEl, { busy: () => !comboHudEl.hidden && overlayEl.hidden });
 // Achievements, on this device only (src/achievements.js). An unlock is told
 // with a short message; several at once share it.
 const achievements = createAchievements({
@@ -321,7 +324,12 @@ const achievements = createAchievements({
   initialBest: loadBest(),
   onUnlock: unlocked => {
     const text = TRANSLATIONS[currentLanguage];
-    toast.show(text.achUnlocked.replace("{name}", unlocked.map(a => text[`ach_${a.id}`]).join(", ")));
+    toast.show(unlocked.map(a => text[`ach_${a.id}`]).join(", "), {
+      label: achievementLabel(text.achUnlocked),
+      icon: typeof unlocked[0].icon === "number"
+        ? `<img src="${tileArtUrl(artValueFor(unlocked[0].icon).assetValue)}" alt="">`
+        : pixelIcon(unlocked[0].icon)
+    });
     achievementsPanel.refresh();
   }
 });
@@ -440,7 +448,7 @@ function move(dir) {
       const unlocked = achievements.finish({ score, maxTile: maxValueReached, combo: bestCombo, mode: runMode, day: runDay });
       // A streak of today's garden is worth a word, unless an achievement already has the message.
       const streak = runMode === "daily" ? achievements.currentStreak(runDay) : 0;
-      if (streak >= 2 && !unlocked.length) toast.show(TRANSLATIONS[currentLanguage].dailyStreakToast.replace("{n}", streak));
+      if (streak >= 2 && !unlocked.length) toast.show(TRANSLATIONS[currentLanguage].dailyStreakToast.replace("{n}", streak), { icon: pixelIcon("flame") });
     } else saveGame();
     if (endingPending === "victory") endCard.show("victory");
     else if (isGameOver()) endCard.show("noMoves");
@@ -497,7 +505,7 @@ async function beginRun() {
   if (generation !== gameGeneration || !runPending) return;
   if (runMode === "daily" && !session) {
     // Back to the normal game (its own slot), so this run cannot overwrite it.
-    toast.show(TRANSLATIONS[currentLanguage].dailyOffline);
+    toast.show(TRANSLATIONS[currentLanguage].dailyOffline, { icon: pixelIcon("globe") });
     openNormalGame();
     return;
   }
@@ -534,11 +542,8 @@ const endCard = createEndCard({
     finalCombo: document.getElementById("finalCombo"),
     finalEmblem: document.getElementById("finalEmblem"),
     unrankedNote: document.getElementById("unrankedNote"),
-    milestoneArt: document.getElementById("milestoneArt"),
-    victoryArt: document.getElementById("victoryArt"),
     normalGameBtn
   },
-  prefs,
   text: () => TRANSLATIONS[currentLanguage],
   language: () => currentLanguage,
   snapshot: () => ({ score, best, maxValueReached, bestCombo, ranked: isRankedRun(), currentStage, mode: runMode }),
@@ -578,8 +583,8 @@ const shareButton = createShareButton({
   nav: nativeApp ? nativeShareNav() : navigator,
   onOutcome: outcome => {
     if (outcome === "image" || outcome === "text" || outcome === "copied") achievements.event("share");
-    if (outcome === "copied") toast.show(TRANSLATIONS[currentLanguage].shareCopied);
-    else if (outcome === "unavailable") toast.show(TRANSLATIONS[currentLanguage].shareUnavailable);
+    if (outcome === "copied") toast.show(TRANSLATIONS[currentLanguage].shareCopied, { icon: pixelIcon("picture"), urgent: true });
+    else if (outcome === "unavailable") toast.show(TRANSLATIONS[currentLanguage].shareUnavailable, { icon: pixelIcon("picture"), urgent: true });
   }
 });
 
@@ -671,7 +676,7 @@ const scoreSubmit = createScoreSubmit({
 
 // The Golden Tree: a message, a chime, and (unless motion is reduced) a burst.
 function celebrate() {
-  toast.show(TRANSLATIONS[currentLanguage].crownBloomed);
+  toast.show(TRANSLATIONS[currentLanguage].crownBloomed, { icon: pixelIcon("flower") });
   audio.playGolden();
   if (prefs.reduceMotion) return;
   boardView.celebrate();
@@ -724,7 +729,8 @@ function showWorldReveal(stage) {
   worldView.showReveal(stage, {
     kicker: stageKickerEl.textContent,
     name: stageNameEl.textContent,
-    line: meta.line
+    line: meta.line,
+    emblem: pixelIcon(meta.emblem)
   });
 }
 // If the Phaser scenery fails to start after the game, fall back to the SVG one.
@@ -808,6 +814,7 @@ installControls({ board: boardEl, onMove: move, blocked: inputBlocked, onGesture
 
 function closeRestart(restoreFocus = true) {
   restartPanel.hidden = true;
+  restartDim.hidden = true;
   newBtn.setAttribute("aria-expanded", "false");
   if (restoreFocus) newBtn.focus();
 }
@@ -821,6 +828,7 @@ newBtn.addEventListener("click", () => {
   comboHud.cool();
   restartWarningEl.textContent = TRANSLATIONS[currentLanguage][runMode === "daily" ? "dailyRestartWarning" : "restartWarning"];
   restartPanel.hidden = false;
+  restartDim.hidden = false;
   newBtn.setAttribute("aria-expanded", "true");
   cancelRestart.focus();
 });

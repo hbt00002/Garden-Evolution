@@ -213,8 +213,6 @@ body.high-contrast #env ~ * { --ink-accent: var(--ink-badge-text); }
 /* ----- Settings ----- */
 /* The panel is the scroll; its body scrolls when the screen is short. */
 .settings-panel { gap: 0; padding: 22px 16px 18px; }
-.settings-panel.settings-panel--popover::before,
-.settings-panel.settings-panel--popover::after { left: -6px; right: -6px; }
 .settings-head { flex: none; align-self: center; margin-bottom: 4px; }
 .settings-title { flex: none; margin: 0 36px 4px; text-align: center; font-size: 1.5rem; line-height: 1.1; }
 .settings-close {
@@ -301,80 +299,139 @@ body.high-contrast #env ~ * { --ink-accent: var(--ink-badge-text); }
 
 /* ----- Buttons inside a scroll ----- */
 /* The main action is filled with ink; a secondary one is paper outlined in ink.
-   Flat, chipped corners, at least 44px. The reward cards (milestone, victory)
-   style their own buttons with stronger selectors and keep them. */
-.ink-btn:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *)) {
+   Flat, chipped corners, at least 44px. */
+.ink-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 0 16px;
   border: 0; border-radius: 0; background: var(--ink-accent); color: var(--paper); box-shadow: none; text-shadow: none;
   font: 700 .86rem/1.1 "Quicksand", sans-serif; text-transform: none; letter-spacing: 0; cursor: pointer;
   clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px);
   transition: transform .12s ease, filter .12s ease;
 }
-.ink-btn:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *)):hover { background: var(--ink-accent); filter: brightness(1.08); }
-.ink-btn:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *)):active { transform: translateY(1px); box-shadow: none; }
-.ink-btn:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *)):focus-visible { outline: 3px solid var(--paper); outline-offset: -6px; }
-.ink-btn--quiet:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *)):focus-visible { outline-color: var(--ink-accent); }
-.ink-btn--quiet:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *)), .ink-btn--quiet:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *)):hover { background: var(--paper); color: var(--ink-accent); box-shadow: inset 0 0 0 2px var(--ink-accent); }
-.ink-btn--quiet:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *)):hover { filter: none; background: color-mix(in srgb, var(--ink-badge) 45%, var(--paper)); }
-.ink-btn:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *)) svg { width: 17px; height: 17px; flex: none; }
-.ink-btn:not(:where(.overlay[data-mode="milestone"] *, .overlay[data-mode="victory"] *))[hidden] { display: none; }
+.ink-btn:hover { background: var(--ink-accent); filter: brightness(1.08); }
+.ink-btn:active { transform: translateY(1px); box-shadow: none; }
+.ink-btn:focus-visible { outline: 3px solid var(--paper); outline-offset: -6px; }
+.ink-btn--quiet:focus-visible { outline-color: var(--ink-accent); }
+.ink-btn--quiet, .ink-btn--quiet:hover { background: var(--paper); color: var(--ink-accent); box-shadow: inset 0 0 0 2px var(--ink-accent); }
+.ink-btn--quiet:hover { filter: none; background: color-mix(in srgb, var(--ink-badge) 45%, var(--paper)); }
+.ink-btn svg { width: 17px; height: 17px; flex: none; }
+.ink-btn[hidden] { display: none; }
 
 /* The leaderboard's Retry sits in the middle of the list. */
 .ink-btn.lb-retry { display: flex; width: fit-content; margin: 0 auto 6px; }
 
-/* ----- The no-moves card: a scroll on the board ----- */
-/* Only in its ordinary mode: every rule here is scoped to it (with :where, so
-   it weighs no more than the old ones), and the milestone and victory cards
-   keep their own look from style.css. */
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-card {
+/* ----- The end card: a scroll over the board ----- */
+/* Every ending uses it: no more moves, the 2048 milestone and the 8192
+   victory. (:where keeps these rules as light as the old ones.) The two
+   reward endings add their picture at the top, see below. */
+:where(.overlay) .overlay-card {
   position: relative; overflow: visible; gap: 12px; padding: 26px 24px 22px; border: 0; border-radius: 0;
   background-color: var(--paper);
   background-image: repeating-linear-gradient(0deg, rgba(120,95,60,.05) 0 2px, transparent 2px 6px);
   color: var(--paper-ink); box-shadow: 0 14px 22px rgba(0,0,0,.3);
 }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-card::before,
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-card::after {
+:where(.overlay) .overlay-card::before,
+:where(.overlay) .overlay-card::after {
   content: ""; position: absolute; z-index: 1; inset: auto -12px; height: 12px;
   background: var(--paper-wood); box-shadow: 0 3px 0 #2f2116; pointer-events: none;
 }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-card::before { top: -6px; }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-card::after { bottom: -6px; }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-emblem {
+:where(.overlay) .overlay-card::before { top: -6px; }
+:where(.overlay) .overlay-card::after { bottom: -6px; }
+:where(.overlay) .overlay-emblem {
   width: 46px; height: 46px; border-radius: 0; background: var(--ink-badge); color: var(--ink-badge-text); box-shadow: none;
   clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px);
 }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-emblem svg { width: 26px; height: 26px; }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-world { margin-bottom: -8px; color: var(--paper-ink-soft); font-size: .78rem; font-weight: 700; letter-spacing: 0; text-transform: none; }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-title { color: var(--paper-ink); font-family: "Pixelify Sans", "Oxanium", sans-serif; line-height: 1.1; text-align: center; }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-explanation { max-width: 240px; margin: -6px 0 0; color: var(--paper-ink-soft); font-size: .8rem; }
+:where(.overlay) .overlay-emblem svg { width: 26px; height: 26px; }
+:where(.overlay) .overlay-world { margin-bottom: -8px; color: var(--paper-ink-soft); font-size: .78rem; font-weight: 700; letter-spacing: 0; text-transform: none; }
+:where(.overlay) .overlay-title { color: var(--paper-ink); font-family: "Pixelify Sans", "Oxanium", sans-serif; line-height: 1.1; text-align: center; }
+:where(.overlay) .overlay-explanation { max-width: 240px; margin: -6px 0 0; color: var(--paper-ink-soft); font-size: .8rem; }
 /* Scores: no boxes, a dashed line between them. */
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-scores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; width: min(260px, 100%); }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-scores > div { min-width: 0; padding: 5px 10px; }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-scores > div:nth-child(odd) { border-right: 2px var(--rule-style) var(--paper-rule); }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-scores > div:nth-child(-n+2) { border-bottom: 2px var(--rule-style) var(--paper-rule); }
+:where(.overlay) .overlay-scores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; width: min(260px, 100%); }
+:where(.overlay) .overlay-scores > div { min-width: 0; padding: 5px 10px; }
+:where(.overlay) .overlay-scores > div:nth-child(odd) { border-right: 2px var(--rule-style) var(--paper-rule); }
+:where(.overlay) .overlay-scores > div:nth-child(-n+2) { border-bottom: 2px var(--rule-style) var(--paper-rule); }
 /* A phone held sideways: one row of four. */
 @media (orientation: landscape) and (max-height: 540px) {
-  :where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-scores { grid-template-columns: repeat(4, minmax(0, 1fr)); width: auto; }
-  :where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-scores > div { border-bottom: 0; }
-  :where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-scores > div:not(:last-child) { border-right: 2px var(--rule-style) var(--paper-rule); }
+  :where(.overlay) .overlay-scores { grid-template-columns: repeat(4, minmax(0, 1fr)); width: auto; }
+  :where(.overlay) .overlay-scores > div { border-bottom: 0; }
+  :where(.overlay) .overlay-scores > div:not(:last-child) { border-right: 2px var(--rule-style) var(--paper-rule); }
 }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-scores span { color: var(--paper-ink-soft); font-size: .72rem; font-weight: 700; letter-spacing: 0; text-transform: none; }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-scores strong { color: var(--paper-ink); font-family: "Oxanium", "Trebuchet MS", sans-serif; font-size: 1.35rem; }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .score-submit label { color: var(--paper-ink); font-size: .8rem; }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .score-submit input {
+:where(.overlay) .overlay-scores span { color: var(--paper-ink-soft); font-size: .72rem; font-weight: 700; letter-spacing: 0; text-transform: none; }
+:where(.overlay) .overlay-scores strong { color: var(--paper-ink); font-family: "Oxanium", "Trebuchet MS", sans-serif; font-size: 1.35rem; }
+:where(.overlay) .score-submit label { color: var(--paper-ink); font-size: .8rem; }
+:where(.overlay) .score-submit input {
   border: 0; border-radius: 0; background: #fbf5e4; color: var(--paper-ink); box-shadow: inset 0 0 0 2px var(--paper-frame); font: 600 .9rem/1.2 "Quicksand", sans-serif;
 }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .score-submit input:focus { box-shadow: inset 0 0 0 2px var(--ink-accent); }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .score-submit input:focus-visible { outline: 3px solid var(--ink-accent); outline-offset: 2px; }
-:where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .score-submit-status { color: var(--paper-ink-soft); font-size: .72rem; }
+:where(.overlay) .score-submit input:focus { box-shadow: inset 0 0 0 2px var(--ink-accent); }
+:where(.overlay) .score-submit input:focus-visible { outline: 3px solid var(--ink-accent); outline-offset: 2px; }
+:where(.overlay) .score-submit-status { color: var(--paper-ink-soft); font-size: .72rem; }
 
-/* ----- "Start a new garden?" under the New Game button ----- */
+/* ----- The reward endings ----- */
+/* 2048: "I did it." The Golden Tree rises from its patch of ground and its
+   name opens on a ribbon in the world's ink. */
+.milestone-art, .victory-art { display: none; }
+.overlay[data-mode="milestone"] .overlay-emblem,
+.overlay[data-mode="victory"] .overlay-emblem { display: none; }
+.overlay[data-mode="milestone"] .milestone-art { display: grid; justify-items: center; }
+.ending-harvest img { position: relative; z-index: 1; width: 112px; height: 112px; margin-bottom: -10px; image-rendering: pixelated;
+  animation: harvestRise .6s cubic-bezier(.2,.8,.25,1) .15s both; }
+.ending-harvest .ground { display: block; width: 170px; height: 8px; background: var(--paper-rule); }
+.overlay-title--ribbon {
+  position: relative; z-index: 0; padding: 8px 26px; background: var(--ink-badge); color: var(--ink-badge-text);
+  animation: ribbonOpen .45s steps(6) .5s both;
+}
+.overlay-title--ribbon::before, .overlay-title--ribbon::after {
+  content: ""; position: absolute; z-index: -1; top: 6px; width: 18px; height: 100%; background: var(--ink-accent);
+}
+.overlay-title--ribbon::before { left: -12px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 40% 50%); }
+.overlay-title--ribbon::after { right: -12px; clip-path: polygon(0 0, 100% 0, 60% 50%, 100% 100%, 0 100%); }
+:where(.overlay) .overlay-title.overlay-title--ribbon { color: var(--ink-badge-text); }
+@keyframes harvestRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes ribbonOpen { from { clip-path: inset(0 50%); } to { clip-path: inset(0 -20px); } }
+
+/* 8192: "I walked into the unknown and arrived." A window onto the moon
+   garden the player walked to: it opens dark and lightens step by step, and
+   the tree comes out last. */
+.overlay[data-mode="victory"] .victory-art { display: block; }
+.ending-window {
+  position: relative; width: min(250px, 70vw); height: min(170px, 24vh); overflow: hidden;
+  box-shadow: inset 0 0 0 3px var(--ink-accent), inset 0 0 0 6px var(--paper), inset 0 0 0 8px var(--ink-accent);
+  clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px);
+}
+.ending-window-scene {
+  position: absolute; inset: 8px; display: block; image-rendering: pixelated;
+  background: url(/assets/stage5-v2/quiet-moon-garden.png) center 70% / cover;
+  animation: windowDawn 1.6s steps(4) both;
+}
+.ending-window img {
+  position: absolute; left: 50%; bottom: 4px; width: auto; height: calc(100% - 22px); translate: -50% 0; image-rendering: pixelated;
+  animation: fadeInPlain .5s ease 1.4s both;
+}
+@keyframes windowDawn { from { filter: brightness(.25); } to { filter: brightness(1); } }
+@keyframes fadeInPlain { from { opacity: 0; } to { opacity: 1; } }
+@media (max-height: 640px) {
+  .ending-window { height: 120px; }
+  .ending-harvest img { width: 84px; height: 84px; }
+}
+@media (orientation: landscape) and (max-height: 540px) {
+  .ending-window { width: min(300px, 50vw); height: 96px; }
+  .ending-harvest img { width: 68px; height: 68px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ending-harvest img, .overlay-title--ribbon, .ending-window-scene, .ending-window img { animation: fadeInPlain .2s ease both; }
+}
+body.motion-off .ending-harvest img, body.motion-off .overlay-title--ribbon,
+body.motion-off .ending-window-scene, body.motion-off .ending-window img { animation: fadeInPlain .2s ease both; }
+
+/* ----- "Start a new garden?": a small window in the middle ----- */
 .scroll--small::before, .scroll--small::after { left: -8px; right: -8px; height: 8px; }
 .scroll--small::before { top: -4px; } .scroll--small::after { bottom: -4px; }
 .new-game-confirm {
-  position: absolute; z-index: 30; right: 0; top: calc(100% + 14px);
-  width: min(320px, calc(100vw - 32px)); padding: 16px 14px 14px;
+  position: fixed; z-index: 81; left: 50%; top: 50%; translate: -50% -50%;
+  width: min(340px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 18px 16px 16px;
 }
+/* The dim behind it, like the leaderboard's. */
+.dialog-dim { position: fixed; inset: 0; z-index: 80; background: rgba(13,24,24,.64); }
+.dialog-dim[hidden] { display: none; }
 .new-game-confirm p { margin: 0 0 12px; color: var(--paper-ink); font-size: .9rem; font-weight: 700; }
 .new-game-confirm > div { display: flex; gap: 8px; flex-wrap: wrap; }
 .new-game-confirm .ink-btn { flex: 1; padding: 0 10px; font-size: .82rem; }
@@ -390,8 +447,8 @@ body.high-contrast #env ~ * { --ink-accent: var(--ink-badge-text); }
 
 /* ----- A phone held sideways: compact windows ----- */
 @media (orientation: landscape) and (max-height: 540px) {
-  :where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-card { padding: 14px 16px 12px; gap: 7px; }
-  :where(.overlay:not([data-mode="milestone"]):not([data-mode="victory"])) .overlay-scores > div { padding: 5px 6px; }
+  :where(.overlay) .overlay-card { padding: 14px 16px 12px; gap: 7px; }
+  :where(.overlay) .overlay-scores > div { padding: 5px 6px; }
   .leaderboard-card { padding-top: 18px; padding-bottom: 14px; }
   .leaderboard-header { margin-bottom: 6px; }
   .leaderboard-header .scroll-head { display: none; }
