@@ -13,7 +13,6 @@ const countBoardWork = page => page.evaluate(() => {
     board[name] = function (...args) { window.__boardWork[name]++; return original.apply(this, args); };
   }
 });
-const boardWork = page => page.evaluate(() => ({ ...window.__boardWork }));
 
 const frameSample = page => page.evaluate(() => new Promise(resolve => {
   const board = window.gardenBoardEngine.scene.getScene("LivingBoardScene");
