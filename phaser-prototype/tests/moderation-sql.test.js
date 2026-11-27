@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createD1 } from "./helpers/worker-env.js";
 import { nameKey } from "../src/player-name.js";
-import { banSql, countSql, deviceCountSql, hiddenSql, hideSql, purgeSql, reportsSql, sqlString, unbanSql, unhideSql } from "../tools/moderation-sql.mjs";
+import { banSql, countSql, deviceCountSql, flaggedSql, hiddenSql, hideSql, purgeSql, reportsSql, sqlString, unbanSql, unhideSql } from "../tools/moderation-sql.mjs";
 
 // The SQL `npm run mod` sends, run against the real migrations.
 
@@ -75,4 +75,12 @@ test("hide, unhide and the listings", () => {
 test("count says how many rows each table has for the name", () => {
   const sqlite = seeded([["Bora", DEVICES.a], ["bora", DEVICES.b], ["Mira", DEVICES.c]]);
   assert.deepEqual(sqlite.prepare(countSql("bora")).all().map(r => [r.place, r.rows]), [["leaderboard", 2], ["score_log", 2], ["daily_scores", 2]]);
+});
+
+test("flagged lists the runs worth a look, newest first", () => {
+  const { sqlite } = createD1();
+  const insert = sqlite.prepare("INSERT INTO flagged_scores (board, player_name, score, max_tile, moves, seconds, reason, created_at) VALUES (?, ?, ?, ?, 300, 50, ?, ?)");
+  insert.run("all", "Older", 90000, 8192, "8192", "2026-11-26T10:00:00.000Z");
+  insert.run("daily", "Newer", 5000, 512, "fast", "2026-11-27T10:00:00.000Z");
+  assert.deepEqual(sqlite.prepare(flaggedSql()).all().map(r => [r.player_name, r.reason, r.board]), [["Newer", "fast", "daily"], ["Older", "8192", "all"]]);
 });

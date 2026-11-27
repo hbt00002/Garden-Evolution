@@ -56,6 +56,17 @@
           <strong>EVOLUTION</strong>
         </h1>
         <div class="start-actions" aria-label="Main menu">
+          <!-- A finished game whose score could not be sent (see src/pending-run.js). -->
+          <form class="pending-run scroll scroll--small" id="pendingRun" aria-labelledby="pendingTitle" hidden>
+            <h2 id="pendingTitle" data-i18n="pendingTitle">Your last game wasn't sent</h2>
+            <p class="pending-run-what"><b id="pendingScore"></b><span id="pendingPlant"></span></p>
+            <div class="pending-run-row">
+              <input id="pendingName" name="pendingName" type="text" minlength="2" maxlength="16" autocomplete="nickname" aria-labelledby="pendingTitle" required />
+              <button class="ink-btn" id="pendingSendBtn" type="submit" data-i18n="pendingSend">Send</button>
+            </div>
+            <span class="pending-run-status" id="pendingStatus" aria-live="polite"></span>
+            <button class="ink-btn ink-btn--quiet pending-run-later" id="pendingLaterBtn" type="button" data-i18n="pendingLater">Not now</button>
+          </form>
           <button class="start-btn start-btn-primary" id="startPlayBtn" type="button" data-i18n="play">Play</button>
           <button class="start-btn start-btn-daily" id="startDailyBtn" type="button" aria-describedby="startDailySub">
             <span class="start-daily-head">

@@ -2,6 +2,7 @@
 //
 //   npm run mod -- reports              names people reported, newest first
 //   npm run mod -- hidden               names no board shows, and why
+//   npm run mod -- flagged              runs worth a look: 8192 reached, or played too fast
 //   npm run mod -- hide "name"          hide a name on every board
 //   npm run mod -- unhide "name"        show it again (its reports are forgotten)
 //   npm run mod -- ban "name"           refuse scores from every device that used it, and hide it
@@ -14,7 +15,7 @@ import { execFileSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { nameKey } from "../src/player-name.js";
-import { banSql, countSql, deviceCountSql, hiddenSql, hideSql, purgeSql, reportsSql, unbanSql, unhideSql } from "./moderation-sql.mjs";
+import { banSql, countSql, deviceCountSql, flaggedSql, hiddenSql, hideSql, purgeSql, reportsSql, unbanSql, unhideSql } from "./moderation-sql.mjs";
 
 const DATABASE = "garden-evolution-leaderboard";
 const WRANGLER = fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js", import.meta.url));
@@ -50,6 +51,7 @@ async function main() {
   switch (command) {
     case "reports": return show(run(reportsSql()));
     case "hidden": return show(run(hiddenSql()));
+    case "flagged": return show(run(flaggedSql()));
     case "hide": run(hideSql(needName())); return console.log(`Hidden: ${needName()}`);
     case "unhide": run(unhideSql(needName())); return console.log(`Shown again: ${needName()}`);
     case "ban": {
@@ -72,7 +74,7 @@ async function main() {
       return console.log("Deleted.");
     }
     default:
-      console.log("Commands: reports, hidden, hide, unhide, ban, unban, purge. Names in quotes; add --local for the local database.");
+      console.log("Commands: reports, hidden, flagged, hide, unhide, ban, unban, purge. Names in quotes; add --local for the local database.");
       process.exitCode = command ? 1 : 0;
   }
 }

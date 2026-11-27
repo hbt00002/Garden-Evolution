@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker, { expectedStage, isTimingPlausible, seedForSession } from "../cloudflare/worker.js";
+import worker, { expectedStage, flagReasons, isTimingPlausible, recordFlag, seedForSession } from "../cloudflare/worker.js";
 import { applyMove, createGame, replayGame } from "../src/game-core.js";
-import { ORIGIN, SESSION_SECRET, hmacHex, installCacheStub, makeEnv, playRun } from "./helpers/worker-env.js";
+import { ORIGIN, RATE_LIMIT_SALT, SESSION_SECRET, hmacHex, installCacheStub, makeEnv, playRun } from "./helpers/worker-env.js";
+import { dayKey, previousDay } from "../src/daily.js";
 
 /* ---------- Test doubles ---------- */
 
@@ -93,7 +94,7 @@ test("session: a client cannot farm sessions to hunt for a lucky seed", async ()
   installCacheStub();
   const env = makeEnv();
   const headers = { "CF-Connecting-IP": "203.0.113.50", "user-agent": "farm" };
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 120; i++) {
     assert.equal((await call(env, "/api/session", { method: "POST", headers })).status, 200, `session ${i + 1}`);
   }
   const limited = await call(env, "/api/session", { method: "POST", headers });
@@ -325,22 +326,36 @@ test("device: a lower score needs confirmation and only overwrites when confirme
   assert.equal(rows(env)[0].score, low.score);
 });
 
-test("device: submissions without a valid deviceId are always inserted", async () => {
+test("device: a score without a valid device id is refused", async () => {
   installCacheStub();
   const env = makeEnv();
-  await submit(env, await validScore({ deviceId: undefined }));
-  await submit(env, await validScore({ deviceId: "not-a-uuid" }));
-  assert.equal(rows(env).length, 2);
-  assert.ok(rows(env).every(row => row.device_id === null));
+  for (const deviceId of [undefined, null, "not-a-uuid"]) {
+    const refused = await submit(env, await validScore({ deviceId }));
+    assert.equal(refused.status, 400, String(deviceId));
+    assert.equal((await refused.json()).code, "device_required");
+  }
+  assert.equal(rows(env).length, 0);
 });
 
 /* ---------- Rate limiting ---------- */
 
-test("rate limit: the 6th submission in a window is refused with Retry-After", async () => {
+test("rate limit: an address is counted whatever browser it claims to be", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  for (let i = 0; i < 20; i++) {
+    const headers = { "CF-Connecting-IP": "203.0.113.9", "user-agent": `agent-${i % 2}` };
+    assert.equal((await submit(env, await validScore(), { headers })).status, 201, `submission ${i + 1}`);
+  }
+  const limited = await submit(env, await validScore(), { headers: { "CF-Connecting-IP": "203.0.113.9", "user-agent": "a-third-one" } });
+  assert.equal(limited.status, 429);
+  assert.equal(env.DB.sqlite.prepare("SELECT COUNT(*) AS n FROM submission_limits").get().n, 1);
+});
+
+test("rate limit: the 21st submission in a window is refused with Retry-After", async () => {
   installCacheStub();
   const env = makeEnv();
   const headers = { "CF-Connecting-IP": "203.0.113.7", "user-agent": "test-agent" };
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 20; i++) {
     const response = await submit(env, await validScore(), { headers });
     assert.equal(response.status, 201, `submission ${i + 1}`);
   }
@@ -727,4 +742,124 @@ test("submissions work before the moderation migration", async () => {
   const env = makeEnv();
   env.DB.sqlite.exec("DROP TABLE name_reports; DROP TABLE hidden_names; DROP TABLE banned_devices;");
   assert.equal((await call(env, "/api/leaderboard", { method: "POST", body: await validScore() })).status, 201);
+});
+
+/* ---------- Daily caps per address ---------- */
+
+// The key the caps keep for an address (see fingerprint() in the Worker).
+const dayAddress = async ip => (await hmacHex(RATE_LIMIT_SALT, `day|${ip}`)).slice(0, 32);
+const setDayCount = async (env, ip, kind, count, day = dayKey()) =>
+  env.DB.sqlite.prepare("INSERT OR REPLACE INTO ip_daily (ip, day, kind, count) VALUES (?, ?, ?, ?)").run(await dayAddress(ip), day, kind, count);
+const dayCount = async (env, ip, kind) =>
+  env.DB.sqlite.prepare("SELECT count FROM ip_daily WHERE ip = ? AND day = ? AND kind = ?").get(await dayAddress(ip), dayKey(), kind)?.count ?? 0;
+
+test("daily cap: an address can send 60 normal scores a day, then is refused", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const headers = { "CF-Connecting-IP": "198.51.100.1" };
+  await setDayCount(env, "198.51.100.1", "score", 59);
+  assert.equal((await submit(env, await validScore(), { headers })).status, 201);
+  assert.equal(await dayCount(env, "198.51.100.1", "score"), 60);
+  const refused = await submit(env, await validScore(), { headers });
+  assert.equal(refused.status, 429);
+  assert.equal((await refused.json()).code, "daily_cap");
+  // Another address is not affected.
+  assert.equal((await submit(env, await validScore(), { headers: { "CF-Connecting-IP": "198.51.100.2" } })).status, 201);
+});
+
+test("daily cap: a refused run does not use it up", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const headers = { "CF-Connecting-IP": "198.51.100.3" };
+  const body = await validScore();
+  const refused = await submit(env, { ...body, score: body.score + 4 }, { headers });
+  assert.equal(refused.status, 400);
+  assert.equal(await dayCount(env, "198.51.100.3", "score"), 0);
+});
+
+test("daily cap: none before migration 0008", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  env.DB.sqlite.exec("DROP TABLE ip_daily");
+  assert.equal((await submit(env, await validScore(), { headers: { "CF-Connecting-IP": "198.51.100.4" } })).status, 201);
+});
+
+test("daily cap: the nightly cleanup keeps only yesterday's and today's counters", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const today = dayKey();
+  await setDayCount(env, "198.51.100.5", "score", 3, today);
+  await setDayCount(env, "198.51.100.5", "daily", 1, previousDay(today));
+  await setDayCount(env, "198.51.100.6", "score", 9, previousDay(previousDay(today)));
+  const cron = makeCtx();
+  await worker.scheduled({}, env, cron);
+  await cron.settled();
+  assert.deepEqual(env.DB.sqlite.prepare("SELECT day FROM ip_daily ORDER BY day").all().map(r => r.day), [previousDay(today), today]);
+});
+
+/* ---------- Flagged runs ---------- */
+
+test("flag reasons: 8192, and a pace faster than 5 moves a second over 200 moves or more", () => {
+  assert.deepEqual(flagReasons({ maxTile: 8192, moves: 3000, seconds: 1200 }), ["8192"]);
+  assert.deepEqual(flagReasons({ maxTile: 1024, moves: 1000, seconds: 150 }), ["fast"]);
+  assert.deepEqual(flagReasons({ maxTile: 1024, moves: 199, seconds: 10 }), []);
+  assert.deepEqual(flagReasons({ maxTile: 1024, moves: 1000, seconds: 250 }), []);
+  assert.deepEqual(flagReasons({ maxTile: 8192, moves: 3000, seconds: 400 }), ["8192", "fast"]);
+});
+
+const flaggedRows = env => env.DB.sqlite.prepare("SELECT board, player_name, reason, moves FROM flagged_scores").all().map(r => ({ ...r }));
+
+// An honest run, sent as if it had been played at 10 moves a second.
+async function fastRun() {
+  // The seeded player plays at random; look for a session whose run is long
+  // enough (200 moves or more) to be judged on its pace.
+  let sid;
+  let run;
+  for (let tries = 0; tries < 500 && !(run?.moves.length >= 200); tries++) {
+    sid = crypto.randomUUID();
+    run = playRun(await seedForSession(SESSION_SECRET, sid));
+  }
+  assert.ok(run.moves.length >= 200, "found a run of 200 moves or more");
+  // The server's own floor for this top plant (MIN_SECONDS_PER_TILE), plus a second.
+  const floor = { 2: 0, 4: 0, 8: 0, 16: 0, 32: 3, 64: 8, 128: 18, 256: 35, 512: 65, 1024: 120 }[run.maxTile];
+  const ageMs = Math.max(run.moves.length * 100, (floor + 1) * 1000);
+  const iat = Date.now() - ageMs;
+  const session = { sid, iat, sig: await hmacHex(SESSION_SECRET, `${sid}.${iat}`) };
+  return { body: await validScore({ session }), fast: run.moves.length / (ageMs / 1000) > 5 };
+}
+
+test("a run played too fast is accepted, and put on the developer's list", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const { body, fast } = await fastRun();
+  assert.equal((await submit(env, body)).status, 201);
+  assert.deepEqual(flaggedRows(env), fast ? [{ board: "all", player_name: "Mira", reason: "fast", moves: body.moves.length }] : []);
+  assert.ok(fast, "the run was paced faster than 5 moves a second");
+});
+
+test("a flag that cannot be written does not refuse the score", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  await submit(env, await validScore());          // the trust tables are seen to exist
+  env.DB.sqlite.exec("DROP TABLE flagged_scores");
+  const { body } = await fastRun();
+  assert.equal((await submit(env, body)).status, 201);
+});
+
+test("recordFlag writes one row with the reasons joined", async () => {
+  const env = makeEnv();
+  await recordFlag(env, { board: "daily", deviceId: null, playerName: "Bot", score: 97000, maxTile: 8192, moves: 3000, seconds: 400, reasons: ["8192", "fast"] });
+  assert.deepEqual(flaggedRows(env), [{ board: "daily", player_name: "Bot", reason: "8192,fast", moves: 3000 }]);
+});
+
+test("the nightly cleanup forgets flags after 90 days", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const insert = env.DB.sqlite.prepare("INSERT INTO flagged_scores (board, player_name, score, max_tile, moves, seconds, reason, created_at) VALUES ('all', ?, 1, 2, 1, 1, '8192', ?)");
+  insert.run("old", new Date(Date.now() - 91 * DAY_MS).toISOString());
+  insert.run("recent", new Date(Date.now() - 89 * DAY_MS).toISOString());
+  const cron = makeCtx();
+  await worker.scheduled({}, env, cron);
+  await cron.settled();
+  assert.deepEqual(env.DB.sqlite.prepare("SELECT player_name FROM flagged_scores").all().map(r => r.player_name), ["recent"]);
 });

@@ -31,7 +31,7 @@ Garden Evolution is a relaxing merge puzzle. Swipe to bring matching plants toge
 As your plants grow, the world around them changes. Start in a quiet winter and let it melt into a snowmelt valley, a spring in full bloom, alpine sakura and finally a moonlit garden. There are five hand-painted pixel-art worlds, each with its own music and weather.
 
 • Today's Garden: everyone gets the same puzzle each day. One ranked try, then practise as much as you like. Keep your daily streak going.
-• Leaderboards for all time, this week, the last 24 hours and today's garden. Every score is checked by replaying the game, so the tables are fair.
+• Leaderboards for all time, this week, the last 24 hours and today's garden. Every score is checked against the rules by replaying the game.
 • 18 achievements and your own stats.
 • Bloom streaks: chain merges for a combo and a little piano melody.
 • Look around your garden in the garden view, and share a picture of a finished run.
@@ -59,7 +59,7 @@ Garden Evolution rahatlatıcı bir birleştirme bulmacası. Aynı bitkileri bir 
 Bitkilerin büyüdükçe etrafındaki dünya da değişir. Sessiz bir kışla başla; kar eriyen bir vadiye, çiçek açan bir ilkbahara, Alp sakuralarına ve sonunda ay ışıklı bir bahçeye dönüşsün. Her birinin kendi müziği ve havası olan beş el çizimi piksel sanat dünya seni bekliyor.
 
 • Günün Bahçesi: her gün herkes aynı bulmacayı oynar. Tek sıralı deneme, sonra dilediğin kadar pratik. Günlük serini bozma.
-• Tüm zamanlar, bu hafta, son 24 saat ve günün bahçesi sıralamaları. Her skor oyun yeniden oynatılarak doğrulanır; tablolar adil.
+• Tüm zamanlar, bu hafta, son 24 saat ve günün bahçesi sıralamaları. Her skor oyun yeniden oynatılarak kurallara göre doğrulanır.
 • 18 başarım ve kendi istatistiklerin.
 • Birleşme serileri: art arda birleştir, kombo yap ve küçük bir piyano melodisi dinle.
 • Bahçe görünümünde etrafa bak, biten oyunun resmini paylaş.

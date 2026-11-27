@@ -45,10 +45,11 @@ import { captureBackdrop, createShareButton } from "./src/share.js";
 import { createAudio } from "./src/audio.js";
 import { createPreferences } from "./src/preferences.js";
 import { createScoreSubmit } from "./src/score-submit.js";
+import { isPendingExpired, makePendingRun, shouldClearOnDismiss } from "./src/pending-run.js";
 import { createSettingsPanel } from "./src/settings-panel.js";
 import {
-  clearSavedGame, loadAchievements, loadBest, loadDailyRecord, loadLanguage, loadSavedGame, saveAchievements,
-  saveBest, saveDailyRecord, saveLanguage, writeSavedGame
+  clearPendingRun, clearSavedGame, loadAchievements, loadBest, loadDailyRecord, loadLanguage, loadPendingRun, loadPlayerName,
+  loadSavedGame, saveAchievements, saveBest, saveDailyRecord, saveLanguage, savePendingRun, writeSavedGame
 } from "./src/storage.js";
 import { createTileArt, tileArtUrl } from "./src/tile-art.js";
 import { createToast, achievementLabel } from "./src/toast.js";
@@ -165,6 +166,7 @@ function applyLanguage(language, { remember = true } = {}) {
   const text = TRANSLATIONS[currentLanguage];
   document.documentElement.lang = currentLanguage;
   languageSelect.value = currentLanguage;
+  if (pendingShown) showPendingRun();     // its score and plant in the new language
   document.querySelectorAll("[data-i18n]").forEach(el => {
     const value = text[el.dataset.i18n];
     if (value) el.textContent = value;
@@ -445,6 +447,7 @@ function move(dir) {
     const finished = endingPending === "victory" || isGameOver();
     if (finished) {
       clearSavedGame(slotOf(runMode));
+      keepFinishedRun();
       const unlocked = achievements.finish({ score, maxTile: maxValueReached, combo: bestCombo, mode: runMode, day: runDay });
       // A streak of today's garden is worth a word, unless an achievement already has the message.
       const streak = runMode === "daily" ? achievements.currentStreak(runDay) : 0;
@@ -669,9 +672,94 @@ const scoreSubmit = createScoreSubmit({
   // The board the score joined (all time, or today's garden), with the
   // player's new rank, after a short pause.
   onSaved: data => {
+    clearPendingRun();
     leaderboard.showNext(data?.daily ? "daily" : "all");
     setTimeout(leaderboard.open, 550);
+  },
+  onFailed: (reason, final) => {
+    if (final) clearPendingRun();
+    else finishedRun.sendFailed = true;
   }
+});
+
+// A finished, ranked run is kept until its score is sent, so a send that
+// fails (no connection, the app closed) can be offered again next time. A
+// player who closes the end card without trying has decided: it is forgotten.
+const finishedRun = { sid: null, sendFailed: false };
+function keepFinishedRun() {
+  finishedRun.sid = null;
+  finishedRun.sendFailed = false;
+  if (!isRankedRun()) return;
+  const run = makePendingRun({
+    mode: runMode, day: runMode === "daily" ? runDay : null, session: gameSession.current,
+    score, maxTile: Math.max(2, maxValueReached), bestCombo, reachedStage: stageFor(Math.max(2, maxValueReached)), moves: moveLog
+  });
+  if (!run) return;
+  savePendingRun(run);
+  finishedRun.sid = run.session.sid;
+}
+function forgetDismissedRun() {
+  if (shouldClearOnDismiss(loadPendingRun(), { finishedSid: finishedRun.sid, sendFailed: finishedRun.sendFailed })) clearPendingRun();
+  finishedRun.sid = null;
+  finishedRun.sendFailed = false;
+}
+
+// On the start menu: the card that offers to send it.
+const pendingRunEl = document.getElementById("pendingRun");
+const pendingNameEl = document.getElementById("pendingName");
+let pendingShown = null;
+function showPendingRun() {
+  const run = loadPendingRun();
+  if (!run || isPendingExpired(run)) {
+    if (run) clearPendingRun();
+    pendingRunEl.hidden = true;
+    pendingShown = null;
+    return;
+  }
+  pendingShown = run;
+  document.getElementById("pendingScore").textContent = Number(run.score).toLocaleString(currentLanguage);
+  document.getElementById("pendingPlant").textContent = plantName(run.maxTile, currentLanguage);
+  pendingNameEl.placeholder = TRANSLATIONS[currentLanguage].yourName;
+  if (!pendingNameEl.value) pendingNameEl.value = loadPlayerName();
+  pendingRunEl.hidden = false;
+}
+createScoreSubmit({
+  elements: {
+    form: pendingRunEl,
+    playerName: pendingNameEl,
+    submitBtn: document.getElementById("pendingSendBtn"),
+    status: document.getElementById("pendingStatus"),
+    confirm: lowerScoreConfirmEl,
+    confirmTitle: document.getElementById("lowerScoreTitle"),
+    confirmMessage: document.getElementById("lowerScoreMessage"),
+    cancel: document.getElementById("cancelLowerScore"),
+    accept: document.getElementById("confirmLowerScore")
+  },
+  text: () => TRANSLATIONS[currentLanguage],
+  language: () => currentLanguage,
+  getRun: () => ({
+    ranked: Boolean(pendingShown),
+    session: pendingShown?.session,
+    score: pendingShown?.score,
+    maxValueReached: pendingShown?.maxTile,
+    bestCombo: pendingShown?.bestCombo,
+    moves: pendingShown?.moves
+  }),
+  syncInert,
+  onSaved: () => {
+    clearPendingRun();
+    pendingShown = null;
+    setTimeout(() => { pendingRunEl.hidden = true; }, 1500);
+  },
+  onFailed: (reason, final) => {
+    if (final) clearPendingRun();
+  }
+});
+document.getElementById("pendingLaterBtn").addEventListener("click", () => {
+  clearPendingRun();
+  pendingShown = null;
+  pendingRunEl.hidden = true;
+  document.getElementById("startPlayBtn").focus();
 });
 
 // The Golden Tree: a message, a chime, and (unless motion is reduced) a burst.
@@ -782,6 +870,7 @@ function newGame(saved = null, start = { mode: "classic" }) {
   moveLog = saved ? saved.moves : "";
   runPending = !saved;
   boardView.reset();
+  forgetDismissedRun();
   endCard.hide();
   setEnvironmentStage(saved ? stageFor(saved.maxValueReached) : 1, true);
   boardView.measure();
@@ -1018,6 +1107,7 @@ syncInert();
 setEnvironmentStage(1, true);
 newGame(loadSavedGame("classic"));
 updateDailyButton();
+showPendingRun();
 // Local art direction helper: http://localhost:4173/?stage=2
 if (["localhost", "127.0.0.1"].includes(location.hostname)) {
   const previewParams = new URLSearchParams(location.search);

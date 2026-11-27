@@ -12,7 +12,9 @@ import { cleanName } from "./player-name.js";
 // getRun(): { ranked, session, score, maxValueReached, bestCombo, moves } for the run on screen.
 // onSaved(data): called once a score is accepted (the game shows the leaderboard);
 // data.daily is set when it joined today's garden.
-export function createScoreSubmit({ elements, text: getText, language, getRun, syncInert, onSaved }) {
+// onFailed(reason, final): a send did not go through; final when trying again
+// cannot help (today's garden already sent, a banned device).
+export function createScoreSubmit({ elements, text: getText, language, getRun, syncInert, onSaved, onFailed = () => {} }) {
   const {
     form: scoreFormEl, playerName: playerNameEl, submitBtn: submitScoreBtn, status: scoreSubmitStatusEl,
     confirm: lowerScoreConfirmEl, confirmTitle: lowerScoreTitleEl, confirmMessage: lowerScoreMessageEl,
@@ -76,6 +78,8 @@ export function createScoreSubmit({ elements, text: getText, language, getRun, s
       if (!run.ranked) throw new Error(text.sessionError);
       const session = run.session;
       const deviceId = loadDeviceId();
+      // Without storage there is no device id, and the server needs one.
+      if (!deviceId) throw new Error("device_required");
       const payload = {
           playerName,
           score: run.score,
@@ -106,6 +110,7 @@ export function createScoreSubmit({ elements, text: getText, language, getRun, s
         data = await response.json().catch(() => ({}));
       }
       if (data.code === "name_not_allowed") throw new Error("name_not_allowed");
+      if (data.code === "device_required") throw new Error("device_required");
       if (data.code === "daily_already_played") throw new Error("daily_already_played");
       if (response.status === 403 && data.code === "banned") throw new Error("banned");
       if (response.status === 429) throw new Error("score_rate_limited");
@@ -121,12 +126,14 @@ export function createScoreSubmit({ elements, text: getText, language, getRun, s
       // Today's garden already has this device's score, or this device may not
       // send scores: sending again cannot help.
       const final = error.message === "daily_already_played" || error.message === "banned";
+      onFailed(error.message, final);
       submitScoreBtn.disabled = final;
       submitScoreBtn.textContent = text.submit;
       if (error.message === "name_not_allowed") playerNameEl.focus();
       scoreSubmitStatusEl.textContent = error.message === "banned" ? text.submitBanned
         : final ? text.dailyAlreadyPlayed
         : error.message === "name_not_allowed" ? text.nameNotAllowed
+        : error.message === "device_required" ? text.submitNeedsStorage
         : error.message === "score_rate_limited" ? text.submitRateLimited
         : error.message === "score_submit_failed" ? text.submitError
         : (error.message || text.submitError);
