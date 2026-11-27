@@ -58,3 +58,11 @@ test("topPercent rounds up and ignores nonsense", () => {
 test("there are three boards, all time first", () => {
   assert.deepEqual(PERIODS, ["all", "week", "day", "daily"]);
 });
+
+test("other players' rows can be reported, your own never", () => {
+  const inside = buildRows(board(5), { rank: 3, entry: entry("Me"), total: 40 });
+  assert.deepEqual(inside.map(r => r.reportable), [true, true, false, true, true]);
+  const below = buildRows(board(20), { rank: 87, entry: entry("Me"), total: 120 });
+  assert.equal(below[21].reportable, false, "your row appended below the list");
+  assert.equal(below[20].reportable, undefined, "the gap is not a row");
+});

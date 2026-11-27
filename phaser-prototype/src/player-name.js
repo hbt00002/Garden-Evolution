@@ -38,3 +38,10 @@ export function cleanName(value) {
   }
   return name.trim();
 }
+
+// How moderation compares names: the cleaned name with only the ASCII letters
+// lowered, exactly as SQLite's lower() does, so the database can match it.
+// ("ŞEY" and "şey" stay two names.)
+export function nameKey(value) {
+  return cleanName(value).replace(/[A-Z]/g, letter => letter.toLowerCase());
+}

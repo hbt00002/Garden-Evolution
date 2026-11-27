@@ -14,11 +14,13 @@ export function buildRows(entries, me) {
     entry,
     own: Boolean(me?.rank) && me.rank === index + 1
   }));
+  // Someone else's name can be reported; your own cannot.
+  for (const row of rows) row.reportable = !row.own;
   // A player ranked below the visible list still sees their own row, set off
   // by a gap so it is clear the rows in between are not shown.
   if (me?.rank && me.entry && me.rank > entries.length) {
     if (me.rank > entries.length + 1) rows.push({ type: "gap" });
-    rows.push({ type: "entry", rank: me.rank, entry: me.entry, own: true });
+    rows.push({ type: "entry", rank: me.rank, entry: me.entry, own: true, reportable: false });
   }
   return rows;
 }

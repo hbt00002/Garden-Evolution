@@ -192,6 +192,24 @@ for (const [language, copy] of Object.entries(INSTALL_COPY)) {
   Object.assign(TRANSLATIONS[language], copy);
 }
 
+// Name moderation: reporting a name on the leaderboard, the note a player
+// whose name was hidden sees, and the answer to a device that may not send.
+const MODERATION_COPY = {
+  en: { lbReport:"Report name", lbReported:"Thanks, we'll take a look.", lbReportFailed:"The report could not be sent. Please try again.", lbHiddenNote:"This name was hidden. You can send your next score under another name.", submitBanned:"Scores can't be sent from this device." },
+  tr: { lbReport:"İsmi bildir", lbReported:"Teşekkürler, inceleyeceğiz.", lbReportFailed:"Bildirim gönderilemedi. Lütfen tekrar dene.", lbHiddenNote:"Bu isim gizlendi. Sonraki skorunu başka bir isimle gönderebilirsin.", submitBanned:"Bu cihazdan skor gönderilemiyor." },
+  zh: { lbReport:"举报名字", lbReported:"谢谢，我们会查看。", lbReportFailed:"举报未能发送，请重试。", lbHiddenNote:"这个名字已被隐藏。下次可以用另一个名字提交分数。", submitBanned:"此设备无法提交分数。" },
+  ja: { lbReport:"名前を報告", lbReported:"ありがとうございます。確認します。", lbReportFailed:"報告を送信できませんでした。もう一度お試しください。", lbHiddenNote:"この名前は非表示になりました。次のスコアは別の名前で送信できます。", submitBanned:"この端末からはスコアを送信できません。" },
+  ko: { lbReport:"이름 신고", lbReported:"감사합니다. 확인해 볼게요.", lbReportFailed:"신고를 보내지 못했어요. 다시 시도해 주세요.", lbHiddenNote:"이 이름은 숨겨졌어요. 다음 점수는 다른 이름으로 보낼 수 있어요.", submitBanned:"이 기기에서는 점수를 보낼 수 없어요." },
+  es: { lbReport:"Denunciar nombre", lbReported:"Gracias, lo revisaremos.", lbReportFailed:"No se pudo enviar la denuncia. Inténtalo de nuevo.", lbHiddenNote:"Este nombre se ha ocultado. Puedes enviar tu próxima puntuación con otro nombre.", submitBanned:"No se pueden enviar puntuaciones desde este dispositivo." },
+  pt: { lbReport:"Denunciar nome", lbReported:"Obrigado, vamos verificar.", lbReportFailed:"Não foi possível enviar a denúncia. Tente novamente.", lbHiddenNote:"Este nome foi ocultado. Você pode enviar sua próxima pontuação com outro nome.", submitBanned:"Não é possível enviar pontuações deste dispositivo." },
+  fr: { lbReport:"Signaler le nom", lbReported:"Merci, nous allons vérifier.", lbReportFailed:"Le signalement n'a pas pu être envoyé. Veuillez réessayer.", lbHiddenNote:"Ce nom a été masqué. Vous pouvez envoyer votre prochain score sous un autre nom.", submitBanned:"Impossible d'envoyer des scores depuis cet appareil." },
+  de: { lbReport:"Namen melden", lbReported:"Danke, wir sehen es uns an.", lbReportFailed:"Die Meldung konnte nicht gesendet werden. Bitte versuche es erneut.", lbHiddenNote:"Dieser Name wurde ausgeblendet. Deinen nächsten Punktestand kannst du unter einem anderen Namen senden.", submitBanned:"Von diesem Gerät können keine Punktestände gesendet werden." },
+  ru: { lbReport:"Пожаловаться на имя", lbReported:"Спасибо, мы проверим.", lbReportFailed:"Не удалось отправить жалобу. Попробуйте ещё раз.", lbHiddenNote:"Это имя скрыто. Следующий результат можно отправить под другим именем.", submitBanned:"С этого устройства нельзя отправлять результаты." }
+};
+for (const [language, copy] of Object.entries(MODERATION_COPY)) {
+  Object.assign(TRANSLATIONS[language], copy);
+}
+
 // Sharing a finished run (the end card).
 const SHARE_COPY = {
   en: { share:"Share", shareCopied:"Copied. Paste it anywhere to share.", shareUnavailable:"Sharing is not available here.", shareNoMoves:"I grew my garden to {score} points and reached {world} in Garden Evolution 🌱", shareMilestone:"My garden bloomed into a {plant} with {score} points in Garden Evolution 🌸", shareVictory:"I completed every world of Garden Evolution with {score} points ✨" },

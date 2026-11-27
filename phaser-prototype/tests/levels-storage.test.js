@@ -143,3 +143,23 @@ test("the world bar fills inside each world by the biggest plant, in doubling st
   close(worldProgress(2048), 1);
   close(worldProgress(8192), 1);
 });
+
+test("reported names are remembered, the last 200, and blocked storage forgets quietly", async () => {
+  const storage = fakeStorage();
+  await withStorage(storage, store => {
+    assert.equal(store.loadReportedNames().size, 0);
+    store.rememberReportedName("bora");
+    store.rememberReportedName("bora");
+    assert.deepEqual([...store.loadReportedNames()], ["bora"]);
+    for (let i = 0; i < 250; i++) store.rememberReportedName(`n${i}`);
+    const names = store.loadReportedNames();
+    assert.equal(names.size, 200);
+    assert.ok(names.has("n249") && !names.has("bora"));
+    storage.setItem("gardenEvolutionReported", "{not json");
+    assert.equal(store.loadReportedNames().size, 0);
+  });
+  await withStorage(fakeStorage({ blocked: true }), store => {
+    store.rememberReportedName("bora");
+    assert.equal(store.loadReportedNames().size, 0);
+  });
+});

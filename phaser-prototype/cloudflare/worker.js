@@ -1,6 +1,6 @@
 import { MAX_MOVES, replayGame } from "../src/game-core.js";
 import { isNameAllowed } from "./name-filter.js";
-import { cleanName } from "../src/player-name.js";
+import { cleanName, nameKey } from "../src/player-name.js";
 import { dayEnd, dayKey, isDayKey } from "../src/daily.js";
 
 const JSON_HEADERS = {
@@ -79,17 +79,97 @@ function periodCutoff(period) {
 }
 
 // Each player's best score inside the window (one row per device).
-const BEST_IN_PERIOD = `
+// visible: an extra condition (" AND …") that leaves out hidden names.
+const bestInPeriod = (visible = "") => `
   best AS (
     SELECT player_name, score, max_tile, best_combo, reached_stage, created_at, device_id
     FROM (
       SELECT *, ROW_NUMBER() OVER (
         PARTITION BY COALESCE(device_id, 'row-' || id) ORDER BY score DESC, created_at ASC
       ) AS rn
-      FROM score_log WHERE created_at >= ?
+      FROM score_log WHERE created_at >= ?${visible}
     )
     WHERE rn = 1
   )`;
+
+/* ---------- Moderation ---------- */
+
+// A row whose name has not been hidden (see migrations/0007_moderation.sql).
+const NOT_HIDDEN = "lower(player_name) NOT IN (SELECT name_key FROM hidden_names)";
+
+// The moderation tables arrive with a migration the developer applies by
+// hand; until then the Worker behaves as it did before. Once they exist they
+// stay, so a yes is remembered.
+const moderationKnown = new WeakSet();
+async function moderationReady(env) {
+  if (moderationKnown.has(env.DB)) return true;
+  try {
+    await env.DB.prepare("SELECT 1 FROM hidden_names LIMIT 1").first();
+    moderationKnown.add(env.DB);
+    return true;
+  } catch (error) {
+    if (/no such table/i.test(String(error?.message || error))) return false;
+    throw error;
+  }
+}
+
+// How many different people must report a name before it is hidden.
+const HIDE_AFTER_REPORTS = 3;
+const REPORT_RATE_LIMIT = 20;
+const MAX_REPORT_BYTES = 1024;
+
+// Who reported: a salted hash of the IP address alone. The device id is made
+// up by the game, so one person could pose as three; an address is harder.
+async function reporterId(request, secret) {
+  const address = request.headers.get("CF-Connecting-IP") || "local";
+  return (await hmacHex(secret, `report|${address}`)).slice(0, 32);
+}
+
+// POST /api/report { name }: someone thinks a name on the leaderboard should
+// not be there. The answer is always the same, so it says nothing about
+// whether the name exists or got hidden.
+async function handleReport(request, env, ctx) {
+  if (!env.DB) return json(503, { error: "Leaderboard database is not configured." });
+  if (request.method !== "POST") return json(405, { error: "Method not allowed." }, { allow: "POST" });
+  if (!requestIsSameOrigin(request, { required: true })) return json(403, { error: "Cross-origin reports are not allowed." });
+  if (!(request.headers.get("content-type") || "").toLowerCase().startsWith("application/json")) {
+    return json(415, { error: "Content-Type must be application/json." });
+  }
+  let raw;
+  try {
+    raw = await readJsonWithLimit(request, MAX_REPORT_BYTES);
+  } catch (error) {
+    if (error?.message === "payload_too_large") return json(413, { error: "Report is too large." });
+    return json(400, { error: "Invalid JSON payload." });
+  }
+  if (!raw || typeof raw.name !== "string") return json(400, { error: "Invalid report." });
+  const key = nameKey(raw.name);
+  if (key.length < 2) return json(400, { error: "Invalid report." });
+
+  const limit = await enforceRateLimit(request, env, { scope: "report", limit: REPORT_RATE_LIMIT });
+  if (!limit.allowed) return json(429, { error: "Too many reports." }, { "retry-after": String(limit.retryAfter) });
+  if (!await moderationReady(env)) return json(200, { ok: true });
+
+  const now = new Date().toISOString();
+  await env.DB.prepare("INSERT OR IGNORE INTO name_reports (name_key, reporter, created_at) VALUES (?, ?, ?)")
+    .bind(key, await reporterId(request, env.RATE_LIMIT_SALT), now).run();
+  const count = await env.DB.prepare("SELECT COUNT(*) AS n FROM name_reports WHERE name_key = ?").bind(key).first();
+  if (Number(count?.n || 0) >= HIDE_AFTER_REPORTS) {
+    const added = await env.DB.prepare("INSERT OR IGNORE INTO hidden_names (name_key, reason, created_at) VALUES (?, 'reports', ?)")
+      .bind(key, now).run();
+    if (added?.meta?.changes) {
+      // The boards this edge keeps would show the name for up to 30 s more.
+      const boardRequest = new Request(new URL("/api/leaderboard", request.url));
+      ctx.waitUntil(Promise.all(["all", "week", "day", DAILY].map(period =>
+        caches.default.delete(leaderboardCacheKey(boardRequest, period)))));
+    }
+  }
+  return json(200, { ok: true });
+}
+
+async function isNameHidden(env, name) {
+  return Boolean(await env.DB.prepare("SELECT 1 FROM hidden_names WHERE name_key = ?").bind(nameKey(name)).first());
+}
 
 function isMissingScoreLog(error) {
   return /no such table:?\s*score_log/i.test(String(error?.message || error));
@@ -315,22 +395,24 @@ async function handleLeaderboardGet(request, env, ctx) {
 
   let result;
   try {
+    const moderated = await moderationReady(env);
+    const and = moderated ? ` AND ${NOT_HIDDEN}` : "";
     result = period === DAILY
       ? await env.DB.prepare(`
           SELECT player_name, score, max_tile, best_combo, reached_stage, created_at
-          FROM daily_scores WHERE day = ?
+          FROM daily_scores WHERE day = ?${and}
           ORDER BY score DESC, created_at ASC
           LIMIT ${LEADERBOARD_SIZE}
         `).bind(dayKey()).all()
       : period === "all"
       ? await env.DB.prepare(`
           SELECT player_name, score, max_tile, best_combo, combo_rules, reached_stage, created_at
-          FROM leaderboard
+          FROM leaderboard${moderated ? ` WHERE ${NOT_HIDDEN}` : ""}
           ORDER BY score DESC, created_at ASC
           LIMIT ${LEADERBOARD_SIZE}
         `).all()
       : await env.DB.prepare(`
-          WITH ${BEST_IN_PERIOD}
+          WITH ${bestInPeriod(and)}
           SELECT player_name, score, max_tile, best_combo, reached_stage, created_at
           FROM best
           ORDER BY score DESC, created_at ASC
@@ -360,7 +442,13 @@ async function handleLeaderboardMe(request, env) {
   if (!period) return json(400, { error: "Unknown leaderboard period." });
   if (!isValidUuid(device)) return json(400, { error: "Invalid device." });
 
-  const ahead = "(SELECT COUNT(*) FROM %T% b WHERE b.score > a.score OR (b.score = a.score AND b.created_at < a.created_at)) + 1";
+  // Rows ahead of this one, and the total, count only names that are shown,
+  // so the rank is the row number on the visible list. The device's own row
+  // is looked up even when its name is hidden, to tell the player so.
+  const moderated = await moderationReady(env);
+  const visibleB = moderated ? ` AND ${NOT_HIDDEN.replace("player_name", "b.player_name")}` : "";
+  const and = moderated ? ` AND ${NOT_HIDDEN}` : "";
+  const ahead = `(SELECT COUNT(*) FROM %T% b WHERE (b.score > a.score OR (b.score = a.score AND b.created_at < a.created_at))${visibleB}) + 1`;
   let entry;
   let total;
   try {
@@ -368,26 +456,29 @@ async function handleLeaderboardMe(request, env) {
       const day = dayKey();
       entry = await env.DB.prepare(`
         SELECT player_name, score, max_tile, best_combo, reached_stage, created_at,
-               (SELECT COUNT(*) FROM daily_scores b WHERE b.day = a.day AND (b.score > a.score OR (b.score = a.score AND b.created_at < a.created_at))) + 1 AS rank
+               (SELECT COUNT(*) FROM daily_scores b WHERE b.day = a.day AND (b.score > a.score OR (b.score = a.score AND b.created_at < a.created_at))${visibleB}) + 1 AS rank
         FROM daily_scores a WHERE a.day = ? AND a.device_id = ?
       `).bind(day, device).first();
-      total = await env.DB.prepare("SELECT COUNT(*) AS n FROM daily_scores WHERE day = ?").bind(day).first();
+      total = await env.DB.prepare(`SELECT COUNT(*) AS n FROM daily_scores WHERE day = ?${and}`).bind(day).first();
     } else if (period === "all") {
       entry = await env.DB.prepare(`
         SELECT player_name, score, max_tile, best_combo, reached_stage, created_at,
                ${ahead.replace("%T%", "leaderboard")} AS rank
         FROM leaderboard a WHERE a.device_id = ?
       `).bind(device).first();
-      total = await env.DB.prepare("SELECT COUNT(*) AS n FROM leaderboard").first();
+      total = await env.DB.prepare(`SELECT COUNT(*) AS n FROM leaderboard${moderated ? ` WHERE ${NOT_HIDDEN}` : ""}`).first();
     } else {
+      // The own row comes from the unfiltered window; the rows ahead of it
+      // from the filtered one (two CTEs).
       const cutoff = periodCutoff(period);
+      const shown = bestInPeriod(and).replace("best AS", "shown AS");
       entry = await env.DB.prepare(`
-        WITH ${BEST_IN_PERIOD}
+        WITH ${bestInPeriod()}, ${shown}
         SELECT player_name, score, max_tile, best_combo, reached_stage, created_at,
-               ${ahead.replace("%T%", "best")} AS rank
+               ${ahead.replace("%T%", "shown")} AS rank
         FROM best a WHERE a.device_id = ?
-      `).bind(cutoff, device).first();
-      total = await env.DB.prepare(`WITH ${BEST_IN_PERIOD} SELECT COUNT(*) AS n FROM best`).bind(cutoff).first();
+      `).bind(cutoff, cutoff, device).first();
+      total = await env.DB.prepare(`WITH ${bestInPeriod(and)} SELECT COUNT(*) AS n FROM best`).bind(cutoff).first();
     }
   } catch (error) {
     if (isMissingScoreLog(error) || isMissingDaily(error)) return json(503, { error: "This board is not available yet." });
@@ -395,7 +486,14 @@ async function handleLeaderboardMe(request, env) {
   }
 
   const { rank, ...rest } = entry || {};
-  return json(200, { period, total: Number(total?.n || 0), rank: entry ? Number(rank) : null, entry: entry ? rest : null });
+  const hidden = Boolean(entry && moderated && await isNameHidden(env, entry.player_name));
+  return json(200, {
+    period,
+    total: Number(total?.n || 0),
+    rank: entry && !hidden ? Number(rank) : null,
+    entry: entry ? rest : null,
+    hidden
+  });
 }
 
 async function leaderboard(request, env, ctx) {
@@ -446,6 +544,17 @@ async function leaderboard(request, env, ctx) {
   if (playerName.length < 2) return json(400, { error: "Name must contain at least 2 characters." });
   if (!isNameAllowed(playerName)) {
     return json(400, { error: "That name is not allowed.", code: "name_not_allowed" });
+  }
+  // Moderation (npm run mod): a banned device sends nothing, and a hidden
+  // name cannot come back. Both are refused before the session is used, so a
+  // mistaken ban, once lifted, lets the same run through.
+  if (await moderationReady(env)) {
+    if (deviceId && await env.DB.prepare("SELECT 1 FROM banned_devices WHERE device_id = ?").bind(deviceId).first()) {
+      return json(403, { error: "Scores can't be sent from this device.", code: "banned" });
+    }
+    if (await isNameHidden(env, playerName)) {
+      return json(400, { error: "That name is not allowed.", code: "name_not_allowed" });
+    }
   }
   if (!Number.isSafeInteger(score) || score < 0 || score > SCORE_LIMIT) return json(400, { error: "Invalid score." });
   if (!validPowerOfTwo(maxTile)) return json(400, { error: "Invalid top plant." });
@@ -730,6 +839,7 @@ async function route(request, env, ctx, url) {
     if (url.pathname === "/api/client-error") return await handleClientError(request, env);
     if (url.pathname === "/api/leaderboard") return await leaderboard(request, env, ctx);
     if (url.pathname === "/api/leaderboard/me") return await handleLeaderboardMe(request, env);
+    if (url.pathname === "/api/report") return await handleReport(request, env, ctx);
     return env.ASSETS.fetch(request);
   } catch (error) {
     console.error("Leaderboard worker failure", error);

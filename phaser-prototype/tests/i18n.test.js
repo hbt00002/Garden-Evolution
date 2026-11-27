@@ -74,3 +74,13 @@ test("every language can name the way from the end card to the leaderboard", () 
   }
   assert.equal(TRANSLATIONS.tr.viewLeaderboard, "Sıralamayı gör");
 });
+
+test("every language can report a name, thank for it, and explain a hidden name or a ban", () => {
+  for (const [language, text] of Object.entries(TRANSLATIONS)) {
+    for (const key of ["lbReport", "lbReported", "lbReportFailed", "lbHiddenNote", "submitBanned"]) {
+      assert.ok(typeof text[key] === "string" && text[key].trim(), `${language}.${key}`);
+    }
+  }
+  assert.equal(TRANSLATIONS.tr.lbReport, "İsmi bildir");
+  assert.equal(TRANSLATIONS.en.lbReport, "Report name");
+});

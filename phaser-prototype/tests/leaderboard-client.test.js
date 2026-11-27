@@ -208,3 +208,17 @@ test("after a new run the score can be saved again", async () => {
   await t.els.form.fire("submit");
   assert.equal(calls.length, 2);
 });
+
+test("a report posts the name as JSON", async () => {
+  const calls = stubFetch(() => json({ ok: true }));
+  await createLeaderboardApi().report("Bora");
+  assert.equal(calls[0].path, "/api/report");
+  assert.equal(calls[0].options.method, "POST");
+  assert.equal(calls[0].options.headers["content-type"], "application/json");
+  assert.deepEqual(JSON.parse(calls[0].options.body), { name: "Bora" });
+});
+
+test("a refused report throws", async () => {
+  stubFetch(() => json({ error: "Too many reports." }, { status: 429 }));
+  await assert.rejects(createLeaderboardApi().report("Bora"));
+});
