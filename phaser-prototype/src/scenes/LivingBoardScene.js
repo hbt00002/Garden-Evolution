@@ -3,6 +3,9 @@ import { withFastShapes } from "./fast-shapes.js";
 
 const THEMES={1:{frame:0x20384a,edge:0xc6e4f0,cell:0x49677b,cell2:0x304c60},2:{frame:0x244d49,edge:0xb8d9bd,cell:0x537f6c,cell2:0x345f58},3:{frame:0x3f5133,edge:0xe0c77e,cell:0x68744a,cell2:0x465d3c},4:{frame:0x4d2d48,edge:0xf0b3cd,cell:0x76506b,cell2:0x4d344f},5:{frame:0x0b172d,edge:0xb7d3eb,cell:0x233954,cell2:0x13253f}};
 const APPROVED_GRASS="board-grass-approved";
+// How far (px) the board's size may drift, as its surroundings change with the
+// world, before a prepared frame or meadow is drawn again on the spot.
+const NEAR_PX=8;
 const APPROVED_TULIP="board-tulip-approved";
 const TULIP_TINTS=[0xd9473f,0x8a5bb8,0xf2c84b,0xf1efe3,0xec83aa,0xe98b35,0x354f99];
 // Four overlapping rows turn the lower 70% into one uninterrupted meadow.
@@ -39,7 +42,7 @@ export class LivingBoardScene extends Phaser.Scene{
   constructor(){
     super("LivingBoardScene");
     this.stage=1;this.motes=[];this.particlesEnabled=true;this.springRopes=[];this.springPivots=[];this.springBackGrass=[];
-    this.hype=0;this.windDirection=1;
+    this.hype=0;this.windDirection=1;this.frames=new Map();this.floraSize=null;this.prepareHandle=0;
   }
 
   preload(){
@@ -59,12 +62,13 @@ export class LivingBoardScene extends Phaser.Scene{
     this.scale.on("resize",this.redraw,this);
     // A phone can take the GL context away (backgrounding, memory pressure) and
     // give it back with every texture emptied, including the baked frame.
-    this.game.renderer.on(Phaser.Renderer.Events.RESTORE_WEBGL,this.redraw,this);
+    this.game.renderer.on(Phaser.Renderer.Events.RESTORE_WEBGL,this.restoreBoard,this);
     this.comboHandler=event=>this.setHype(event.detail?.combo||0);
     window.addEventListener("garden:combo",this.comboHandler);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
       this.scale.off("resize",this.redraw,this);
-      this.game.renderer?.off(Phaser.Renderer.Events.RESTORE_WEBGL,this.redraw,this);
+      this.game.renderer?.off(Phaser.Renderer.Events.RESTORE_WEBGL,this.restoreBoard,this);
+      this.cancelPrepare();
       window.removeEventListener("garden:combo",this.comboHandler);
     });
     this.redraw();
@@ -86,6 +90,7 @@ export class LivingBoardScene extends Phaser.Scene{
   setExtraParticles(enabled){this.particlesEnabled=Boolean(enabled);if(!this.particlesEnabled){this.fx?.clear();this.light?.clear();}}
 
   clearSpringFlora(){
+    this.floraSize=null;
     this.springBackLayer.removeAll(true);this.springFrontLayer.removeAll(true);
     this.springRopes=[];this.springPivots=[];this.springBackGrass=[];
   }
@@ -129,8 +134,25 @@ export class LivingBoardScene extends Phaser.Scene{
     this.springPivots.push(plant);
   }
 
+  // The meadow depends only on the board's size, so it is built once per size,
+  // ahead of time while the second world is played (hidden until the third).
+  // When the board is only a few pixels off (its surroundings change with the
+  // world), the meadow is stretched to fit and rebuilt exactly when idle.
+  ensureSpringFlora(w,h,s,near=false){
+    if(this.floraSize){
+      const[fw,fh]=this.floraSize;
+      if(fw===w&&fh===h){this.setFloraScale(1,1);return;}
+      if(near&&Math.abs(fw-w)<=NEAR_PX&&Math.abs(fh-h)<=NEAR_PX){this.setFloraScale(w/fw,h/fh);return;}
+    }
+    this.buildSpringFlora(w,h,s);
+    this.floraSize=[w,h];
+    this.setFloraScale(1,1);
+  }
+
+  setFloraScale(x,y){this.springBackLayer.setScale(x,y);this.springFrontLayer.setScale(x,y);}
+
   buildSpringFlora(w,h,s){
-    this.clearSpringFlora();if(this.stage!==3)return;
+    this.clearSpringFlora();
     // The approved 2D tuft is repeated with overlap, depth, scale and tint
     // variation. Roots remain fixed; only upper Rope points sway sideways.
     BACK_GRASS.forEach(([nx,ny,scale],index)=>{
@@ -213,34 +235,97 @@ export class LivingBoardScene extends Phaser.Scene{
   // replays (and re-triangulates) all of its rounded rectangles on every frame:
   // fifty-odd paths, which kept a phone's main thread busy by themselves. Draw
   // them once into a texture and show that instead.
-  bakeFrame(w,h){
+  // Each world's frame is kept in its own texture, so changing world only
+  // shows another one; the next world's is drawn while the game is idle.
+  frameFor(stage,w,h,near=false){
     // The canvas is whole pixels; the board's size may not be.
     const width=Math.max(1,Math.floor(w)),height=Math.max(1,Math.floor(h));
+    let frame=this.frames.get(stage);
     // A RenderTexture that is resized keeps drawing into its old area (its camera
     // and framebuffer stay the old size), which left a small frame in the corner
     // of the board after the phone was turned. A fresh one is always right.
-    if(this.frameTexture&&(this.frameTexture.width!==width||this.frameTexture.height!==height)){
-      this.frameTexture.destroy();
-      this.frameTexture=null;
+    if(frame&&(frame.width!==width||frame.height!==height)){
+      // A few pixels off: show it stretched now, draw it exactly when idle.
+      if(near&&Math.abs(frame.width-width)<=NEAR_PX&&Math.abs(frame.height-height)<=NEAR_PX)return frame.setDisplaySize(width,height);
+      frame.destroy();
+      this.frames.delete(stage);
+      frame=null;
     }
-    if(!this.frameTexture){
-      this.frameTexture=this.add.renderTexture(0,0,width,height).setOrigin(0,0).setDepth(-1);
+    if(!frame){
+      frame=this.add.renderTexture(0,0,width,height).setOrigin(0,0).setDepth(-1).setVisible(false);
+      this.frames.set(stage,frame);
+      this.bakeFrame(frame,stage,w,h);
     }
-    this.frameTexture.clear().draw(this.base,0,0);
+    return frame.setScale(1);
+  }
+
+  bakeFrame(frame,stage,w,h){
+    this.drawFrame(stage,w,h);
+    frame.clear().draw(this.base,0,0);
     this.base.clear();
   }
 
-  redraw(){
-    if(!this.base)return;
-    const w=this.scale.width,h=this.scale.height,s=Math.min(w,h),g=s/48,r=s/30,t=THEMES[this.stage];
-    this.base.clear();this.springGround.clear();
+  // Only the current world's frame and the next one's are kept.
+  keepFrames(stage){
+    this.frames.forEach((frame,key)=>{
+      if(key===stage||key===stage+1)return;
+      frame.destroy();
+      this.frames.delete(key);
+    });
+  }
+
+  showFrame(){
+    this.frames.forEach(frame=>frame.setVisible(frame===this.frameTexture));
+  }
+
+  // When idle, one piece at a time (each is 25-35 ms on a phone): the current
+  // world's board exactly at the board's size, then the next world's board.
+  prepareNext(){
+    this.cancelPrepare();
+    const steps=[
+      (w,h)=>{this.frameTexture=this.frameFor(this.stage,w,h);this.showFrame();},
+      (w,h,s)=>{if(this.stage===3)this.ensureSpringFlora(w,h,s);},
+      (w,h)=>{if(THEMES[this.stage+1])this.frameFor(this.stage+1,w,h);},
+      (w,h,s)=>{if(this.stage+1===3)this.ensureSpringFlora(w,h,s);}
+    ];
+    const prepare=()=>{
+      this.prepareHandle=0;
+      if(!this.base||!this.sys?.isActive())return;
+      const w=this.scale.width,h=this.scale.height;
+      steps.shift()(w,h,Math.min(w,h));
+      if(steps.length)this.schedulePrepare(prepare);
+    };
+    this.schedulePrepare(prepare);
+  }
+
+  schedulePrepare(prepare){
+    this.prepareHandle="requestIdleCallback" in window
+      ?{idle:requestIdleCallback(prepare,{timeout:2000})}
+      :{timer:setTimeout(prepare,700)};
+  }
+
+  cancelPrepare(){
+    if(!this.prepareHandle)return;
+    if(this.prepareHandle.idle)cancelIdleCallback(this.prepareHandle.idle);
+    else clearTimeout(this.prepareHandle.timer);
+    this.prepareHandle=0;
+  }
+
+  // A phone can take the GL context away and give it back with every texture
+  // emptied: draw the frames again.
+  restoreBoard(){
+    this.frames.forEach(frame=>frame.destroy());
+    this.frames.clear();
+    this.frameTexture=null;
+    this.redraw();
+  }
+
+
+  drawFrame(stage,w,h){
+    const s=Math.min(w,h),g=s/48,r=s/30,t=THEMES[stage];
+    this.base.clear();
     this.base.fillStyle(0x02060c,.4).fillRoundedRect(g*.25,g*.45,w-g*.5,h-g*.35,r+3);
     this.base.fillStyle(t.frame,.98).fillRoundedRect(0,0,w,h,r);
-    if(this.stage===3){
-      const innerX=g*.45,innerY=g*.45,innerW=w-g*.9,innerH=h-g*.9,meadowY=innerY+innerH*.3;
-      this.springGround.fillStyle(t.cell2,1).fillRect(innerX,innerY,innerW,innerH*.3);
-      this.springGround.fillGradientStyle(t.cell,t.cell,t.cell2,t.cell2,1).fillRect(innerX,meadowY,innerW,innerH*.7);
-    }
     this.base.lineStyle(Math.max(1,s/300),t.edge,.78).strokeRoundedRect(1,1,w-2,h-2,r);
     this.base.lineStyle(Math.max(1,s/520),t.edge,.3).strokeRoundedRect(g*.45,g*.45,w-g*.9,h-g*.9,r-3);
     const inner=w-g*2,c=(inner-g*3)/4;
@@ -250,11 +335,27 @@ export class LivingBoardScene extends Phaser.Scene{
       this.base.fillStyle(t.cell,.42).fillRoundedRect(x+2,y+2,c-4,c-4,Math.max(4,s/52));
       this.base.lineStyle(Math.max(1,s/520),t.edge,.25).strokeRoundedRect(x+.5,y+.5,c-1,c-1,Math.max(5,s/48));
     }
-    this.bakeFrame(w,h);
+  }
+
+  redraw(){
+    if(!this.base)return;
+    const w=this.scale.width,h=this.scale.height,s=Math.min(w,h),g=s/48,t=THEMES[this.stage];
+    this.springGround.clear();
+    if(this.stage===3){
+      const innerX=g*.45,innerY=g*.45,innerW=w-g*.9,innerH=h-g*.9,meadowY=innerY+innerH*.3;
+      this.springGround.fillStyle(t.cell2,1).fillRect(innerX,innerY,innerW,innerH*.3);
+      this.springGround.fillGradientStyle(t.cell,t.cell,t.cell2,t.cell2,1).fillRect(innerX,meadowY,innerW,innerH*.7);
+    }
+    this.frameTexture=this.frameFor(this.stage,w,h,true);
+    this.keepFrames(this.stage);
+    this.showFrame();
     const visible=this.stage===3;
     this.springGround.setVisible(visible);this.springBackLayer.setVisible(visible);this.springFrontLayer.setVisible(visible);
-    this.buildSpringFlora(w,h,s);
+    if(visible)this.ensureSpringFlora(w,h,s,true);
+    else if(this.stage!==2)this.clearSpringFlora();
+    this.prepareNext();
   }
+
 
   updateSpringFlora(time,delta){
     if(this.stage!==3)return;
