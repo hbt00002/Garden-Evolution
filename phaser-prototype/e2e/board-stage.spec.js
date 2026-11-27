@@ -14,6 +14,11 @@ const countBoardWork = page => page.evaluate(() => {
   }
 });
 
+// The board prepares itself one piece at a time when the game is idle; on a
+// slow machine (CI has no GPU) that takes several seconds, so wait for it.
+const boardSettled = page => expect.poll(() => page.evaluate(() =>
+  window.gardenBoardEngine.scene.getScene("LivingBoardScene").prepareHandle === 0), { timeout: 20000 }).toBe(true);
+
 const frameSample = page => page.evaluate(() => new Promise(resolve => {
   const board = window.gardenBoardEngine.scene.getScene("LivingBoardScene");
   board.frameTexture.snapshot(image => {
@@ -30,7 +35,7 @@ test("the next world's board is ready before the world changes", async ({ page }
   await startGame(page);
   await countBoardWork(page);
   for (const stage of [2, 3, 4]) {
-    await page.waitForTimeout(2600);          // idle: the next board is prepared
+    await boardSettled(page);          // idle: the next board is prepared
     // Only the change itself, up to the board having switched (the observer
     // runs as a microtask), before the next idle moment prepares the one after.
     const { before, after, shown } = await page.evaluate(async stage => {
@@ -49,9 +54,9 @@ test("the next world's board is ready before the world changes", async ({ page }
 test("a board prepared ahead looks exactly like one drawn on the spot", async ({ page, browser }) => {
   await startGame(page);
   for (const stage of [2, 3, 4, 5]) {
-    await page.waitForTimeout(2600);
+    await boardSettled(page);
     await page.evaluate(stage => window.debugSetEnvironmentStage(stage), stage);
-    await page.waitForTimeout(2600);          // and settled at the board's exact size
+    await boardSettled(page);          // and settled at the board's exact size
     const prepared = await frameSample(page);
     const fresh = await browser.newPage({ viewport: page.viewportSize() });
     await fresh.route(/\/api\//, route => route.abort());
@@ -66,7 +71,7 @@ test("a board prepared ahead looks exactly like one drawn on the spot", async ({
 
 test("turning the phone still gives a board of the right size in every world", async ({ page }) => {
   await startGame(page);
-  await page.waitForTimeout(2600);
+  await boardSettled(page);
   await page.setViewportSize({ width: 360, height: 700 });
   for (const stage of [2, 3]) {
     await page.evaluate(stage => window.debugSetEnvironmentStage(stage), stage);
@@ -74,7 +79,7 @@ test("turning the phone still gives a board of the right size in every world", a
       const board = window.gardenBoardEngine.scene.getScene("LivingBoardScene");
       return board.frameTexture.width === Math.floor(board.scale.width) && board.frameTexture.height === Math.floor(board.scale.height);
     })).toBe(true);
-    await page.waitForTimeout(2600);
+    await boardSettled(page);
   }
   expect(page.problems).toEqual([]);
 });
