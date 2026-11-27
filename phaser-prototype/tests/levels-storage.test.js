@@ -163,3 +163,23 @@ test("reported names are remembered, the last 200, and blocked storage forgets q
     assert.equal(store.loadReportedNames().size, 0);
   });
 });
+
+test("the unsent run is kept, read back, forgotten, and survives nothing broken", async () => {
+  const storage = fakeStorage();
+  const kept = { mode: "classic", day: null, session: { sid: "s", iat: 1, sig: "x" }, score: 10, maxTile: 16, bestCombo: 1, reachedStage: 1, moves: "LR", finishedAt: 2 };
+  await withStorage(storage, store => {
+    assert.equal(store.loadPendingRun(), null);
+    store.savePendingRun(kept);
+    assert.deepEqual(store.loadPendingRun(), kept);
+    store.clearPendingRun();
+    assert.equal(store.loadPendingRun(), null);
+    storage.setItem("gardenEvolutionPendingRun", "{broken");
+    assert.equal(store.loadPendingRun(), null);
+    store.savePendingRun(null);
+    assert.equal(store.loadPendingRun(), null);
+  });
+  await withStorage(fakeStorage({ blocked: true }), store => {
+    store.savePendingRun(kept);
+    assert.equal(store.loadPendingRun(), null);
+  });
+});

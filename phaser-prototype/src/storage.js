@@ -12,7 +12,8 @@ const KEYS = {
   language: "gardenEvolutionLanguage",
   daily: "gardenEvolutionDaily",
   achievements: "gardenEvolutionAchievements",
-  reported: "gardenEvolutionReported"
+  reported: "gardenEvolutionReported",
+  pendingRun: "gardenEvolutionPendingRun"
 };
 
 function read(key) {
@@ -57,6 +58,22 @@ export function rememberReportedName(key) {
   const names = [...loadReportedNames()].filter(name => name !== key);
   names.push(key);
   write(KEYS.reported, JSON.stringify(names.slice(-MAX_REPORTED)));
+}
+
+// The finished run whose score could not be sent (see pending-run.js).
+export function loadPendingRun() {
+  try {
+    const run = JSON.parse(read(KEYS.pendingRun) || "null");
+    return run && typeof run === "object" ? run : null;
+  } catch (error) {
+    return null;
+  }
+}
+export function savePendingRun(run) {
+  if (run) write(KEYS.pendingRun, JSON.stringify(run));
+}
+export function clearPendingRun() {
+  try { localStorage.removeItem(KEYS.pendingRun); } catch (error) { /* storage blocked */ }
 }
 
 // Stable per-browser id so the leaderboard can keep one "best score" row

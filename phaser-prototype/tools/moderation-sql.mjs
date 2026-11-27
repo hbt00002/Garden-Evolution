@@ -25,6 +25,11 @@ SELECT r.name_key, COUNT(*) AS reports, MAX(r.created_at) AS last_report,
 FROM name_reports r LEFT JOIN hidden_names h ON h.name_key = r.name_key
 GROUP BY r.name_key ORDER BY last_report DESC LIMIT 50;`;
 
+// Runs the Worker flagged (8192 reached, or played faster than a person plays).
+export const flaggedSql = () => `
+SELECT player_name, score, max_tile, reason, board, created_at
+FROM flagged_scores ORDER BY created_at DESC LIMIT 50;`;
+
 export const hiddenSql = () => "SELECT name_key, reason, created_at FROM hidden_names ORDER BY created_at DESC;";
 
 export const hideSql = key => `

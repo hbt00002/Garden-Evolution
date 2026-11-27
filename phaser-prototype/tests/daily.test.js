@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import worker, { seedForDay, seedForSession } from "../cloudflare/worker.js";
 import { stageFor } from "../src/levels.js";
 import { dayEnd, dayKey, dayLabel, dayStart, isDayKey, msUntilNextDay, nextDay, previousDay } from "../src/daily.js";
-import { ORIGIN, SESSION_SECRET, hmacHex, installCacheStub as installCache, makeEnv, playRun } from "./helpers/worker-env.js";
+import { ORIGIN, RATE_LIMIT_SALT, SESSION_SECRET, hmacHex, installCacheStub as installCache, makeEnv, playRun } from "./helpers/worker-env.js";
 
 /* ---------- What "today" is ---------- */
 
@@ -216,4 +216,33 @@ test("a banned device cannot send today's garden either", async () => {
   const refused = await post(env, "/api/leaderboard", body);
   assert.equal(refused.status, 403);
   assert.equal((await refused.json()).code, "banned");
+});
+
+test("today's garden refuses a run without a device id", async () => {
+  installCache();
+  const env = makeEnv();
+  for (const deviceId of [undefined, "not-a-uuid"]) {
+    const refused = await post(env, "/api/leaderboard", await submission(await dailySession(), { deviceId }));
+    assert.equal(refused.status, 400);
+    assert.equal((await refused.json()).code, "device_required");
+  }
+});
+
+test("an address can enter today's garden 6 times a day; refused entries don't count", async () => {
+  installCache();
+  const env = makeEnv();
+  const send = (body, ip = "198.51.100.20") => worker.fetch(new Request(`${ORIGIN}/api/leaderboard`, {
+    method: "POST", headers: { origin: ORIGIN, "content-type": "application/json", "CF-Connecting-IP": ip }, body: JSON.stringify(body)
+  }), env, ctx);
+  const first = await submission(await dailySession());
+  assert.equal((await send(first)).status, 201);
+  // The same device again is refused, and that does not use up the cap.
+  assert.equal((await send(await submission(await dailySession(), { deviceId: first.deviceId }))).status, 409);
+  for (let i = 2; i <= 6; i++) assert.equal((await send(await submission(await dailySession()))).status, 201, `entry ${i}`);
+  const refused = await send(await submission(await dailySession()));
+  assert.equal(refused.status, 429);
+  assert.equal((await refused.json()).code, "daily_cap");
+  assert.equal((await send(await submission(await dailySession()), "198.51.100.21")).status, 201);
+  const key = (await hmacHex(RATE_LIMIT_SALT, "day|198.51.100.20")).slice(0, 32);
+  assert.equal(env.DB.sqlite.prepare("SELECT count FROM ip_daily WHERE ip = ? AND kind = 'daily'").get(key).count, 6);
 });

@@ -84,3 +84,8 @@ test("every language can report a name, thank for it, and explain a hidden name 
   assert.equal(TRANSLATIONS.tr.lbReport, "İsmi bildir");
   assert.equal(TRANSLATIONS.en.lbReport, "Report name");
 });
+
+test("every language asks for storage when a score cannot carry a device id", () => {
+  for (const [language, text] of Object.entries(TRANSLATIONS)) assert.ok(text.submitNeedsStorage?.trim(), language);
+  assert.equal(TRANSLATIONS.tr.submitNeedsStorage, "Skor göndermek için bu sitenin veri saklamasına izin ver.");
+});

@@ -63,9 +63,9 @@ test("long fields are clipped before they are stored", async () => {
 test("one browser is rate limited, and a flood of different errors stops at the row cap", async () => {
   const env = makeEnv();
   let refused = 0;
-  for (let i = 0; i < 25; i++) if ((await report(env, { kind: "error", message: `err ${i}` })).status === 429) refused++;
+  for (let i = 0; i < 85; i++) if ((await report(env, { kind: "error", message: `err ${i}` })).status === 429) refused++;
   assert.equal(refused, 5);
-  assert.equal(rows(env).length, 20);
+  assert.equal(rows(env).length, 80);
 
   // The cap on distinct rows: fill the table, then a new error is dropped but a known one still counts.
   const full = makeEnv();

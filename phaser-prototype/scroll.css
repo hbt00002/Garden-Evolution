@@ -465,3 +465,21 @@ body.motion-off .ending-window-scene, body.motion-off .ending-window img { anima
 /* A window's title takes focus when the window opens (focusTitle in
    src/focus-trap.js); it is not a control, so it shows no focus ring. */
 .scroll h2[tabindex="-1"]:focus { outline: none; }
+
+/* ----- The start menu's "Your last game wasn't sent" card ----- */
+.pending-run { display: grid; gap: 8px; padding: 14px 14px 12px; text-align: left; }
+.pending-run[hidden] { display: none; }
+.pending-run h2 { margin: 0; font-size: 1rem; line-height: 1.2; }
+.pending-run-what { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin: 0; color: var(--paper-ink-soft); font-size: .82rem; font-weight: 700; }
+.pending-run-what b { color: var(--paper-ink); font: 700 1.05rem/1 "Oxanium", "Trebuchet MS", sans-serif; font-variant-numeric: tabular-nums; }
+.pending-run-row { display: flex; gap: 7px; min-width: 0; }
+.pending-run-row input {
+  flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 10px;
+  border: 2px solid var(--paper-frame); background: var(--paper); color: var(--paper-ink); font: 700 .9rem "Quicksand", sans-serif;
+}
+.pending-run-row input:focus-visible { outline: 3px solid var(--ink-accent); outline-offset: 0; }
+.pending-run-row .ink-btn { flex: none; min-height: 44px; padding: 0 14px; font-size: .85rem; }
+.pending-run-status { min-height: 1em; color: var(--paper-ink-soft); font-size: .78rem; font-weight: 700; }
+.pending-run-status:empty { display: none; }
+.pending-run.success .pending-run-row { display: none; }
+.pending-run-later { justify-self: end; min-height: 40px; padding: 0 12px; font-size: .8rem; }

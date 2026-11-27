@@ -78,7 +78,7 @@ class FakeElement {
   fire(type, event = {}) { return Promise.all((this.listeners[type] || []).map(fn => fn({ preventDefault() {}, target: this, ...event }))); }
 }
 
-function setupSubmit({ ranked = true, name = "Mira Lane" } = {}) {
+function setupSubmit({ ranked = true, name = "Mira Lane", failures = [] } = {}) {
   const documentListeners = {};
   const bodyClasses = new Set();
   const events = [];
@@ -101,7 +101,8 @@ function setupSubmit({ ranked = true, name = "Mira Lane" } = {}) {
     language: () => "en",
     getRun: () => run,
     syncInert: () => { inertSyncs++; },
-    onSaved: () => saved.push(true)
+    onSaved: () => saved.push(true),
+    onFailed: (reason, final) => failures.push([reason, final])
   });
   return { instance, els, saved, events, bodyClasses, documentListeners, run, inert: () => inertSyncs, text: TRANSLATIONS.en };
 }
@@ -221,4 +222,30 @@ test("a report posts the name as JSON", async () => {
 test("a refused report throws", async () => {
   stubFetch(() => json({ error: "Too many reports." }, { status: 429 }));
   await assert.rejects(createLeaderboardApi().report("Bora"));
+});
+
+test("a failed send is reported, and whether trying again could help", async () => {
+  const cases = [
+    [{}, 500, "score_submit_failed", false],
+    [{ code: "daily_already_played" }, 409, "daily_already_played", true],
+    [{ code: "banned" }, 403, "banned", true]
+  ];
+  for (const [body, status, reason, final] of cases) {
+    stubFetch(() => json(body, { status }));
+    const failures = [];
+    const t = setupSubmit({ failures });
+    await t.els.form.fire("submit");
+    assert.deepEqual(failures, [[reason, final]], reason);
+  }
+});
+
+test("without storage there is no device id, so nothing is sent and the player is told why", async () => {
+  const calls = stubFetch(() => json({ ok: true }, { status: 201 }));
+  const failures = [];
+  const t = setupSubmit({ failures });
+  globalThis.localStorage = { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); }, removeItem() {} };
+  await t.els.form.fire("submit");
+  assert.equal(calls.length, 0);
+  assert.equal(t.els.status.textContent, t.text.submitNeedsStorage);
+  assert.deepEqual(failures, [["device_required", false]]);
 });

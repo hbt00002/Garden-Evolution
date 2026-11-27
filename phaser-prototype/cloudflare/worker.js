@@ -1,7 +1,7 @@
 import { MAX_MOVES, replayGame } from "../src/game-core.js";
 import { isNameAllowed } from "./name-filter.js";
 import { cleanName, nameKey } from "../src/player-name.js";
-import { dayEnd, dayKey, isDayKey } from "../src/daily.js";
+import { dayEnd, dayKey, isDayKey, previousDay } from "../src/daily.js";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -12,11 +12,13 @@ const JSON_HEADERS = {
 
 const SCORE_LIMIT = 100_000_000;
 const RATE_WINDOW_SECONDS = 10 * 60;
-const RATE_WINDOW_LIMIT = 5;
+// Limits count an IP address, and a whole phone network can share one, so they
+// leave room for several players behind it.
+const RATE_WINDOW_LIMIT = 20;
 // Starting a game fetches a session. The limit is generous for real players
 // (a game lasts minutes) but stops someone from requesting thousands of
 // sessions to hunt for a lucky tile sequence.
-const SESSION_WINDOW_LIMIT = 30;
+const SESSION_WINDOW_LIMIT = 120;
 // Matches the 14-day lifetime of a saved game (src/game-save.js), so a game
 // that is restored after a long pause still carries a session the server
 // accepts. The wall-clock floor below only needs the session's age.
@@ -167,6 +169,75 @@ async function handleReport(request, env, ctx) {
   return json(200, { ok: true });
 }
 
+/* ---------- Trust: daily caps per address, flagged runs ---------- */
+
+// Accepted submissions one address may make in a day (migration 0008).
+const DAILY_CAPS = { score: 60, daily: 6 };
+
+const trustKnown = new WeakSet();
+async function trustReady(env) {
+  if (trustKnown.has(env.DB)) return true;
+  try {
+    await env.DB.prepare("SELECT 1 FROM ip_daily LIMIT 1").first();
+    trustKnown.add(env.DB);
+    return true;
+  } catch (error) {
+    if (/no such table/i.test(String(error?.message || error))) return false;
+    throw error;
+  }
+}
+
+async function underDailyCap(env, request, kind) {
+  if (!await trustReady(env)) return true;
+  const row = await env.DB.prepare("SELECT count FROM ip_daily WHERE ip = ? AND day = ? AND kind = ?")
+    .bind(await fingerprint(request, env.RATE_LIMIT_SALT, "day"), dayKey(), kind).first();
+  return Number(row?.count || 0) < DAILY_CAPS[kind];
+}
+
+// Counted after the score is written, so refused runs never use up the cap.
+async function countDaily(env, request, kind) {
+  if (!await trustReady(env)) return;
+  await env.DB.prepare(`
+    INSERT INTO ip_daily (ip, day, kind, count) VALUES (?, ?, ?, 1)
+    ON CONFLICT (ip, day, kind) DO UPDATE SET count = count + 1
+  `).bind(await fingerprint(request, env.RATE_LIMIT_SALT, "day"), dayKey(), kind).run();
+}
+
+// Runs worth the developer's look. They stay on the boards; nothing is shown
+// to the player. 8192 is rare for a person and routine for a bot that knows
+// the seed; a person does not keep up more than 5 moves a second for long.
+const FAST_MOVES_PER_SECOND = 5;
+const FAST_MIN_MOVES = 200;
+const FLAG_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+
+export function flagReasons({ maxTile, moves, seconds }) {
+  const reasons = [];
+  if (maxTile >= 8192) reasons.push("8192");
+  if (moves >= FAST_MIN_MOVES && moves / Math.max(seconds, 1) > FAST_MOVES_PER_SECOND) reasons.push("fast");
+  return reasons;
+}
+
+export async function recordFlag(env, { board, deviceId, playerName, score, maxTile, moves, seconds, reasons }) {
+  await env.DB.prepare(`
+    INSERT INTO flagged_scores (board, device_id, player_name, score, max_tile, moves, seconds, reason, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(board, deviceId, playerName, score, maxTile, moves, seconds, reasons.join(","), new Date().toISOString()).run();
+}
+
+// After a score is accepted. A flag that cannot be written never costs the
+// player their score.
+async function flagIfSuspicious(env, run) {
+  const reasons = flagReasons(run);
+  if (!reasons.length) return;
+  try {
+    if (await trustReady(env)) await recordFlag(env, { ...run, reasons });
+  } catch (error) {
+    console.error("Could not flag a run", error?.message);
+  }
+}
+
+const dailyCapReached = () => json(429, { error: "Too many scores from this connection today.", code: "daily_cap" });
+
 async function isNameHidden(env, name) {
   return Boolean(await env.DB.prepare("SELECT 1 FROM hidden_names WHERE name_key = ?").bind(nameKey(name)).first());
 }
@@ -215,12 +286,12 @@ function timingSafeEqual(a, b) {
   return diff === 0;
 }
 
+// Who is asking, for the limits: a salted hash of the IP address alone. The
+// browser's own description is not part of it, since a script can change that
+// on every request.
 async function fingerprint(request, secret, scope = "score") {
   const address = request.headers.get("CF-Connecting-IP") || "local";
-  const agent = (request.headers.get("user-agent") || "unknown").slice(0, 160);
-  // Score submissions keep their original key so existing counters stay valid.
-  const message = scope === "score" ? `${address}|${agent}` : `${scope}|${address}|${agent}`;
-  return hmacHex(secret, message).then(full => full.slice(0, 32));
+  return hmacHex(secret, `${scope}|${address}`).then(full => full.slice(0, 32));
 }
 
 async function enforceRateLimit(request, env, { scope = "score", limit = RATE_WINDOW_LIMIT } = {}) {
@@ -538,7 +609,12 @@ async function leaderboard(request, env, ctx) {
   // Combos are the turn-based streak the replay computes (rules version 2).
   if (comboRules !== 2) return json(400, { error: "Invalid combo rules." });
   const reachedStage = Number(raw.reachedStage);
-  const deviceId = isValidUuid(raw.deviceId) ? raw.deviceId : null;
+  // One row per device on the boards; a score that cannot say which device it
+  // comes from (storage blocked) is not accepted.
+  if (!isValidUuid(raw.deviceId)) {
+    return json(400, { error: "A device id is required to send a score.", code: "device_required" });
+  }
+  const deviceId = raw.deviceId;
   const replaceLowerScore = raw.replaceLowerScore === true;
 
   if (playerName.length < 2) return json(400, { error: "Name must contain at least 2 characters." });
@@ -584,7 +660,7 @@ async function leaderboard(request, env, ctx) {
     return json(400, { error: "Game record does not match the score." });
   }
 
-  if (session.daily) return submitDaily({ request, env, session, deviceId, playerName, score, maxTile, bestCombo, reachedStage });
+  if (session.daily) return submitDaily({ request, env, session, deviceId, playerName, score, maxTile, bestCombo, reachedStage, moveCount: moves.length });
 
   if (deviceId && !replaceLowerScore) {
     const existing = await env.DB.prepare("SELECT score FROM leaderboard WHERE device_id = ?")
@@ -607,13 +683,13 @@ async function leaderboard(request, env, ctx) {
   }
 
   const now = new Date().toISOString();
+  if (!await underDailyCap(env, request, "score")) return dailyCapReached();
   const statements = [
     env.DB.prepare("INSERT INTO used_sessions (sid, used_at) VALUES (?, ?)").bind(session.sid, now)
   ];
 
-  if (deviceId) {
-    // One row per device: keep only the best score, don't grow forever.
-    statements.push(
+  // One row per device: keep only the best score, don't grow forever.
+  statements.push(
       env.DB.prepare(`
         INSERT INTO leaderboard (player_name, score, max_tile, best_combo, reached_stage, device_id, created_at, combo_rules)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -627,17 +703,7 @@ async function leaderboard(request, env, ctx) {
           created_at = CASE WHEN excluded.score = leaderboard.score THEN leaderboard.created_at ELSE excluded.created_at END
         WHERE excluded.score >= leaderboard.score OR ? = 1
       `).bind(playerName, score, maxTile, bestCombo, reachedStage, deviceId, now, comboRules, replaceLowerScore ? 1 : 0)
-    );
-  } else {
-    // No/invalid deviceId (e.g. localStorage blocked) — fall back to the
-    // old always-insert behavior rather than rejecting the submission.
-    statements.push(
-      env.DB.prepare(`
-        INSERT INTO leaderboard (player_name, score, max_tile, best_combo, reached_stage, created_at, combo_rules)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).bind(playerName, score, maxTile, bestCombo, reachedStage, now, comboRules)
-    );
-  }
+  );
 
   // Every accepted run also goes into the log the 24-hour and 7-day boards
   // are ranked from.
@@ -658,6 +724,8 @@ async function leaderboard(request, env, ctx) {
   // Await deletion instead of using waitUntil so the response cannot win a
   // race against an older 30-second edge-cache entry.
   await Promise.all(Object.keys(PERIOD_MS).map(period => caches.default.delete(leaderboardCacheKey(request, period))));
+  await countDaily(env, request, "score");
+  await flagIfSuspicious(env, { board: "all", deviceId, playerName, score, maxTile, moves: moves.length, seconds: Math.round(session.ageMs / 1000) });
 
   return json(201, { ok: true, playerName });
 }
@@ -665,7 +733,7 @@ async function leaderboard(request, env, ctx) {
 // Today's garden: the first run each device sends for a day is its entry on
 // that day's board; any later one is refused (the game plays later runs as
 // practice). Daily runs stay off the other boards, because everyone knew the seed.
-async function submitDaily({ request, env, session, deviceId, playerName, score, maxTile, bestCombo, reachedStage }) {
+async function submitDaily({ request, env, session, deviceId, playerName, score, maxTile, bestCombo, reachedStage, moveCount }) {
   if (deviceId) {
     let existing;
     try {
@@ -682,6 +750,7 @@ async function submitDaily({ request, env, session, deviceId, playerName, score,
       "retry-after": String(rate.retryAfter)
     });
   }
+  if (!await underDailyCap(env, request, "daily")) return dailyCapReached();
   const now = new Date().toISOString();
   try {
     await env.DB.batch([
@@ -700,6 +769,8 @@ async function submitDaily({ request, env, session, deviceId, playerName, score,
     throw error;
   }
   await caches.default.delete(leaderboardCacheKey(request, DAILY));
+  await countDaily(env, request, "daily");
+  await flagIfSuspicious(env, { board: "daily", deviceId, playerName, score, maxTile, moves: moveCount, seconds: Math.round(session.ageMs / 1000) });
   return json(201, { ok: true, playerName, daily: session.daily });
 }
 
@@ -709,7 +780,7 @@ async function submitDaily({ request, env, session, deviceId, playerName, score,
 // see migrations/0005_client_errors.sql. Everything here is best effort: a
 // report that cannot be stored is dropped, never turned into a visible error.
 const ERROR_KINDS = new Set(["error", "rejection", "resource", "load"]);
-const ERROR_RATE_LIMIT = 20;           // reports per IP+browser per 10 minutes
+const ERROR_RATE_LIMIT = 80;           // reports per IP per 10 minutes
 const ERROR_ROW_CAP = 500;             // distinct errors kept; flooding with new ones is ignored
 const ERROR_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_ERROR_BODY_BYTES = 6 * 1024;
@@ -793,6 +864,13 @@ async function handleScheduledCleanup(env) {
     env.DB.prepare("DELETE FROM submission_limits WHERE bucket < ?").bind(bucket - 6),
     env.DB.prepare("DELETE FROM used_sessions WHERE used_at < ?").bind(sessionCutoff)
   ]);
+  try {
+    // Yesterday's counters are kept: a day changes at Turkish midnight.
+    await env.DB.prepare("DELETE FROM ip_daily WHERE day < ?").bind(previousDay(dayKey())).run();
+    await env.DB.prepare("DELETE FROM flagged_scores WHERE created_at < ?").bind(new Date(Date.now() - FLAG_RETENTION_MS).toISOString()).run();
+  } catch (error) {
+    console.warn("Could not trim daily counters", error?.message);   // table not migrated yet
+  }
   try {
     await env.DB.prepare("DELETE FROM client_errors WHERE last_seen < ?")
       .bind(new Date(Date.now() - ERROR_RETENTION_MS).toISOString()).run();
