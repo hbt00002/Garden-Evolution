@@ -76,7 +76,10 @@ test("new game asks before throwing a game away", async ({ page }) => {
 // The new-game question and the in-game settings open in the middle of the
 // screen over a dim, like the leaderboard, instead of hanging from their
 // buttons; nothing makes the page scroll, sideways included.
+// Measured once the window's opening animation (a short slide and grow) has
+// finished: on a slow machine it can still be moving when it becomes visible.
 const centreOff = async (page, selector) => {
+  await page.locator(selector).evaluate(el => Promise.all(el.getAnimations().map(animation => animation.finished)));
   const r = await page.locator(selector).boundingBox();
   const { w, h } = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
   return Math.max(Math.abs(r.x + r.width / 2 - w / 2), Math.abs(r.y + r.height / 2 - h / 2));

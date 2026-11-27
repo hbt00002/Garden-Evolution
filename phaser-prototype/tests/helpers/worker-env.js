@@ -23,7 +23,8 @@ export function createD1() {
     bind: (...values) => statement(sql, values),
     first: async () => sqlite.prepare(sql).get(...params) ?? null,
     all: async () => ({ results: sqlite.prepare(sql).all(...params) }),
-    run: async () => sqlite.prepare(sql).run(...params)
+    // Shaped like D1: the number of changed rows is under meta.
+    run: async () => { const { changes } = sqlite.prepare(sql).run(...params); return { success: true, meta: { changes: Number(changes) } }; }
   });
   return {
     sqlite,

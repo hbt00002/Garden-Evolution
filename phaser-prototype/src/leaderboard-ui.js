@@ -7,7 +7,8 @@ import { focusTitle } from "./focus-trap.js";
 import { PERIODS, buildRows, plantIndex, topPercent } from "./leaderboard-view.js";
 import { plantName as plantNameIn } from "./levels.js";
 import { tileArtUrl } from "./tile-art.js";
-import { loadDeviceId } from "./storage.js";
+import { loadDeviceId, loadReportedNames, rememberReportedName } from "./storage.js";
+import { nameKey } from "./player-name.js";
 
 // elements: { modal, closeBtn, list, me, tabs, tabBar, daily, dailyWhen, dailyPlay }
 // text(): the current language's strings; language(): its code.
@@ -88,7 +89,9 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
     if (!ranked) {
       const prompt = document.createElement("p");
       prompt.className = "lb-me-prompt";
-      prompt.textContent = leaderboardPeriod === "daily" ? text.dailyJoinPrompt : text.lbJoinPrompt;
+      // A name hidden by moderation: say so, rather than invite to join.
+      prompt.textContent = me?.hidden ? text.lbHiddenNote
+        : leaderboardPeriod === "daily" ? text.dailyJoinPrompt : text.lbJoinPrompt;
       leaderboardMeEl.appendChild(prompt);
       return;
     }
@@ -174,10 +177,80 @@ export function createLeaderboardUi({ api, elements, text: getText, language, on
       points.className = "leaderboard-score";
       points.textContent = Number(row.entry.score).toLocaleString(language());
       item.append(rank, player, points);
+      if (row.reportable) makeReportable(item, row.entry.player_name, period);
       list.appendChild(item);
     }
     leaderboardListEl.replaceChildren(list);
     leaderboardListEl.scrollTop = 0;
+  }
+
+  // Someone else's row: a tap (or Enter / Space) opens a "Report name"
+  // button under it; one row at a time. A name this device already reported
+  // shows the thanks instead.
+  function makeReportable(item, playerName, period) {
+    item.classList.add("reportable");
+    item.tabIndex = 0;
+    item.setAttribute("aria-expanded", "false");
+    const toggle = () => {
+      const open = item.getAttribute("aria-expanded") === "true";
+      for (const other of leaderboardListEl.querySelectorAll('.reportable[aria-expanded="true"]')) closeReport(other);
+      if (!open) openReport(item, playerName, period);
+    };
+    item.addEventListener("click", event => {
+      if (event.target.closest(".lb-report")) return;
+      toggle();
+    });
+    item.addEventListener("keydown", event => {
+      if (event.target !== item || (event.key !== "Enter" && event.key !== " ")) return;
+      event.preventDefault();
+      toggle();
+    });
+  }
+
+  function closeReport(item) {
+    item.setAttribute("aria-expanded", "false");
+    item.querySelector(".lb-report")?.remove();
+  }
+
+  function openReport(item, playerName, period) {
+    const text = getText();
+    const key = nameKey(playerName);
+    const panel = document.createElement("div");
+    panel.className = "lb-report";
+    const thanks = () => {
+      const note = document.createElement("p");
+      note.className = "lb-report-note";
+      note.setAttribute("role", "status");
+      note.textContent = text.lbReported;
+      panel.replaceChildren(note);
+    };
+    if (loadReportedNames().has(key)) {
+      thanks();
+    } else {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ink-btn ink-btn--quiet lb-report-btn";
+      button.textContent = text.lbReport;
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        try {
+          await api.report(playerName);
+          rememberReportedName(key);
+          api.forget(period);
+          thanks();
+        } catch (error) {
+          button.disabled = false;
+          const failed = panel.querySelector(".lb-report-note") || document.createElement("p");
+          failed.className = "lb-report-note";
+          failed.textContent = text.lbReportFailed;
+          panel.appendChild(failed);
+        }
+      });
+      panel.appendChild(button);
+    }
+    item.setAttribute("aria-expanded", "true");
+    item.appendChild(panel);
+    panel.querySelector("button")?.focus();
   }
 
   function renderLeaderboardError(period, error) {

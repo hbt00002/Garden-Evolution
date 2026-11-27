@@ -107,6 +107,7 @@ export function createScoreSubmit({ elements, text: getText, language, getRun, s
       }
       if (data.code === "name_not_allowed") throw new Error("name_not_allowed");
       if (data.code === "daily_already_played") throw new Error("daily_already_played");
+      if (response.status === 403 && data.code === "banned") throw new Error("banned");
       if (response.status === 429) throw new Error("score_rate_limited");
       if (!response.ok) throw new Error("score_submit_failed");
       scoreSubmitted = true;
@@ -117,12 +118,14 @@ export function createScoreSubmit({ elements, text: getText, language, getRun, s
       scoreFormEl.classList.add("success");
       scoreSubmitStatusEl.textContent = text.submitSuccess;
     } catch (error) {
-      // Today's garden already has this device's score: sending again cannot help.
-      const final = error.message === "daily_already_played";
+      // Today's garden already has this device's score, or this device may not
+      // send scores: sending again cannot help.
+      const final = error.message === "daily_already_played" || error.message === "banned";
       submitScoreBtn.disabled = final;
       submitScoreBtn.textContent = text.submit;
       if (error.message === "name_not_allowed") playerNameEl.focus();
-      scoreSubmitStatusEl.textContent = final ? text.dailyAlreadyPlayed
+      scoreSubmitStatusEl.textContent = error.message === "banned" ? text.submitBanned
+        : final ? text.dailyAlreadyPlayed
         : error.message === "name_not_allowed" ? text.nameNotAllowed
         : error.message === "score_rate_limited" ? text.submitRateLimited
         : error.message === "score_submit_failed" ? text.submitError

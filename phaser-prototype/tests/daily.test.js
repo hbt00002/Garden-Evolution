@@ -207,3 +207,13 @@ test("other sites are still refused, and the website gets no CORS headers", asyn
   const page = await fromApp(env, "/", { origin: "https://localhost" });
   assert.equal(page.headers.get("access-control-allow-origin"), null);
 });
+
+test("a banned device cannot send today's garden either", async () => {
+  installCache();
+  const env = makeEnv();
+  const body = await submission(await dailySession());
+  env.DB.sqlite.prepare("INSERT INTO banned_devices (device_id, created_at) VALUES (?, ?)").run(body.deviceId, new Date().toISOString());
+  const refused = await post(env, "/api/leaderboard", body);
+  assert.equal(refused.status, 403);
+  assert.equal((await refused.json()).code, "banned");
+});

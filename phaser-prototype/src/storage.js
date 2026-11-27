@@ -11,7 +11,8 @@ const KEYS = {
   deviceId: "gardenEvolutionDeviceId",
   language: "gardenEvolutionLanguage",
   daily: "gardenEvolutionDaily",
-  achievements: "gardenEvolutionAchievements"
+  achievements: "gardenEvolutionAchievements",
+  reported: "gardenEvolutionReported"
 };
 
 function read(key) {
@@ -40,6 +41,23 @@ export const savePlayerName = name => write(KEYS.playerName, name);
 // The language the player chose in the settings, or null if they never did.
 export const loadLanguage = () => read(KEYS.language) || null;
 export const saveLanguage = language => write(KEYS.language, language);
+
+// The names (their keys) this device has reported, so the leaderboard thanks
+// instead of offering to report them again. Kept to the last 200.
+const MAX_REPORTED = 200;
+export function loadReportedNames() {
+  try {
+    const list = JSON.parse(read(KEYS.reported) || "[]");
+    return new Set(Array.isArray(list) ? list.filter(item => typeof item === "string") : []);
+  } catch (error) {
+    return new Set();
+  }
+}
+export function rememberReportedName(key) {
+  const names = [...loadReportedNames()].filter(name => name !== key);
+  names.push(key);
+  write(KEYS.reported, JSON.stringify(names.slice(-MAX_REPORTED)));
+}
 
 // Stable per-browser id so the leaderboard can keep one "best score" row
 // per device instead of growing forever. Not a security boundary (an

@@ -694,3 +694,37 @@ test("scheduled cleanup trims the score log to the longest window", async () => 
   await ctx.settled();
   assert.deepEqual(env.DB.sqlite.prepare("SELECT player_name FROM score_log").all().map(r => r.player_name), ["New"]);
 });
+
+/* ---------- Moderation on submit ---------- */
+
+const ban = (env, deviceId) => env.DB.sqlite.prepare("INSERT INTO banned_devices (device_id, created_at) VALUES (?, ?)").run(deviceId, new Date().toISOString());
+
+test("a banned device cannot submit, and its session stays unused", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  const body = await validScore();
+  ban(env, body.deviceId);
+  const refused = await call(env, "/api/leaderboard", { method: "POST", body });
+  assert.equal(refused.status, 403);
+  assert.equal((await refused.json()).code, "banned");
+  assert.equal(rows(env).length, 0);
+  // Lifting a mistaken ban lets the same run through.
+  env.DB.sqlite.prepare("DELETE FROM banned_devices").run();
+  assert.equal((await call(env, "/api/leaderboard", { method: "POST", body })).status, 201);
+});
+
+test("a hidden name cannot be submitted, in any case", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  env.DB.sqlite.prepare("INSERT INTO hidden_names (name_key, reason, created_at) VALUES ('mira', 'manual', ?)").run(new Date().toISOString());
+  const refused = await call(env, "/api/leaderboard", { method: "POST", body: await validScore({ playerName: "MIRA" }) });
+  assert.equal(refused.status, 400);
+  assert.equal((await refused.json()).code, "name_not_allowed");
+});
+
+test("submissions work before the moderation migration", async () => {
+  installCacheStub();
+  const env = makeEnv();
+  env.DB.sqlite.exec("DROP TABLE name_reports; DROP TABLE hidden_names; DROP TABLE banned_devices;");
+  assert.equal((await call(env, "/api/leaderboard", { method: "POST", body: await validScore() })).status, 201);
+});

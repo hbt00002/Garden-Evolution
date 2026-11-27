@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cleanName } from "../src/player-name.js";
+import { cleanName, nameKey } from "../src/player-name.js";
 
 test("spaces are tidied and markup characters dropped", () => {
   assert.equal(cleanName("  Mira   Lee  "), "Mira Lee");
@@ -31,4 +31,10 @@ test("never more than 16 characters as the database counts them", () => {
   const cleaned = cleanName("abcdefghijklmn" + family);
   assert.ok([...cleaned].length <= 16, cleaned);
   assert.equal(cleaned, "abcdefghijklmn");
+});
+
+test("a name's key lowers only ASCII letters, like SQLite's lower()", () => {
+  assert.equal(nameKey("  Ali   KÖSE "), "ali kÖse");
+  assert.equal(nameKey("BORA"), nameKey("bora"));
+  assert.notEqual(nameKey("ŞEY"), nameKey("şey"));
 });

@@ -50,9 +50,21 @@ export function createLeaderboardApi({ now = () => Date.now() } = {}) {
     return response.json();
   }
 
+  // Tell the server a name should not be on the board. It answers the same
+  // whatever happens to the name; only a refusal (too many reports) throws.
+  async function report(name) {
+    const response = await leaderboardRequest({
+      method: "POST",
+      headers: { accept: "application/json", "content-type": "application/json" },
+      body: JSON.stringify({ name })
+    }, "/api/report");
+    if (!response.ok) throw new Error("report_failed");
+  }
+
   return {
     board,
     me,
+    report,
     isFresh,
     forget: period => { delete cache[period]; },
     forgetAll: () => { cache = {}; }
